@@ -1,0 +1,56 @@
+{
+	"_comment": {
+		"This is only here to use": "in case the application tries to fetch Intel stats without proper permissions."
+	},
+	"period": {
+		"duration": null,
+		"unit": null
+	},
+	"frequency": {
+		"requested": null,
+		"actual": null,
+		"unit": null
+	},
+	"interrupts": {
+		"count": null,
+		"unit": null
+	},
+	"rc6": {
+		"value": null,
+		"unit": null
+	},
+	"power": {
+		"GPU": null,
+		"Package": null,
+		"unit": null
+	},
+	"engines": {
+		"Render/3D": {
+			"busy": null,
+			"sema": null,
+			"wait": null,
+			"unit": null
+		},
+		"Blitter": {
+			"busy": null,
+			"sema": null,
+			"wait": null,
+			"unit": null
+		},
+		"Video": {
+			"busy": null,
+			"sema": null,
+			"wait": null,
+			"unit": null
+		},
+		"VideoEnhance": {
+			"busy": null,
+			"sema": null,
+			"wait": null,
+			"unit": null
+		}
+	},
+	"clients": {
+
+	}
+}

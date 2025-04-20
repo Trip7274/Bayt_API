@@ -1,0 +1,6 @@
+@Bayt_API_HostAddress = http://localhost:5292
+
+GET {{Bayt_API_HostAddress}}/getStats/
+Accept: application/json
+
+###

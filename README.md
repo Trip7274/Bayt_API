@@ -12,7 +12,7 @@ Bayt is still in a very early alpha phase
 - [ ] Configuration-altering endpoints
 - [ ] More granular data-fetching endpoints
 - [ ] Basic "reference" frontend implementation
-- [ ] Binary distribution across many 
+- [ ] Binary distribution across different Linux repos
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client", and user)
 - [ ] SMB Share management endpoints
 - [ ] Docker container management endpoints
@@ -27,3 +27,6 @@ Currently, this is only supported on Linux using the .NET 9 runtime, and these a
 	- `intel-gpu-tools` and root permissions
 - AMDGPU Systems:
 	- `amdgpu_top`
+
+## Installation and usage
+Bayt is still in a very early stage, thus the compiled binaries are unavailable. You're free to compile the source code and test it out, though!

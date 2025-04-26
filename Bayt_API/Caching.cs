@@ -4,6 +4,6 @@ public static class Caching
 {
 	public static bool IsDataStale()
 	{
-		return Globals.LastUpdated.AddSeconds(Globals.SecondsToUpdate) >= DateTime.Now;
+		return ApiConfig.LastUpdated.AddSeconds(ApiConfig.MainConfigs.SecondsToUpdate) > DateTime.Now;
 	}
 }

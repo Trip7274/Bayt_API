@@ -1,6 +1,0 @@
-@Bayt_API_HostAddress = http://localhost:5292
-
-POST {{Bayt_API_HostAddress}}/changeDelay/?newDelay=5
-Accept: application/json
-
-###

@@ -1,0 +1,7 @@
+@Version = 1
+@Bayt_API_HostAddress = http://localhost:5292/api/v{{Version}}
+
+GET {{Bayt_API_HostAddress}}/getApiConfigs/
+Accept: application/json
+
+# Fetches the general API Configuration

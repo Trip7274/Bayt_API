@@ -4,7 +4,7 @@ public class SystemDataCache
 {
     public SystemDataCache()
     {
-        Globals.LastUpdated = DateTime.Now;
+        ApiConfig.LastUpdated = DateTime.Now;
     }
 
     private StatsApi.CpuData? CachedCpuStats { get; set; }
@@ -16,11 +16,6 @@ public class SystemDataCache
 
     private readonly StatsApi.GeneralSpecs _cachedGeneralSpecs = StatsApi.GetGeneralSpecs();
     public bool IsPrivileged { get; } = ShellMethods.RunShell("id", "-u").StandardOutput == "0";
-
-    private string[] WatchedDisks { get; } = File.Exists("watchedDisks.txt")
-        ? File.ReadAllText("watchedDisks.txt").Split(',')
-        : ["/"];
-
 
     // Methods to get data, encapsulating the caching logic
     public StatsApi.GeneralSpecs GetGeneralSpecs()
@@ -49,7 +44,8 @@ public class SystemDataCache
     public List<DiskHandling.DiskData> GetDiskData()
     {
         // Pass the correct list of disks from the constructor
-        CachedWatchedDiskData = DiskHandling.GetDiskDatas(WatchedDisks, CachedWatchedDiskData);
-        return CachedWatchedDiskData ?? [];
+        var watchedMounts = ApiConfig.WatchedMountsConfigs.WatchedMounts;
+        CachedWatchedDiskData = DiskHandling.GetDiskDatas(watchedMounts, CachedWatchedDiskData);
+        return CachedWatchedDiskData;
     }
 }

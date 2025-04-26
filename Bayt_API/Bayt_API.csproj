@@ -7,8 +7,28 @@
 		<RootNamespace>Bayt_API</RootNamespace>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<PublishSingleFile>true</PublishSingleFile>
+		<PublishReadyToRun>true</PublishReadyToRun>
+		<SelfContained>false</SelfContained>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0"/>
+	</ItemGroup>
+
+	<!-- Copy scripts to the compile directory -->
+	<ItemGroup>
+		<None Update="scripts/*.sh">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<!-- Copy the skeleton Intel data file to the compile directory -->
+	<ItemGroup>
+		<None Update="skeletonIntelData.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 	</ItemGroup>
 
 </Project>

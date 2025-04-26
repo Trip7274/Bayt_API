@@ -28,7 +28,7 @@ public static class StatsApi
 	
 	public class CpuData
 	{
-		public static readonly string Name = ShellMethods.RunShell("scripts/getCpu.sh", "Name").StandardOutput;
+		public static readonly string Name = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "Name").StandardOutput;
 
 		public float UtilizationPerc { get; set; }
 
@@ -56,9 +56,9 @@ public static class StatsApi
 
 		return new CpuData
 		{
-			UtilizationPerc = float.Parse(ShellMethods.RunShell("scripts/getCpu.sh", "UtilPerc").StandardOutput),
-			PhysicalCoreCount = ushort.Parse(ShellMethods.RunShell("scripts/getCpu.sh", "PhysicalCores").StandardOutput),
-			ThreadCount = ushort.Parse(ShellMethods.RunShell("scripts/getCpu.sh", "ThreadCount").StandardOutput)
+			UtilizationPerc = float.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "UtilPerc").StandardOutput),
+			PhysicalCoreCount = ushort.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "PhysicalCores").StandardOutput),
+			ThreadCount = ushort.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "ThreadCount").StandardOutput)
 		};
 	}
 
@@ -69,8 +69,8 @@ public static class StatsApi
 			return oldMemoryData;
 		}
 
-		double totalMem = double.Parse(ShellMethods.RunShell("scripts/getMem.sh", "Total").StandardOutput);
-		double usedMem = double.Parse(ShellMethods.RunShell("scripts/getMem.sh", "Used").StandardOutput);
+		double totalMem = double.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "Total").StandardOutput);
+		double usedMem = double.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "Used").StandardOutput);
 
 		return new MemoryData
 		{

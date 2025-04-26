@@ -240,4 +240,5 @@ for i in "${POSSIBLESTATS[@]}"; do
     CATTEDOUTPUT+="null|"
 done
 
+# TODO: Output in JSON for easier parsing and more readable code on the C# end
 echo "$CATTEDOUTPUT"

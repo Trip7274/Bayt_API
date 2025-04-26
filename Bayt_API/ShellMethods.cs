@@ -4,6 +4,8 @@ using System.ComponentModel; // For Win32Exception
 
 namespace Bayt_API;
 
+// This class was mostly written by Gemini.
+
 /// <summary>
 /// Represents the result of executing a shell command.
 /// </summary>
@@ -101,20 +103,17 @@ public static class ShellMethods
                 ExitCode = process.ExitCode // Get the actual exit code
             };
         }
-        else
-        {
-            // Timeout occurred
-            KillProcessSafe(process, program); // Attempt to kill the lingering process
+        // Timeout occurred
+        KillProcessSafe(process, program); // Attempt to kill the lingering process
 
-            // Construct a meaningful timeout message
-            string timeoutMessage = $"Process '{program} {arguments}' timed out after {timeoutMilliseconds} ms.";
-            if (!processExited) timeoutMessage += " Process did not exit.";
-            if (!outputStreamClosed) timeoutMessage += " Output stream reading did not complete.";
-            if (!errorStreamClosed) timeoutMessage += " Error stream reading did not complete.";
-            timeoutMessage += $" Output captured: '{outputBuilder}'. Error captured: '{errorBuilder}'.";
+        // Construct a meaningful timeout message
+        string timeoutMessage = $"Process '{program} {arguments}' timed out after {timeoutMilliseconds} ms.";
+        if (!processExited) timeoutMessage += " Process did not exit.";
+        if (!outputStreamClosed) timeoutMessage += " Output stream reading did not complete.";
+        if (!errorStreamClosed) timeoutMessage += " Error stream reading did not complete.";
+        timeoutMessage += $" Output captured: '{outputBuilder}'. Error captured: '{errorBuilder}'.";
 
-            throw new TimeoutException(timeoutMessage);
-        }
+        throw new TimeoutException(timeoutMessage);
 
         // --- Local Handler Methods ---
         void ProcessOutputDataReceived(object sender, DataReceivedEventArgs e) =>

@@ -18,17 +18,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapGet("/getStats", (SystemDataCache cache) =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 	{
 		var generalSpecs = cache.GetGeneralSpecs();
-
 		var watchedDiskData = cache.GetDiskData();
-
 		var cpuStats = cache.GetCpuData();
 		var gpuStats = cache.GetGpuData();
 		var memoryStats = cache.GetMemoryData();
-
-		var isPrivileged = cache.IsPrivileged;
+		bool isPrivileged = cache.IsPrivileged;
 
 		var responseDictionary =
 			new Dictionary<string, Dictionary<string, string>[]>
@@ -37,12 +34,12 @@ app.MapGet("/getStats", (SystemDataCache cache) =>
 					"Meta", [
 						new Dictionary<string, string>
 						{
-							{ "Version", Globals.Version },
-							{ "ApiVersion", $"{Globals.ApiVersion}" },
+							{ "Version", ApiConfig.Version },
+							{ "ApiVersion", $"{ApiConfig.ApiVersion}" },
 							{ "PrivilegedServer", $"{isPrivileged}" },
-							{ "LastUpdate", Globals.LastUpdated.ToUniversalTime().ToLongTimeString() },
-							{ "NextUpdate", Globals.LastUpdated.ToUniversalTime().AddSeconds(Globals.SecondsToUpdate).ToLongTimeString() },
-							{ "DelaySec", Globals.SecondsToUpdate.ToString() },
+							{ "LastUpdate", ApiConfig.LastUpdated.ToUniversalTime().ToLongTimeString() },
+							{ "NextUpdate", ApiConfig.LastUpdated.ToUniversalTime().AddSeconds(ApiConfig.MainConfigs.SecondsToUpdate).ToLongTimeString() },
+							{ "DelaySec", ApiConfig.MainConfigs.SecondsToUpdate.ToString() },
 							{ "IsNew", $"{!Caching.IsDataStale()}" }
 						}
 					]
@@ -113,12 +110,23 @@ app.MapGet("/getStats", (SystemDataCache cache) =>
 		var disksDictList = new List<Dictionary<string, string>>();
 		foreach (var watchedDisk in watchedDiskData)
 		{
+			if (watchedDisk.IsMissing)
+			{
+				disksDictList.Add(new Dictionary<string, string>
+				{
+					{"MountPoint", watchedDisk.MountPoint},
+					{"IsMissing", $"{watchedDisk.IsMissing}"}
+				});
+				continue;
+			}
 			disksDictList.Add(new Dictionary<string, string>
 			{
 				{"DeviceName", watchedDisk.DeviceName ?? ""},
 				{"MountPoint", watchedDisk.MountPoint},
 				{"DevicePath", watchedDisk.DevicePath},
-				{"FileSystem", watchedDisk.FileSystem},
+				{"Filesystem", watchedDisk.FileSystem},
+				{"IsRemovable", $"{watchedDisk.IsRemovable}"},
+				{"IsMissing", $"{watchedDisk.IsMissing}"},
 
 				{"UsedDiskBytes", $"{watchedDisk.UsedSize}"},
 
@@ -140,20 +148,55 @@ app.MapGet("/getStats", (SystemDataCache cache) =>
 
 		if (!Caching.IsDataStale())
 		{
-			Globals.LastUpdated = DateTime.Now;
+			ApiConfig.LastUpdated = DateTime.Now;
 		}
 		return Results.Text(JsonSerializer.Serialize(responseDictionary), "application/json", statusCode:StatusCodes.Status200OK);
 	})
 	.WithName("GetStats")
 	.Produces(StatusCodes.Status200OK);
 
-app.MapPost("/changeDelay", (ushort newDelay) =>
-{
-	Globals.SecondsToUpdate = newDelay;
+
+
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/changeDelay", (ushort newDelay) => {
+	// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
+	ApiConfig.MainConfigs.EditConfig(new Dictionary<string, dynamic>{{"SecondsToUpdate", newDelay.ToString()}});
 
 	return Results.NoContent();
 
-}).WithName("ChangeDelay")
-	.Produces(StatusCodes.Status204NoContent);
+}).WithName("ChangeDelay").Produces(StatusCodes.Status204NoContent);
+
+// General Api Config management
+
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
+{
+	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.JsonElm), "application/json", statusCode:StatusCodes.Status200OK);
+}).WithName("GetActiveApiConfigs").Produces(StatusCodes.Status200OK);
+
+
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/UpdateLiveConfigs", () =>
+{
+	ApiConfig.MainConfigs.UpdateConfig();
+	ApiConfig.WatchedMountsConfigs.UpdateConfig();
+
+	return Results.NoContent();
+
+}).WithName("UpdateLiveConfigs").Produces(StatusCodes.Status200OK);;
+
+
+// Mounts management
+
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
+{
+	return Results.Text(JsonSerializer.Serialize(ApiConfig.WatchedMountsConfigs.WatchedMounts), "application/json", statusCode:StatusCodes.Status200OK);
+}).WithName("GetMountsList").Produces(StatusCodes.Status200OK);
+
+
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddMounts", (string newMounts) =>
+{
+	ApiConfig.WatchedMountsConfigs.Add(newMounts.Split(',').ToList());
+
+	return Results.NoContent();
+}).WithName("AddMounts").Produces(StatusCodes.Status204NoContent);;
+
 
 app.Run();

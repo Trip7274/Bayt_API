@@ -10,6 +10,9 @@ public static class DiskHandling
 		public required string DevicePath { get; init; }
 		public required string FileSystem { get; init; }
 
+		public bool IsRemovable { get; init; }
+		public bool IsMissing { get; set; }
+
 
 		public ulong TotalSize { get; set; }
 		public ulong FreeSize { get; set; }
@@ -29,10 +32,10 @@ public static class DiskHandling
 
         foreach (var diskData in diskDataList)
         {
+	        if (diskData.IsMissing) continue;
+
 	        foreach (string hwmonDir in Directory.EnumerateDirectories("/sys/class/hwmon/"))
 	        {
-		        // This if-tree is cursed, I am so sorry.
-
 		        // Check if the current `hwmon` directory is for the same device as what we're looking for.
 		        if (!Directory.Exists($"{hwmonDir}/device/{Path.GetFileNameWithoutExtension(diskData.DevicePath).Split('p')[0]}"))
 		        {
@@ -76,7 +79,7 @@ public static class DiskHandling
         }
 	}
 
-	public static List<DiskData> GetDiskDatas(string[] mountPoints, List<DiskData>? oldDiskDatas = null)
+	public static List<DiskData> GetDiskDatas(List<string> mountPoints, List<DiskData>? oldDiskDatas = null)
 	{
 		if (oldDiskDatas is not null && Caching.IsDataStale())
 		{
@@ -89,6 +92,21 @@ public static class DiskHandling
 		{
 			if (!Directory.Exists(mountPoint))
 			{
+				diskDataList.Add(new DiskData
+				{
+					MountPoint = mountPoint,
+					DevicePath = "???",
+					IsMissing = true,
+					FileSystem = "???",
+					DeviceName = null,
+					TemperatureLabel = null,
+					TemperatureC = null,
+					TemperatureMinC = null,
+					TemperatureMaxC = null,
+					TemperatureCritC = null,
+					TotalSize = 0,
+					FreeSize = 0
+				});
 				continue;
 			}
 
@@ -102,6 +120,8 @@ public static class DiskHandling
 				MountPoint = mountPoint,
 				DevicePath = devicePath,
 				FileSystem = fileSystem,
+				IsRemovable = false, // TODO: Actually check for this
+				IsMissing = false,
 				TotalSize = (ulong) newDriveInfo.TotalSize,
 				FreeSize = (ulong) newDriveInfo.AvailableFreeSpace
 			});

@@ -4,11 +4,12 @@ namespace Bayt_API;
 
 public static class ApiConfig
 {
-	public const string Version = "0.4.4";
-	public const byte ApiVersion = 1;
+	public const string Version = "0.4.5";
+	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public static DateTime LastUpdated { get; set; }
-	public static readonly string BaseExecutablePath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath) ?? throw new Exception("Could not get process path"), "config");
+	public static readonly string BaseExecutablePath = Path.GetDirectoryName(Environment.ProcessPath) ?? throw new Exception("Could not get process path");
+	private static readonly string BaseConfigPath = Path.Combine(BaseExecutablePath, "config");
 
 
 	// Config management
@@ -20,6 +21,11 @@ public static class ApiConfig
 	{
 		protected ConfigTemplate(string configFilePath)
 		{
+			if (!Directory.Exists(BaseConfigPath))
+			{
+				Directory.CreateDirectory(BaseConfigPath);
+			}
+
 			ConfigFilePath = configFilePath;
 			JsonElm = GetConfig();
 		}
@@ -33,6 +39,7 @@ public static class ApiConfig
 		/// Using this directly is not recommended. You should look into the specific properties of the class itself for whatever element you want.
 		/// </remarks>
 		public JsonElement JsonElm { get; private set; }
+		private protected abstract List<string> RequiredProperties { get; init; }
 
 		/// <summary>
 		/// Checks the corresponding in-disk configuration file for corruption or incompleteness and returns the JsonElement of it.
@@ -85,19 +92,44 @@ public static class ApiConfig
 		private protected abstract void UpdateLiveProps();
 
 		private protected abstract void CreateConfig();
-		private protected abstract bool ValidateConfigJson();
+
+		private bool ValidateConfigJson()
+		{
+			try
+			{
+				var jsonFile = JsonDocument.Parse(File.ReadAllText(ConfigFilePath));
+
+				var requiredProperties = RequiredProperties.ToList();
+
+				foreach (var jsonProperty in jsonFile.RootElement.EnumerateObject())
+				{
+					if (requiredProperties.Contains(jsonProperty.Name) && jsonProperty.Value.ValueKind != JsonValueKind.Null)
+					{
+						requiredProperties.Remove(jsonProperty.Name);
+					}
+				}
+
+				return requiredProperties.Count == 0;
+			}
+			catch (JsonException)
+			{
+				return false;
+			}
+		}
 	}
 
 	/// <summary>
 	/// Class of configuration relating to most general API configurations, such as the name of the instance, cache delay, and paths for other configuration files.
 	/// </summary>
-	public class MainConfig : ConfigTemplate
+	public sealed class MainConfig : ConfigTemplate
 	{
-		public MainConfig() : base(Path.Combine(BaseExecutablePath, "ApiConfiguration.json"))
+		public MainConfig() : base(Path.Combine(BaseConfigPath, "ApiConfiguration.json"))
 		{
 			BackendName = JsonElm.GetProperty(nameof(BackendName)).GetString() ?? "Bayt API Host";
 			WatchedMountsConfigPath = JsonElm.GetProperty(nameof(WatchedMountsConfigPath)).GetString() ?? "WatchedMounts.json";
 			SecondsToUpdate = JsonElm.GetProperty(nameof(SecondsToUpdate)).GetUInt16();
+
+			RequiredProperties = ["ConfigVersion", "SecondsToUpdate", "BackendName", "WatchedMountsConfigPath"];
 		}
 
 		/// <summary>
@@ -116,6 +148,8 @@ public static class ApiConfig
 		/// </remarks>
 		public ushort SecondsToUpdate { get; set; }
 
+		private protected override List<string> RequiredProperties { get; init; }
+
 		private protected override void UpdateLiveProps()
 		{
 			BackendName = JsonElm.GetProperty(nameof(BackendName)).GetString() ?? BackendName;
@@ -128,33 +162,11 @@ public static class ApiConfig
 			File.WriteAllText(ConfigFilePath,
 				JsonSerializer.Serialize(new
 				{
+					ConfigVersion = 1,
 					BackendName = "Bayt API Host",
 					WatchedMountsConfigPath = "WatchedMounts.json",
 					SecondsToUpdate = 5
 				})); // TODO: Switch to more strongly-typed config handling
-		}
-		private protected override bool ValidateConfigJson()
-		{
-			try
-			{
-				var jsonFile = JsonDocument.Parse(File.ReadAllText(ConfigFilePath));
-
-				List<string> requiredProperties = ["SecondsToUpdate", "BackendName", "WatchedMountsConfigPath"];
-
-				foreach (var jsonProperty in jsonFile.RootElement.EnumerateObject())
-				{
-					if (requiredProperties.Contains(jsonProperty.Name) && jsonProperty.Value.ValueKind != JsonValueKind.Null)
-					{
-						requiredProperties.Remove(jsonProperty.Name);
-					}
-				}
-
-				return requiredProperties.Count == 0;
-			}
-			catch (JsonException)
-			{
-				return false;
-			}
 		}
 
 		/// <summary>
@@ -193,14 +205,16 @@ public static class ApiConfig
 	/// <summary>
 	/// Class of configuration containing and relating only to the list of watched mountpoints for this instance.
 	/// </summary>
-	public class WatchedMountsConfig : ConfigTemplate
+	public sealed class WatchedMountsConfig : ConfigTemplate
 	{
-		public WatchedMountsConfig() : base(Path.Combine(BaseExecutablePath, MainConfigs.WatchedMountsConfigPath))
+		public WatchedMountsConfig() : base(Path.Combine(BaseConfigPath, MainConfigs.WatchedMountsConfigPath))
 		{
 			WatchedMounts = JsonElm.GetProperty(nameof(WatchedMounts)).EnumerateArray().Select(x => x.GetString()).ToList()!;
+			RequiredProperties = ["ConfigVersion", "WatchedMounts"];
 		}
 
 		public List<string> WatchedMounts { get; set; }
+		private protected override List<string> RequiredProperties { get; init; }
 
 		private Dictionary<string, List<string>> GetConfig()
 		{
@@ -224,31 +238,9 @@ public static class ApiConfig
 			File.WriteAllText(ConfigFilePath,
 				JsonSerializer.Serialize(new
 				{
+					ConfigVersion = 1,
 					WatchedMounts = (List<string>) ["/"]
 				})); // TODO: Switch to more strongly-typed config handling
-		}
-		private protected override bool ValidateConfigJson()
-		{
-			try
-			{
-				var jsonFile = JsonDocument.Parse(File.ReadAllText(ConfigFilePath));
-
-				List<string> requiredProperties = ["WatchedMounts"];
-
-				foreach (var jsonProperty in jsonFile.RootElement.EnumerateObject())
-				{
-					if (requiredProperties.Contains(jsonProperty.Name) && jsonProperty.Value.ValueKind == JsonValueKind.Array)
-					{
-						requiredProperties.Remove(jsonProperty.Name);
-					}
-				}
-
-				return requiredProperties.Count == 0;
-			}
-			catch (JsonException)
-			{
-				return false;
-			}
 		}
 
 		// Add / Remove

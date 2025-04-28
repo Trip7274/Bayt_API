@@ -5,9 +5,9 @@ public static class StatsApi
 
 	public class GeneralSpecs
 	{
-		public required string Hostname { get; set; }
-		public required string KernelName { get; set; }
-		public required string KernelVersion { get; set; }
+		public required string Hostname { get; init; }
+		public required string KernelName { get; init; }
+		public required string KernelVersion { get; init; }
 	}
 
 	public static GeneralSpecs GetGeneralSpecs(GeneralSpecs? oldGeneralSpecs = null)
@@ -30,7 +30,7 @@ public static class StatsApi
 	{
 		public static readonly string Name = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "Name").StandardOutput;
 
-		public float UtilizationPerc { get; set; }
+		public float UtilizationPerc { get; init; }
 
 		public ushort PhysicalCoreCount { get; init; }
 		public ushort ThreadCount { get; init; }
@@ -39,8 +39,8 @@ public static class StatsApi
 
 	public class MemoryData
 	{
-		public ulong TotalMemory { get; set; }
-		public ulong UsedMemory { get; set; }
+		public ulong TotalMemory { get; init; }
+		public ulong UsedMemory { get; init; }
 
 
 		public ulong AvailableMemory => TotalMemory - UsedMemory;

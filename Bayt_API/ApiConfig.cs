@@ -19,7 +19,7 @@ public static class ApiConfig
 	/// </summary>
 	public abstract class ConfigTemplate
 	{
-		protected ConfigTemplate(string configFilePath)
+		protected ConfigTemplate(string configFilePath, List<string> requiredProperties)
 		{
 			if (!Directory.Exists(BaseConfigPath))
 			{
@@ -27,6 +27,7 @@ public static class ApiConfig
 			}
 
 			ConfigFilePath = configFilePath;
+			RequiredProperties = requiredProperties;
 			JsonElm = GetConfig();
 		}
 
@@ -39,7 +40,7 @@ public static class ApiConfig
 		/// Using this directly is not recommended. You should look into the specific properties of the class itself for whatever element you want.
 		/// </remarks>
 		public JsonElement JsonElm { get; private set; }
-		private protected abstract List<string> RequiredProperties { get; init; }
+		private List<string> RequiredProperties { get; }
 
 		/// <summary>
 		/// Checks the corresponding in-disk configuration file for corruption or incompleteness and returns the JsonElement of it.
@@ -89,10 +90,6 @@ public static class ApiConfig
 			UpdateLiveProps();
 		}
 
-		private protected abstract void UpdateLiveProps();
-
-		private protected abstract void CreateConfig();
-
 		private bool ValidateConfigJson()
 		{
 			try
@@ -116,6 +113,10 @@ public static class ApiConfig
 				return false;
 			}
 		}
+
+		private protected abstract void UpdateLiveProps();
+
+		private protected abstract void CreateConfig();
 	}
 
 	/// <summary>
@@ -123,13 +124,11 @@ public static class ApiConfig
 	/// </summary>
 	public sealed class MainConfig : ConfigTemplate
 	{
-		public MainConfig() : base(Path.Combine(BaseConfigPath, "ApiConfiguration.json"))
+		public MainConfig() : base(Path.Combine(BaseConfigPath, "ApiConfiguration.json"), ["ConfigVersion", "SecondsToUpdate", "BackendName", "WatchedMountsConfigPath"])
 		{
 			BackendName = JsonElm.GetProperty(nameof(BackendName)).GetString() ?? "Bayt API Host";
 			WatchedMountsConfigPath = JsonElm.GetProperty(nameof(WatchedMountsConfigPath)).GetString() ?? "WatchedMounts.json";
 			SecondsToUpdate = JsonElm.GetProperty(nameof(SecondsToUpdate)).GetUInt16();
-
-			RequiredProperties = ["ConfigVersion", "SecondsToUpdate", "BackendName", "WatchedMountsConfigPath"];
 		}
 
 		/// <summary>
@@ -148,8 +147,6 @@ public static class ApiConfig
 		/// </remarks>
 		public ushort SecondsToUpdate { get; set; }
 
-		private protected override List<string> RequiredProperties { get; init; }
-
 		private protected override void UpdateLiveProps()
 		{
 			BackendName = JsonElm.GetProperty(nameof(BackendName)).GetString() ?? BackendName;
@@ -160,13 +157,13 @@ public static class ApiConfig
 		private protected override void CreateConfig()
 		{
 			File.WriteAllText(ConfigFilePath,
-				JsonSerializer.Serialize(new
+				JsonSerializer.Serialize(new Dictionary<string, dynamic>
 				{
-					ConfigVersion = 1,
-					BackendName = "Bayt API Host",
-					WatchedMountsConfigPath = "WatchedMounts.json",
-					SecondsToUpdate = 5
-				})); // TODO: Switch to more strongly-typed config handling
+					{"ConfigVersion", 1},
+					{"BackendName", "Bayt API Host"},
+					{"WatchedMountsConfigPath", "WatchedMounts.json"},
+					{"SecondsToUpdate", 5}
+				}));
 		}
 
 		/// <summary>
@@ -185,7 +182,7 @@ public static class ApiConfig
 				return;
 			}
 
-			var newConfig = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(File.ReadAllText(ConfigFilePath)) ?? new Dictionary<string, dynamic>();
+			var newConfig = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ConfigFilePath)) ?? new Dictionary<string, string>();
 
 			foreach (var newPropsKvp in newProps)
 			{
@@ -207,23 +204,17 @@ public static class ApiConfig
 	/// </summary>
 	public sealed class WatchedMountsConfig : ConfigTemplate
 	{
-		public WatchedMountsConfig() : base(Path.Combine(BaseConfigPath, MainConfigs.WatchedMountsConfigPath))
+		public WatchedMountsConfig() : base(Path.Combine(BaseConfigPath, MainConfigs.WatchedMountsConfigPath), ["WatchedMounts"])
 		{
 			WatchedMounts = JsonElm.GetProperty(nameof(WatchedMounts)).EnumerateArray().Select(x => x.GetString()).ToList()!;
-			RequiredProperties = ["ConfigVersion", "WatchedMounts"];
 		}
 
 		public List<string> WatchedMounts { get; set; }
-		private protected override List<string> RequiredProperties { get; init; }
 
 		private Dictionary<string, List<string>> GetConfig()
 		{
-			var newConfig = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(File.ReadAllText(ConfigFilePath)) ?? new Dictionary<string, List<string>>();
-
-			if (newConfig.ContainsKey(nameof(WatchedMounts))) return newConfig;
-
 			CheckConfig();
-			newConfig = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(File.ReadAllText(ConfigFilePath)) ?? new Dictionary<string, List<string>>();
+			var newConfig = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(File.ReadAllText(ConfigFilePath)) ?? new Dictionary<string, List<string>>();
 			return newConfig;
 		}
 
@@ -236,11 +227,10 @@ public static class ApiConfig
 		private protected override void CreateConfig()
 		{
 			File.WriteAllText(ConfigFilePath,
-				JsonSerializer.Serialize(new
+				JsonSerializer.Serialize(new Dictionary<string, List<string>>
 				{
-					ConfigVersion = 1,
-					WatchedMounts = (List<string>) ["/"]
-				})); // TODO: Switch to more strongly-typed config handling
+					{"WatchedMounts", ["/"]}
+				}));
 		}
 
 		// Add / Remove

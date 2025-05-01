@@ -31,7 +31,7 @@ public static class GpuHandling
 			return oldGpuData;
 		}
 
-		string[] gpuIds = ShellMethods.RunShell("scripts/getGpu.sh", "gpu_ids").StandardOutput.TrimEnd('\n').Split('\n');
+		string[] gpuIds = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", "gpu_ids").StandardOutput.TrimEnd('\n').Split('\n');
 
 		if (gpuIds.Length == 0) return [];
 
@@ -42,7 +42,7 @@ public static class GpuHandling
 			// Format should be:
 			// "GPU Brand|GPU Name|Graphics Util Perc|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|Encoder Util|Decoder Util?|Video Enhance Util?|Graphics Frequency|Encoder/Decoder Frequency?|Power Usage|TemperatureC?"
 
-			var shellScriptProcess = ShellMethods.RunShell("scripts/getGpu.sh", $"All {gpuId}");
+			var shellScriptProcess = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {gpuId}");
 			string rawOutput = shellScriptProcess.StandardOutput.TrimEnd('|');
 			string[] arrayOutput = rawOutput.Split('|');
 

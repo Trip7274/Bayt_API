@@ -11,11 +11,11 @@ public static class DiskHandling
 		public required string FileSystem { get; init; }
 
 		public bool IsRemovable { get; init; }
-		public bool IsMissing { get; set; }
+		public bool IsMissing { get; init; }
 
 
-		public ulong TotalSize { get; set; }
-		public ulong FreeSize { get; set; }
+		public ulong TotalSize { get; init; }
+		public ulong FreeSize { get; init; }
 		public ulong UsedSize => TotalSize - FreeSize;
 		public byte UsedSizePercent => (byte) ((float) UsedSize / TotalSize * 100);
 
@@ -110,8 +110,8 @@ public static class DiskHandling
 				continue;
 			}
 
-			string devicePath = ShellMethods.RunShell("scripts/getDisk.sh", $"{mountPoint} Device.Path").StandardOutput.TrimEnd('\n');
-			string fileSystem = ShellMethods.RunShell("scripts/getDisk.sh", $"{devicePath} Device.Filesystem").StandardOutput.TrimEnd('\n');
+			string devicePath = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh", $"{mountPoint} Device.Path").StandardOutput.TrimEnd('\n');
+			string fileSystem = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh", $"{devicePath} Device.Filesystem").StandardOutput.TrimEnd('\n');
 
 			var newDriveInfo = new DriveInfo(mountPoint);
 

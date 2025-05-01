@@ -50,8 +50,10 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 						new Dictionary<string, string>
 						{
 							{ "Hostname", generalSpecs.Hostname.TrimEnd('\n') },
+							{ "DistroName", generalSpecs.Distroname.TrimEnd('\n') },
 							{ "KernelName", generalSpecs.KernelName.TrimEnd('\n') },
-							{ "KernelVersion", generalSpecs.KernelVersion.TrimEnd('\n') }
+							{ "KernelVersion", generalSpecs.KernelVersion.TrimEnd('\n') },
+							{ "KernelArch", generalSpecs.KernelArch.TrimEnd('\n') }
 						}
 					]
 				},

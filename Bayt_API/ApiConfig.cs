@@ -4,7 +4,7 @@ namespace Bayt_API;
 
 public static class ApiConfig
 {
-	public const string Version = "0.4.5";
+	public const string Version = "0.5.5";
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public static DateTime LastUpdated { get; set; }

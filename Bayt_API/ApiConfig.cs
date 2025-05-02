@@ -11,6 +11,35 @@ public static class ApiConfig
 	public static readonly string BaseExecutablePath = Path.GetDirectoryName(Environment.ProcessPath) ?? throw new Exception("Could not get process path");
 	private static readonly string BaseConfigPath = Path.Combine(BaseExecutablePath, "config");
 
+	private static class ConfigPropertyTypes
+	{
+		internal static class MainConfigProperties
+		{
+			internal static readonly List<string> RequiredProperties =
+			[
+				"ConfigVersion",
+				"WatchedMountsConfigPath"
+			];
+
+			internal static readonly List<string> OptionalProperties =
+			[
+				"BackendName",
+				"SecondsToUpdate",
+				"NetworkPort"
+
+			];
+		}
+		internal static class WatchedMountsConfigProperties
+		{
+			internal static readonly List<string> RequiredProperties =
+			[
+				"WatchedMounts"
+			];
+
+			internal static readonly List<string> OptionalProperties = [];
+		}
+	}
+
 
 	// Config management
 
@@ -19,7 +48,7 @@ public static class ApiConfig
 	/// </summary>
 	public abstract class ConfigTemplate
 	{
-		protected ConfigTemplate(string configFilePath, List<string> requiredProperties)
+		protected ConfigTemplate(string configFilePath)
 		{
 			if (!Directory.Exists(BaseConfigPath))
 			{
@@ -27,7 +56,6 @@ public static class ApiConfig
 			}
 
 			ConfigFilePath = configFilePath;
-			RequiredProperties = requiredProperties;
 			JsonElm = GetConfig();
 		}
 
@@ -40,7 +68,7 @@ public static class ApiConfig
 		/// Using this directly is not recommended. You should look into the specific properties of the class itself for whatever element you want.
 		/// </remarks>
 		public JsonElement JsonElm { get; private set; }
-		private List<string> RequiredProperties { get; }
+		protected abstract List<string> RequiredProperties { get; }
 
 		/// <summary>
 		/// Checks the corresponding in-disk configuration file for corruption or incompleteness and returns the JsonElement of it.
@@ -124,11 +152,19 @@ public static class ApiConfig
 	/// </summary>
 	public sealed class MainConfig : ConfigTemplate
 	{
-		public MainConfig() : base(Path.Combine(BaseConfigPath, "ApiConfiguration.json"), ["ConfigVersion", "SecondsToUpdate", "BackendName", "WatchedMountsConfigPath"])
+		public MainConfig() : base(Path.Combine(BaseConfigPath, "ApiConfiguration.json"))
 		{
-			BackendName = JsonElm.GetProperty(nameof(BackendName)).GetString() ?? "Bayt API Host";
-			WatchedMountsConfigPath = JsonElm.GetProperty(nameof(WatchedMountsConfigPath)).GetString() ?? "WatchedMounts.json";
+			try
+			{
+				BackendName = JsonElm.GetProperty(nameof(BackendName)).GetString()!;
+			}
+			catch (KeyNotFoundException)
+			{
+				BackendName = "Bayt API Host";
+			}
+			WatchedMountsConfigPath = JsonElm.GetProperty(nameof(WatchedMountsConfigPath)).GetString()!;
 			SecondsToUpdate = JsonElm.GetProperty(nameof(SecondsToUpdate)).GetUInt16();
+			NetworkPort = JsonElm.TryGetProperty(nameof(NetworkPort), out _) ? JsonElm.GetProperty(nameof(NetworkPort)).GetUInt16() : (ushort) 5899;
 		}
 
 		/// <summary>
@@ -146,12 +182,16 @@ public static class ApiConfig
 		///	Set this to 0 to essentially turn the cache off
 		/// </remarks>
 		public ushort SecondsToUpdate { get; set; }
+		public ushort NetworkPort { get; set; }
+
+		protected override List<string> RequiredProperties => ConfigPropertyTypes.MainConfigProperties.RequiredProperties;
 
 		private protected override void UpdateLiveProps()
 		{
 			BackendName = JsonElm.GetProperty(nameof(BackendName)).GetString() ?? BackendName;
 			WatchedMountsConfigPath = JsonElm.GetProperty(nameof(WatchedMountsConfigPath)).GetString() ?? WatchedMountsConfigPath;
 			SecondsToUpdate = JsonElm.GetProperty(nameof(SecondsToUpdate)).GetUInt16();
+			NetworkPort = JsonElm.GetProperty(nameof(NetworkPort)).GetUInt16();
 		}
 
 		private protected override void CreateConfig()
@@ -162,7 +202,8 @@ public static class ApiConfig
 					{"ConfigVersion", 1},
 					{"BackendName", "Bayt API Host"},
 					{"WatchedMountsConfigPath", "WatchedMounts.json"},
-					{"SecondsToUpdate", 5}
+					{"SecondsToUpdate", 5},
+					{"NetworkPort", 5899}
 				}));
 		}
 
@@ -204,12 +245,13 @@ public static class ApiConfig
 	/// </summary>
 	public sealed class WatchedMountsConfig : ConfigTemplate
 	{
-		public WatchedMountsConfig() : base(Path.Combine(BaseConfigPath, MainConfigs.WatchedMountsConfigPath), ["WatchedMounts"])
+		public WatchedMountsConfig() : base(Path.Combine(BaseConfigPath, MainConfigs.WatchedMountsConfigPath))
 		{
 			WatchedMounts = JsonElm.GetProperty(nameof(WatchedMounts)).EnumerateArray().Select(x => x.GetString()).ToList()!;
 		}
 
 		public List<string> WatchedMounts { get; set; }
+		protected override List<string> RequiredProperties => ConfigPropertyTypes.WatchedMountsConfigProperties.RequiredProperties;
 
 		private Dictionary<string, List<string>> GetConfig()
 		{

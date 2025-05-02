@@ -17,7 +17,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.Urls.Add($"http://localhost:{ApiConfig.MainConfigs.NetworkPort}");
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 	{
 		var generalSpecs = cache.GetGeneralSpecs();

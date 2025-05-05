@@ -7,6 +7,7 @@ public static class DiskHandling
 		public string? DeviceName { get; set; }
 
 		public required string MountPoint { get; init; }
+		public required string MountName { get; init; }
 		public required string DevicePath { get; init; }
 		public required string FileSystem { get; init; }
 
@@ -79,7 +80,7 @@ public static class DiskHandling
         }
 	}
 
-	public static List<DiskData> GetDiskDatas(List<string> mountPoints, List<DiskData>? oldDiskDatas = null)
+	public static List<DiskData> GetDiskDatas(Dictionary<string, string> mountPoints, List<DiskData>? oldDiskDatas = null)
 	{
 		if (oldDiskDatas is not null && Caching.IsDataStale())
 		{
@@ -88,13 +89,14 @@ public static class DiskHandling
 
 		List<DiskData> diskDataList = [];
 
-		foreach (string mountPoint in mountPoints)
+		foreach (var mountPoint in mountPoints)
 		{
-			if (!Directory.Exists(mountPoint))
+			if (!Directory.Exists(mountPoint.Key))
 			{
 				diskDataList.Add(new DiskData
 				{
-					MountPoint = mountPoint,
+					MountPoint = mountPoint.Key,
+					MountName = mountPoint.Value,
 					DevicePath = "???",
 					IsMissing = true,
 					FileSystem = "???",
@@ -110,14 +112,15 @@ public static class DiskHandling
 				continue;
 			}
 
-			string devicePath = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh", $"{mountPoint} Device.Path").StandardOutput.TrimEnd('\n');
+			string devicePath = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh", $"{mountPoint.Key} Device.Path").StandardOutput.TrimEnd('\n');
 			string fileSystem = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh", $"{devicePath} Device.Filesystem").StandardOutput.TrimEnd('\n');
 
-			var newDriveInfo = new DriveInfo(mountPoint);
+			var newDriveInfo = new DriveInfo(mountPoint.Key);
 
 			diskDataList.Add(new DiskData
 			{
-				MountPoint = mountPoint,
+				MountPoint = mountPoint.Key,
+				MountName = mountPoint.Value,
 				DevicePath = devicePath,
 				FileSystem = fileSystem,
 				IsRemovable = false, // TODO: Actually check for this

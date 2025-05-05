@@ -1,7 +1,12 @@
 @Version = 0
 @Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}
 
-POST {{Bayt_API_HostAddress}}/AddMounts/?newMounts=/run/media/trip/Windows/,/home
+POST {{Bayt_API_HostAddress}}/AddMounts/
 Accept: application/json
+Content-Type: application/json
+
+{
+    "/home": "Home Part."
+}
 
 ###

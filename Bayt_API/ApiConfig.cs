@@ -247,73 +247,60 @@ public static class ApiConfig
 	{
 		public WatchedMountsConfig() : base(Path.Combine(BaseConfigPath, MainConfigs.WatchedMountsConfigPath))
 		{
-			WatchedMounts = JsonElm.GetProperty(nameof(WatchedMounts)).EnumerateArray().Select(x => x.GetString()).ToList()!;
+			WatchedMounts = GetConfig();
 		}
 
-		public List<string> WatchedMounts { get; set; }
+		public Dictionary<string, string> WatchedMounts { get; private set; }
 		protected override List<string> RequiredProperties => ConfigPropertyTypes.WatchedMountsConfigProperties.RequiredProperties;
 
-		private Dictionary<string, List<string>> GetConfig()
+		private Dictionary<string, string> GetConfig()
 		{
 			CheckConfig();
-			var newConfig = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(File.ReadAllText(ConfigFilePath)) ?? new Dictionary<string, List<string>>();
-			return newConfig;
+			var newConfig = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(ConfigFilePath)) ?? new Dictionary<string, Dictionary<string, string>>();
+			return newConfig.Values.First();
 		}
 
 
 		private protected override void UpdateLiveProps()
 		{
-			WatchedMounts = JsonElm.GetProperty(nameof(WatchedMounts)).EnumerateArray().Select(x => x.GetString()).ToList()!;
+			WatchedMounts = GetConfig();
 		}
 
 		private protected override void CreateConfig()
 		{
 			File.WriteAllText(ConfigFilePath,
-				JsonSerializer.Serialize(new Dictionary<string, List<string>>
+				JsonSerializer.Serialize(new Dictionary<string, Dictionary<string, string>>
 				{
-					{"WatchedMounts", ["/"]}
+					{ "WatchedMounts", new()
+						{ {"/", "Root"} }
+					}
 				}));
 		}
 
 		// Add / Remove
 
 		/// <summary>
-		/// Add a single mountpoint to the configuration, both live and in-disk.
+		/// Add a list of mountpoints to the configuration, both live and in-disk.
 		/// </summary>
-		/// <param name="mountPoint">The mountpoint to add</param>
-		/// <seealso cref="Add(List{string})"/>
-		public void Add(string mountPoint)
+		/// <param name="mountPoints">The list of mountpoints to add</param>
+		public void Add(Dictionary<string, string> mountPoints)
 		{
-			var newConfig = GetConfig();
-
-			if (newConfig.Values.First().Contains(mountPoint))
+			if (mountPoints.Count == 0)
 			{
 				return;
 			}
 
-			newConfig.Values.First().Add(mountPoint);
-
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig));
-			UpdateConfig();
-		}
-		/// <summary>
-		/// Add a list of mountpoints to the configuration, both live and in-disk.
-		/// </summary>
-		/// <param name="mountPoints">The list of mountpoints to add</param>
-		/// <seealso cref="Add(string)"/>
-		public void Add(List<string> mountPoints)
-		{
 			var newConfig = GetConfig();
 
-			foreach (var mountPointToAdd in mountPoints.ToList())
+			foreach (var mountPointToAdd in mountPoints)
 			{
-				if (newConfig.Values.First().Contains(mountPointToAdd))
+				if (newConfig.ContainsKey(mountPointToAdd.Key))
 				{
-					mountPoints.Remove(mountPointToAdd);
+					continue;
 				}
-			}
 
-			newConfig.Values.First().AddRange(mountPoints);
+				newConfig.Add(mountPointToAdd.Key, mountPointToAdd.Value);
+			}
 
 			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig));
 			UpdateConfig();
@@ -328,12 +315,11 @@ public static class ApiConfig
 		{
 			var newConfig = GetConfig();
 
-			if (!newConfig.Values.First().Contains(mountPoint))
+			if (!newConfig.Remove(mountPoint))
 			{
 				return;
 			}
 
-			newConfig.Values.First().Remove(mountPoint);
 			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig));
 			UpdateConfig();
 		}
@@ -349,7 +335,7 @@ public static class ApiConfig
 
 			foreach (var mountPoint in mountPoints)
 			{
-				newConfig.Values.First().Remove(mountPoint);
+				newConfig.Remove(mountPoint);
 			}
 
 			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig));

@@ -117,6 +117,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 				disksDictList.Add(new Dictionary<string, string>
 				{
 					{"MountPoint", watchedDisk.MountPoint},
+					{"MountName", watchedDisk.MountName},
 					{"IsMissing", $"{watchedDisk.IsMissing}"}
 				});
 				continue;
@@ -125,6 +126,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 			{
 				{"DeviceName", watchedDisk.DeviceName ?? ""},
 				{"MountPoint", watchedDisk.MountPoint},
+				{"MountName", watchedDisk.MountName},
 				{"DevicePath", watchedDisk.DevicePath},
 				{"Filesystem", watchedDisk.FileSystem},
 				{"IsRemovable", $"{watchedDisk.IsRemovable}"},
@@ -182,7 +184,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/UpdateLiveConfigs", () =>
 
 	return Results.NoContent();
 
-}).WithName("UpdateLiveConfigs").Produces(StatusCodes.Status200OK);;
+}).WithName("UpdateLiveConfigs").Produces(StatusCodes.Status200OK);
 
 
 // Mounts management
@@ -193,12 +195,29 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 }).WithName("GetMountsList").Produces(StatusCodes.Status200OK);
 
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddMounts", (string newMounts) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddMounts", async (HttpContext context) =>
 {
-	ApiConfig.WatchedMountsConfigs.Add(newMounts.Split(',').ToList());
+	string? errorMessage = RequestChecking.CheckContType(context);
+	if (errorMessage is not null)
+	{
+		return Results.BadRequest(errorMessage);
+	}
+
+	string requestBody;
+	using (var reader = new StreamReader(context.Request.Body))
+	{
+		requestBody = await reader.ReadToEndAsync();
+	}
+
+	var mountPoints = JsonSerializer.Deserialize<Dictionary<string, string>>(requestBody) ?? [];
+	if (mountPoints.Count == 0)
+	{
+		return Results.BadRequest("List must contain more than 0 elements.");
+	}
+
+	ApiConfig.WatchedMountsConfigs.Add(mountPoints);
 
 	return Results.NoContent();
-}).WithName("AddMounts").Produces(StatusCodes.Status204NoContent);;
-
+}).WithName("AddMounts").Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status400BadRequest);
 
 app.Run();

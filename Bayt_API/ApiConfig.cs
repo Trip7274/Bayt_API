@@ -1,87 +1,79 @@
+using System.Text;
 using System.Text.Json;
 
 namespace Bayt_API;
 
 public static class ApiConfig
 {
-	public const string Version = "0.5.5";
+	public const string Version = "0.5.6";
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public static DateTime LastUpdated { get; set; }
-	public static readonly string BaseExecutablePath = Path.GetDirectoryName(Environment.ProcessPath) ?? throw new Exception("Could not get process path");
+	public static readonly string BaseExecutablePath = Path.GetDirectoryName(Environment.ProcessPath)
+	                                                   ?? throw new Exception("Could not get process path");
 	private static readonly string BaseConfigPath = Path.Combine(BaseExecutablePath, "config");
-
-	private static class ConfigPropertyTypes
-	{
-		internal static class MainConfigProperties
-		{
-			internal static readonly List<string> RequiredProperties =
-			[
-				"ConfigVersion",
-				"WatchedMountsConfigPath"
-			];
-
-			internal static readonly List<string> OptionalProperties =
-			[
-				"BackendName",
-				"SecondsToUpdate",
-				"NetworkPort"
-
-			];
-		}
-		internal static class WatchedMountsConfigProperties
-		{
-			internal static readonly List<string> RequiredProperties =
-			[
-				"WatchedMounts"
-			];
-
-			internal static readonly List<string> OptionalProperties = [];
-		}
-	}
-
+	private static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
 
 	// Config management
 
 	/// <summary>
-	/// An abstract template for configuration classes. Contains methods for checking, generating, and updating various configurations.
+	/// A unified class to access and modify all the API's configuration properties.
 	/// </summary>
-	public abstract class ConfigTemplate
+	public sealed class ApiConfiguration
 	{
-		protected ConfigTemplate(string configFilePath)
+		internal ApiConfiguration()
 		{
 			if (!Directory.Exists(BaseConfigPath))
 			{
 				Directory.CreateDirectory(BaseConfigPath);
 			}
 
-			ConfigFilePath = configFilePath;
-			JsonElm = GetConfig();
+			ConfigProps = GetConfig();
 		}
 
-		protected string ConfigFilePath { get; }
 
 		/// <summary>
-		/// Full JSON of the specific class of configuration.
+		/// Live Configuration object with all the appropriate properties.
+		/// Use its parent class's methods to alter and update it.
 		/// </summary>
-		/// <remarks>
-		/// Using this directly is not recommended. You should look into the specific properties of the class itself for whatever element you want.
-		/// </remarks>
-		public JsonElement JsonElm { get; private set; }
-		protected abstract List<string> RequiredProperties { get; }
+		public ConfigProperties ConfigProps { get; private set; }
 
 		/// <summary>
-		/// Checks the corresponding in-disk configuration file for corruption or incompleteness and returns the JsonElement of it.
+		/// Class that contains and specifies all the configuration properties.
+		/// </summary>
+		/// <seealso cref="ApiConfiguration.UpdateConfig"/>
+		/// <remarks>
+		///	This could probably be refactored into normal properties for the ApiConfiguration class (its parent),
+		/// but that can be done later.
+		/// </remarks>
+		public sealed class ConfigProperties
+		{
+			public byte ConfigVersion { get; init; }
+
+			public required string BackendName { get; init; }
+			public ushort SecondsToUpdate { get; init; }
+			public ushort NetworkPort { get; init; }
+
+			public required Dictionary<string, string> WatchedMounts { get; init; }
+		}
+		private static readonly List<string> RequiredProperties = ["ConfigVersion", "WatchedMounts"];
+
+
+		/// <summary>
+		/// Checks the corresponding in-disk configuration file for corruption or incompleteness and returns the ConfigProperties of it.
 		/// </summary>
 		/// <returns>
-		/// JsonElement of the corresponding in-disk configuration file
+		/// ConfigProperties of the in-disk configuration file
 		/// </returns>
-		private JsonElement GetConfig()
+		private static ConfigProperties GetConfig()
 		{
 			CheckConfig();
 
-			return JsonDocument.Parse(File.ReadAllText(ConfigFilePath)).RootElement;
+			return JsonSerializer.Deserialize<ConfigProperties>(File.ReadAllText(ConfigFilePath, Encoding.UTF8))
+			       ?? throw new Exception("Failed to deserialize config file");
 		}
+
+		// Config file maintainence
 
 		/// <summary>
 		/// Checks the in-disk configuration file. If it's missing, corrupt, or incomplete, it regenerates it with some defaults
@@ -89,11 +81,11 @@ public static class ApiConfig
 		/// <remarks>
 		/// The old (potentially corrupted) file is saved as a ".old" file alongside the current one, in case this function misdetects a valid file as invalid.
 		/// </remarks>
-		protected void CheckConfig()
+		private static void CheckConfig()
 		{
 			if (File.Exists(ConfigFilePath))
 			{
-				if (ValidateConfigJson())
+				if (ValidateConfigSyntax())
 				{
 					return;
 				}
@@ -104,9 +96,17 @@ public static class ApiConfig
 				}
 				File.Move(ConfigFilePath, $"{ConfigFilePath}.old");
 			}
-			Console.WriteLine($"[{Path.GetFileNameWithoutExtension(ConfigFilePath)}] Configuration file seems to be invalid or non-existent, regenerating at {ConfigFilePath}...");
+			Console.WriteLine($"[{Path.GetFileNameWithoutExtension(ConfigFilePath)}] " +
+			                  $"Configuration file seems to be invalid or non-existent, regenerating at {ConfigFilePath}...");
 
-			CreateConfig();
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(new ConfigProperties
+			{
+				ConfigVersion = ApiVersion,
+				BackendName = "Bayt Api Host",
+				SecondsToUpdate = 5,
+				NetworkPort = 5899,
+				WatchedMounts = new Dictionary<string, string> { {"/", "Root Partition"} }
+			}), Encoding.UTF8);
 		}
 
 		/// <summary>
@@ -114,108 +114,57 @@ public static class ApiConfig
 		/// </summary>
 		public void UpdateConfig()
 		{
-			JsonElm = GetConfig();
-			UpdateLiveProps();
+			ConfigProps = GetConfig();
 		}
 
-		private bool ValidateConfigJson()
+		private static bool ValidateConfigSyntax()
 		{
 			try
 			{
-				var jsonFile = JsonDocument.Parse(File.ReadAllText(ConfigFilePath));
-
+				var jsonDocument = JsonDocument.Parse(File.ReadAllText(ConfigFilePath)).RootElement;
 				var requiredProperties = RequiredProperties.ToList();
 
-				foreach (var jsonProperty in jsonFile.RootElement.EnumerateObject())
+				foreach (var jsonProp in jsonDocument.EnumerateObject())
 				{
-					if (requiredProperties.Contains(jsonProperty.Name) && jsonProperty.Value.ValueKind != JsonValueKind.Null)
+					if (jsonProp.Value.ValueKind == JsonValueKind.Null)
 					{
-						requiredProperties.Remove(jsonProperty.Name);
+						continue;
 					}
+                    requiredProperties.Remove(jsonProp.Name);
+                }
+
+
+				if (jsonDocument.TryGetProperty("ConfigVersion", out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() > ApiVersion)
+					// Boohoo, Rider, I know ApiVersion is currently 0, hush.
+				{
+					Console.WriteLine($"[WARNING] Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons.");
 				}
 
 				return requiredProperties.Count == 0;
 			}
-			catch (JsonException)
+			catch (JsonException exception)
 			{
+				Console.WriteLine($"[ERROR] Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}.\nWill regenerate.");
 				return false;
 			}
 		}
 
-		private protected abstract void UpdateLiveProps();
-
-		private protected abstract void CreateConfig();
-	}
-
-	/// <summary>
-	/// Class of configuration relating to most general API configurations, such as the name of the instance, cache delay, and paths for other configuration files.
-	/// </summary>
-	public sealed class MainConfig : ConfigTemplate
-	{
-		public MainConfig() : base(Path.Combine(BaseConfigPath, "ApiConfiguration.json"))
-		{
-			try
-			{
-				BackendName = JsonElm.GetProperty(nameof(BackendName)).GetString()!;
-			}
-			catch (KeyNotFoundException)
-			{
-				BackendName = "Bayt API Host";
-			}
-			WatchedMountsConfigPath = JsonElm.GetProperty(nameof(WatchedMountsConfigPath)).GetString()!;
-			SecondsToUpdate = JsonElm.GetProperty(nameof(SecondsToUpdate)).GetUInt16();
-			NetworkPort = JsonElm.TryGetProperty(nameof(NetworkPort), out _) ? JsonElm.GetProperty(nameof(NetworkPort)).GetUInt16() : (ushort) 5899;
-		}
-
-		/// <summary>
-		/// Contains the user-defined name for this instance of Bayt.
-		/// </summary>
-		public string BackendName { get; set; }
-		/// <summary>
-		/// Relative path for the watched mounts configuration file
-		/// </summary>
-		public string WatchedMountsConfigPath { get; set; }
-		/// <summary>
-		/// Seconds until data is considered stale and needs a refresh.
-		/// </summary>
-		/// <remarks>
-		///	Set this to 0 to essentially turn the cache off
-		/// </remarks>
-		public ushort SecondsToUpdate { get; set; }
-		public ushort NetworkPort { get; set; }
-
-		protected override List<string> RequiredProperties => ConfigPropertyTypes.MainConfigProperties.RequiredProperties;
-
-		private protected override void UpdateLiveProps()
-		{
-			BackendName = JsonElm.GetProperty(nameof(BackendName)).GetString() ?? BackendName;
-			WatchedMountsConfigPath = JsonElm.GetProperty(nameof(WatchedMountsConfigPath)).GetString() ?? WatchedMountsConfigPath;
-			SecondsToUpdate = JsonElm.GetProperty(nameof(SecondsToUpdate)).GetUInt16();
-			NetworkPort = JsonElm.GetProperty(nameof(NetworkPort)).GetUInt16();
-		}
-
-		private protected override void CreateConfig()
-		{
-			File.WriteAllText(ConfigFilePath,
-				JsonSerializer.Serialize(new Dictionary<string, dynamic>
-				{
-					{"ConfigVersion", 1},
-					{"BackendName", "Bayt API Host"},
-					{"WatchedMountsConfigPath", "WatchedMounts.json"},
-					{"SecondsToUpdate", 5},
-					{"NetworkPort", 5899}
-				}));
-		}
+		// Altering/Accessing config files
 
 		/// <summary>
 		/// Provides edit access to the configuration, both live and in-disk.
 		/// </summary>
+		/// <remarks>
+		///	Please make sure to not use this for adding or removing mountpoints. You *can*, but that doesn't mean you should.
+		/// </remarks>
 		/// <param name="newProps">
 		///	Has to have more than one element to edit.
 		/// </param>
 		/// <param name="addNew">
 		///	Whether to allow the addition of new properties.
 		/// </param>
+		/// <seealso cref="AddMountpoint"/>
+		/// <seealso cref="RemoveMountpoint"/>
 		public void EditConfig(Dictionary<string, dynamic> newProps, bool addNew = false)
 		{
 			if (newProps.Count == 0)
@@ -223,11 +172,13 @@ public static class ApiConfig
 				return;
 			}
 
-			var newConfig = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ConfigFilePath)) ?? new Dictionary<string, string>();
+
+			var newConfig = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(File.ReadAllText(ConfigFilePath))
+			                ?? throw new Exception("Failed to deserialize config file");
 
 			foreach (var newPropsKvp in newProps)
 			{
-				if (!addNew && !newConfig.ContainsKey(newPropsKvp.Key))
+				if ((!addNew && !newConfig.ContainsKey(newPropsKvp.Key)) || newPropsKvp.Key == "Mountpoints" || newPropsKvp.Key == "ConfigVersion")
 				{
 					continue;
 				}
@@ -235,55 +186,19 @@ public static class ApiConfig
 				newConfig[newPropsKvp.Key] = newPropsKvp.Value;
 			}
 
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig));
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
 			UpdateConfig();
 		}
-	}
-
-	/// <summary>
-	/// Class of configuration containing and relating only to the list of watched mountpoints for this instance.
-	/// </summary>
-	public sealed class WatchedMountsConfig : ConfigTemplate
-	{
-		public WatchedMountsConfig() : base(Path.Combine(BaseConfigPath, MainConfigs.WatchedMountsConfigPath))
-		{
-			WatchedMounts = GetConfig();
-		}
-
-		public Dictionary<string, string> WatchedMounts { get; private set; }
-		protected override List<string> RequiredProperties => ConfigPropertyTypes.WatchedMountsConfigProperties.RequiredProperties;
-
-		private Dictionary<string, string> GetConfig()
-		{
-			CheckConfig();
-			var newConfig = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(ConfigFilePath)) ?? new Dictionary<string, Dictionary<string, string>>();
-			return newConfig.Values.First();
-		}
-
-
-		private protected override void UpdateLiveProps()
-		{
-			WatchedMounts = GetConfig();
-		}
-
-		private protected override void CreateConfig()
-		{
-			File.WriteAllText(ConfigFilePath,
-				JsonSerializer.Serialize(new Dictionary<string, Dictionary<string, string>>
-				{
-					{ "WatchedMounts", new()
-						{ {"/", "Root"} }
-					}
-				}));
-		}
-
-		// Add / Remove
 
 		/// <summary>
-		/// Add a list of mountpoints to the configuration, both live and in-disk.
+		/// Adds however many mountpoints you'd like to the in-disk configuration and updates the live configuration.
 		/// </summary>
-		/// <param name="mountPoints">The list of mountpoints to add</param>
-		public void Add(Dictionary<string, string> mountPoints)
+		/// <param name="mountPoints">
+		///	Dictionary of mountpoints to add.
+		/// Keys being the mountpoint path, and values being the user's label for each.
+		/// The label (value) can be null, but it'll default to the name of "Mount".
+		/// </param>
+		public void AddMountpoint(Dictionary<string, string?> mountPoints)
 		{
 			if (mountPoints.Count == 0)
 			{
@@ -294,56 +209,43 @@ public static class ApiConfig
 
 			foreach (var mountPointToAdd in mountPoints)
 			{
-				if (newConfig.ContainsKey(mountPointToAdd.Key))
+				if (newConfig.WatchedMounts.ContainsKey(mountPointToAdd.Key))
 				{
 					continue;
 				}
 
-				newConfig.Add(mountPointToAdd.Key, mountPointToAdd.Value);
+				newConfig.WatchedMounts.Add(mountPointToAdd.Key, mountPointToAdd.Value ?? "Mount");
 			}
 
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig));
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
 			UpdateConfig();
 		}
 
-		/// <summary>
-		/// Remove a single mountpoint from the configuration, both live and in-disk.
-		/// </summary>
-		/// <param name="mountPoint">The mountpoint to remove</param>
-		/// <seealso cref="Remove(List{string})"/>
-		public void Remove(string mountPoint)
-		{
-			var newConfig = GetConfig();
-
-			if (!newConfig.Remove(mountPoint))
-			{
-				return;
-			}
-
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig));
-			UpdateConfig();
-		}
 
 		/// <summary>
 		/// Remove a list of mountpoints from the configuration, both live and in-disk.
 		/// </summary>
-		/// <param name="mountPoints">The list of mountpoints to remove</param>
-		/// <seealso cref="Remove(string)"/>
-		public void Remove(List<string> mountPoints)
+		/// <param name="mountPoints">The list of mountpoint's paths (Dict keys) to remove</param>
+		public void RemoveMountpoint(List<string> mountPoints)
 		{
+			if (mountPoints.Count == 0)
+			{
+				return;
+			}
+
 			var newConfig = GetConfig();
 
 			foreach (var mountPoint in mountPoints)
 			{
-				newConfig.Remove(mountPoint);
+				newConfig.WatchedMounts.Remove(mountPoint);
 			}
 
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig));
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
 			UpdateConfig();
 		}
 	}
 
 
-	public static MainConfig MainConfigs { get; } = new();
-	public static WatchedMountsConfig WatchedMountsConfigs { get; } = new();
+
+	public static ApiConfiguration MainConfigs { get; } = new();
 }

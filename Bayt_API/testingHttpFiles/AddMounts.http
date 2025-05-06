@@ -6,7 +6,7 @@ Accept: application/json
 Content-Type: application/json
 
 {
-    "/home": "Home Part."
+    "/home": "Home Partition"
 }
 
 ###

@@ -44,7 +44,7 @@ public class SystemDataCache
     public List<DiskHandling.DiskData> GetDiskData()
     {
         // Pass the correct list of disks from the constructor
-        var watchedMounts = ApiConfig.WatchedMountsConfigs.WatchedMounts;
+        var watchedMounts = ApiConfig.MainConfigs.ConfigProps.WatchedMounts;
         CachedWatchedDiskData = DiskHandling.GetDiskDatas(watchedMounts, CachedWatchedDiskData);
         return CachedWatchedDiskData;
     }

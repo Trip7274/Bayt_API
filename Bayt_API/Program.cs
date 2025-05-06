@@ -17,7 +17,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.Urls.Add($"http://localhost:{ApiConfig.MainConfigs.NetworkPort}");
+Console.WriteLine($"Starting API at: http://localhost:{ApiConfig.MainConfigs.ConfigProps.NetworkPort}");
+app.Urls.Add($"http://localhost:{ApiConfig.MainConfigs.ConfigProps.NetworkPort}");
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 	{
 		var generalSpecs = cache.GetGeneralSpecs();
@@ -38,8 +39,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 							{ "ApiVersion", $"{ApiConfig.ApiVersion}" },
 							{ "PrivilegedServer", $"{isPrivileged}" },
 							{ "LastUpdate", ApiConfig.LastUpdated.ToUniversalTime().ToLongTimeString() },
-							{ "NextUpdate", ApiConfig.LastUpdated.ToUniversalTime().AddSeconds(ApiConfig.MainConfigs.SecondsToUpdate).ToLongTimeString() },
-							{ "DelaySec", ApiConfig.MainConfigs.SecondsToUpdate.ToString() },
+							{ "NextUpdate", ApiConfig.LastUpdated.ToUniversalTime().AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate).ToLongTimeString() },
+							{ "DelaySec", ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate.ToString() },
 							{ "IsNew", $"{!Caching.IsDataStale()}" }
 						}
 					]
@@ -127,17 +128,16 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 				{"DeviceName", watchedDisk.DeviceName ?? ""},
 				{"MountPoint", watchedDisk.MountPoint},
 				{"MountName", watchedDisk.MountName},
+
 				{"DevicePath", watchedDisk.DevicePath},
 				{"Filesystem", watchedDisk.FileSystem},
+
 				{"IsRemovable", $"{watchedDisk.IsRemovable}"},
 				{"IsMissing", $"{watchedDisk.IsMissing}"},
 
 				{"UsedDiskBytes", $"{watchedDisk.UsedSize}"},
-
 				{"FreeDiskBytes", $"{watchedDisk.FreeSize}"},
-
 				{"TotalDiskBytes", $"{watchedDisk.TotalSize}"},
-
 				{"PercUsed", $"{watchedDisk.UsedSizePercent}"},
 
 				{"TemperatureLabel", watchedDisk.TemperatureLabel ?? ""},
@@ -161,9 +161,23 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 
 
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/changeDelay", (ushort newDelay) => {
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context) => {
 	// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
-	ApiConfig.MainConfigs.EditConfig(new Dictionary<string, dynamic>{{"SecondsToUpdate", newDelay.ToString()}});
+
+	string? errorMessage = RequestChecking.CheckContType(context);
+	if (errorMessage is not null)
+	{
+		return Results.BadRequest(errorMessage);
+	}
+
+	string requestBody;
+	using (var reader = new StreamReader(context.Request.Body))
+	{
+		requestBody = await reader.ReadToEndAsync();
+	}
+
+	var newConfigs = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(requestBody) ?? [];
+	ApiConfig.MainConfigs.EditConfig(newConfigs);
 
 	return Results.NoContent();
 
@@ -173,14 +187,13 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/changeDelay", (ushort newDelay) => {
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
 {
-	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.JsonElm), "application/json", statusCode:StatusCodes.Status200OK);
+	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.ConfigProps), "application/json", statusCode:StatusCodes.Status200OK);
 }).WithName("GetActiveApiConfigs").Produces(StatusCodes.Status200OK);
 
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/UpdateLiveConfigs", () =>
 {
 	ApiConfig.MainConfigs.UpdateConfig();
-	ApiConfig.WatchedMountsConfigs.UpdateConfig();
 
 	return Results.NoContent();
 
@@ -191,7 +204,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/UpdateLiveConfigs", () =>
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 {
-	return Results.Text(JsonSerializer.Serialize(ApiConfig.WatchedMountsConfigs.WatchedMounts), "application/json", statusCode:StatusCodes.Status200OK);
+	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.ConfigProps.WatchedMounts), "application/json", statusCode:StatusCodes.Status200OK);
 }).WithName("GetMountsList").Produces(StatusCodes.Status200OK);
 
 
@@ -209,13 +222,13 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddMounts", async (HttpContext context)
 		requestBody = await reader.ReadToEndAsync();
 	}
 
-	var mountPoints = JsonSerializer.Deserialize<Dictionary<string, string>>(requestBody) ?? [];
+	var mountPoints = JsonSerializer.Deserialize<Dictionary<string, string?>>(requestBody) ?? [];
 	if (mountPoints.Count == 0)
 	{
 		return Results.BadRequest("List must contain more than 0 elements.");
 	}
 
-	ApiConfig.WatchedMountsConfigs.Add(mountPoints);
+	ApiConfig.MainConfigs.AddMountpoint(mountPoints);
 
 	return Results.NoContent();
 }).WithName("AddMounts").Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status400BadRequest);

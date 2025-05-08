@@ -28,25 +28,25 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 		var memoryStats = cache.GetMemoryData();
 
 		var responseDictionary =
-			new Dictionary<string, Dictionary<string, string>[]>
+			new Dictionary<string, Dictionary<string, dynamic>[]>
 			{
 				{
 					"Meta", [
-						new Dictionary<string, string>
+						new Dictionary<string, dynamic>
 						{
 							{ "Version", ApiConfig.Version },
-							{ "ApiVersion", $"{ApiConfig.ApiVersion}" },
+							{ "ApiVersion", ApiConfig.ApiVersion },
 							{ "LastUpdate", ApiConfig.LastUpdated.ToUniversalTime().ToLongTimeString() },
 							{ "NextUpdate", ApiConfig.LastUpdated.ToUniversalTime().AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate).ToLongTimeString() },
-							{ "DelaySec", ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate.ToString() },
-							{ "IsNew", $"{!Caching.IsDataStale()}" }
+							{ "DelaySec", ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate },
+							{ "IsNew", !Caching.IsDataStale() }
 						}
 					]
 				},
 
 				{
 					"System", [
-						new Dictionary<string, string>
+						new Dictionary<string, dynamic>
 						{
 							{ "Hostname", generalSpecs.Hostname.TrimEnd('\n') },
 							{ "DistroName", generalSpecs.Distroname.TrimEnd('\n') },
@@ -59,106 +59,104 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 
 				{
 					"CPU", [
-						new Dictionary<string, string>
+						new Dictionary<string, dynamic>
 						{
 							{ "Name", StatsApi.CpuData.Name.TrimEnd('\n') },
-							{ "UtilPerc", $"{cpuStats.UtilizationPerc}" },
-							{ "CoreCount", $"{cpuStats.PhysicalCoreCount}" },
-							{ "ThreadCount", $"{cpuStats.ThreadCount}" }
+							{ "UtilPerc", cpuStats.UtilizationPerc },
+							{ "CoreCount", cpuStats.PhysicalCoreCount },
+							{ "ThreadCount", cpuStats.ThreadCount }
 						}
 					]
 				}
 			};
-		var gpuStatsDict = new List<Dictionary<string, string>>();
+		var gpuStatsDict = new List<Dictionary<string, dynamic?>>();
 
 		foreach (var gpuData in gpuStats)
 		{
 			if (gpuData.IsMissing)
 			{
-				gpuStatsDict.Add(new Dictionary<string, string>
+				gpuStatsDict.Add(new Dictionary<string, dynamic?>
 				{
-					{"IsMissing", $"{gpuData.IsMissing}"},
-					{"Brand", gpuData.Brand},
-					{"PciId", gpuData.PciId},
+					{ "IsMissing", gpuData.IsMissing },
+					{ "Brand", gpuData.Brand },
+					{ "PciId", gpuData.PciId }
 				});
 				continue;
 			}
 
-			gpuStatsDict.Add(new Dictionary<string, string>
+			gpuStatsDict.Add(new Dictionary<string, dynamic?>
 			{
-				{"Name", gpuData.Name},
-				{"Brand", gpuData.Brand},
-				{"PciId", gpuData.PciId},
-				{"IsMissing", $"{gpuData.IsMissing}"},
+				{ "Name", gpuData.Name },
+				{ "Brand", gpuData.Brand },
+				{ "PciId", gpuData.PciId },
+				{ "IsMissing", gpuData.IsMissing },
 
-				{"OverallUtilPerc", $"{gpuData.GraphicsUtilPerc}"},
-				{"VramUtilPerc", $"{gpuData.VramUtilPerc}"},
-				{"VramTotalBytes", $"{gpuData.VramTotalBytes}"},
-				{"VramUsedBytes", $"{gpuData.VramUsedBytes}"},
+				{ "OverallUtilPerc", gpuData.GraphicsUtilPerc },
+				{ "VramUtilPerc", gpuData.VramUtilPerc },
+				{ "VramTotalBytes", gpuData.VramTotalBytes },
+				{ "VramUsedBytes", gpuData.VramUsedBytes },
 
-				{"EncoderUtilPerc", $"{gpuData.EncoderUtilPerc}"},
-				{"DecoderUtilPerc", $"{gpuData.DecoderUtilPerc}"},
-				{"VideoEnhanceUtilPerc", $"{gpuData.VideoEnhanceUtilPerc}"},
+				{ "EncoderUtilPerc", gpuData.EncoderUtilPerc },
+				{ "DecoderUtilPerc", gpuData.DecoderUtilPerc },
+				{ "VideoEnhanceUtilPerc", gpuData.VideoEnhanceUtilPerc },
 
-				{"GraphicsFrequencyMHz", $"{gpuData.GraphicsFrequency}"},
-				{"EncoderDecoderFrequencyMHz", $"{gpuData.EncDecFrequency}"},
+				{ "GraphicsFrequencyMHz", gpuData.GraphicsFrequency },
+				{ "EncoderDecoderFrequencyMHz", gpuData.EncDecFrequency },
 
-				{"PowerUseWatts", $"{gpuData.PowerUse}"},
-				{"TemperatureC", $"{gpuData.TemperatureC}"}
+				{ "PowerUseWatts", gpuData.PowerUse },
+				{ "TemperatureC", gpuData.TemperatureC }
 			});
 		}
-		responseDictionary.Add("GPU", gpuStatsDict.ToArray());
+		responseDictionary.Add("GPU", gpuStatsDict.ToArray()!);
 
-		responseDictionary.Add("Memory", [new Dictionary<string, string>
+		responseDictionary.Add("Memory", [new Dictionary<string, dynamic>
 		{
-			{"AvailableMemoryBytes", $"{memoryStats.AvailableMemory}"},
-
-			{"UsedMemoryBytes", $"{memoryStats.UsedMemory}"},
-
-			{"TotalMemoryBytes", $"{memoryStats.TotalMemory}"},
+			{ "AvailableMemoryBytes", memoryStats.AvailableMemory },
+			{ "UsedMemoryBytes", memoryStats.UsedMemory },
+			{ "TotalMemoryBytes", memoryStats.TotalMemory },
 
 			{"PercUsed", $"{memoryStats.UsedMemoryPercent}"}
-		}]);
+		}!]);
 
-		var disksDictList = new List<Dictionary<string, string>>();
+		var disksDictList = new List<Dictionary<string, dynamic?>>();
 		foreach (var watchedDisk in watchedDiskData)
 		{
 			if (watchedDisk.IsMissing)
 			{
-				disksDictList.Add(new Dictionary<string, string>
+				disksDictList.Add(new Dictionary<string, dynamic?>
 				{
-					{"MountPoint", watchedDisk.MountPoint},
-					{"MountName", watchedDisk.MountName},
-					{"IsMissing", $"{watchedDisk.IsMissing}"}
+					{ "MountPoint", watchedDisk.MountPoint },
+					{ "MountName", watchedDisk.MountName },
+					{ "IsMissing", watchedDisk.IsMissing }
 				});
 				continue;
 			}
-			disksDictList.Add(new Dictionary<string, string>
+			disksDictList.Add(new Dictionary<string, dynamic?>
 			{
-				{"DeviceName", watchedDisk.DeviceName ?? ""},
-				{"MountPoint", watchedDisk.MountPoint},
-				{"MountName", watchedDisk.MountName},
+				{ "DeviceName", watchedDisk.DeviceName ?? "" },
+				{ "MountPoint", watchedDisk.MountPoint },
+				{ "MountName", watchedDisk.MountName },
 
-				{"DevicePath", watchedDisk.DevicePath},
-				{"Filesystem", watchedDisk.FileSystem},
+				{ "DevicePath", watchedDisk.DevicePath },
+				{ "Filesystem", watchedDisk.FileSystem },
 
-				{"IsRemovable", $"{watchedDisk.IsRemovable}"},
-				{"IsMissing", $"{watchedDisk.IsMissing}"},
+				{ "IsRemovable", watchedDisk.IsRemovable },
+				{ "IsMissing", watchedDisk.IsMissing },
 
-				{"UsedDiskBytes", $"{watchedDisk.UsedSize}"},
-				{"FreeDiskBytes", $"{watchedDisk.FreeSize}"},
-				{"TotalDiskBytes", $"{watchedDisk.TotalSize}"},
-				{"PercUsed", $"{watchedDisk.UsedSizePercent}"},
+				{ "UsedDiskBytes", watchedDisk.UsedSize },
+				{ "FreeDiskBytes", watchedDisk.FreeSize },
+				{ "TotalDiskBytes",watchedDisk.TotalSize },
+				{ "PercUsed", watchedDisk.UsedSizePercent },
 
-				{"TemperatureLabel", watchedDisk.TemperatureLabel ?? ""},
-				{"TemperatureC", $"{watchedDisk.TemperatureC}"},
-				{"TemperatureMinC", $"{watchedDisk.TemperatureMinC}"},
-				{"TemperatureMaxC", $"{watchedDisk.TemperatureMaxC}"},
-				{"TemperatureCritC", $"{watchedDisk.TemperatureCritC}"}
+				{ "TemperatureLabel", watchedDisk.TemperatureLabel ?? "" },
+				{ "TemperatureC", watchedDisk.TemperatureC },
+				{ "TemperatureMinC", watchedDisk.TemperatureMinC },
+				{ "TemperatureMaxC", watchedDisk.TemperatureMaxC },
+				{ "TemperatureCritC", watchedDisk.TemperatureCritC }
 			});
 		}
 
-		responseDictionary.Add("Disks", disksDictList.ToArray());
+		responseDictionary.Add("Disks", disksDictList.ToArray()!);
 
 		if (!Caching.IsDataStale())
 		{

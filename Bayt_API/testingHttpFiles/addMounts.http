@@ -1,7 +1,7 @@
 @Version = 0
 @Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}
 
-POST {{Bayt_API_HostAddress}}/AddMounts/
+POST {{Bayt_API_HostAddress}}/addMounts/
 Accept: application/json
 Content-Type: application/json
 

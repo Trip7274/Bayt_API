@@ -8,17 +8,16 @@ public static class DiskHandling
 
 		public required string MountPoint { get; init; }
 		public required string MountName { get; init; }
-		public required string DevicePath { get; init; }
-		public required string FileSystem { get; init; }
+		public string? DevicePath { get; init; }
+		public string? FileSystem { get; init; }
 
-		public bool IsRemovable { get; init; }
 		public bool IsMissing { get; init; }
 
 
-		public ulong TotalSize { get; init; }
-		public ulong FreeSize { get; init; }
-		public ulong UsedSize => TotalSize - FreeSize;
-		public byte UsedSizePercent => (byte) ((float) UsedSize / TotalSize * 100);
+		public ulong? TotalSize { get; init; }
+		public ulong? FreeSize { get; init; }
+		public ulong? UsedSize => TotalSize - FreeSize;
+		public byte? UsedSizePercent => (byte?) ((float?) UsedSize / TotalSize * 100);
 
 		public string? TemperatureLabel { get; set; }
 		public float? TemperatureC { get; set; }
@@ -33,7 +32,7 @@ public static class DiskHandling
 
         foreach (var diskData in diskDataList)
         {
-	        if (diskData.IsMissing) continue;
+	        if (diskData.IsMissing || diskData.DevicePath is null) continue;
 
 	        foreach (string hwmonDir in Directory.EnumerateDirectories("/sys/class/hwmon/"))
 	        {
@@ -95,12 +94,12 @@ public static class DiskHandling
 			{
 				diskDataList.Add(new DiskData
 				{
+					DeviceName = null,
 					MountPoint = mountPoint.Key,
 					MountName = mountPoint.Value,
-					DevicePath = "???",
 					IsMissing = true,
+					DevicePath = "???",
 					FileSystem = "???",
-					DeviceName = null,
 					TemperatureLabel = null,
 					TemperatureC = null,
 					TemperatureMinC = null,
@@ -123,7 +122,6 @@ public static class DiskHandling
 				MountName = mountPoint.Value,
 				DevicePath = devicePath,
 				FileSystem = fileSystem,
-				IsRemovable = false, // TODO: Actually check for this
 				IsMissing = false,
 				TotalSize = (ulong) newDriveInfo.TotalSize,
 				FreeSize = (ulong) newDriveInfo.AvailableFreeSpace

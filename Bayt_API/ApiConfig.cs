@@ -102,7 +102,7 @@ public static class ApiConfig
 			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(new ConfigProperties
 			{
 				ConfigVersion = ApiVersion,
-				BackendName = "Bayt Api Host",
+				BackendName = "Bayt API Host",
 				SecondsToUpdate = 5,
 				NetworkPort = 5899,
 				WatchedMounts = new Dictionary<string, string> { {"/", "Root Partition"} }

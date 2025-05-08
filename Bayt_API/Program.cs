@@ -137,7 +137,6 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 				{ "DevicePath", watchedDisk.DevicePath },
 				{ "Filesystem", watchedDisk.FileSystem },
 
-				{ "IsRemovable", watchedDisk.IsRemovable },
 				{ "IsMissing", watchedDisk.IsMissing },
 
 				{ "UsedDiskBytes", watchedDisk.UsedSize },
@@ -153,7 +152,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 			});
 		}
 
-		responseDictionary.Add("Disks", disksDictList.ToArray()!);
+		responseDictionary.Add("Mounts", disksDictList.ToArray()!);
 
 		if (!Caching.IsDataStale())
 		{
@@ -165,6 +164,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 	.Produces(StatusCodes.Status200OK);
 
 
+
+// General Api Config management
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context) => {
 	// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
@@ -186,9 +187,8 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context
 
 	return Results.NoContent();
 
-}).WithName("ChangeDelay").Produces(StatusCodes.Status204NoContent);
+}).WithName("ChangeDelay").Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status400BadRequest);
 
-// General Api Config management
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
 {
@@ -196,7 +196,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
 }).WithName("GetActiveApiConfigs").Produces(StatusCodes.Status200OK);
 
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/UpdateLiveConfigs", () =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 {
 	ApiConfig.MainConfigs.UpdateConfig();
 
@@ -213,7 +213,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 }).WithName("GetMountsList").Produces(StatusCodes.Status200OK);
 
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddMounts", async (HttpContext context) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context) =>
 {
 	string? errorMessage = RequestChecking.CheckContType(context);
 	if (errorMessage is not null)

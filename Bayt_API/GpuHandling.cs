@@ -4,8 +4,8 @@ public static class GpuHandling
 {
 	public class GpuData
 	{
+		public string? Name { get; init; }
 		public required string Brand { get; init; }
-		public string Name { get; init; } = "Unidentified GPU";
 		public bool IsMissing { get; init; }
 
 		public float? GraphicsUtilPerc { get; init; }
@@ -65,8 +65,8 @@ public static class GpuHandling
 			{
 				gpuDataList.Add(new GpuData
 				{
-					Brand = arrayOutput[0],
 					Name = arrayOutput[1].Trim('"'),
+					Brand = arrayOutput[0],
 					IsMissing = false,
 
 					GraphicsUtilPerc = ParseFloatNullable(arrayOutput[2]),

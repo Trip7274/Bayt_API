@@ -11,12 +11,15 @@ STAT="$1"
 
 getDistroName() {
 
-    if hostnamectl --json=short | jq -r '.["OperatingSystemPrettyName"]' > /dev/null; then
+	# This script can definitely be improved and optimized, especially with the large and repetitive if-tree.
+	# But it'll make do for now.
+
+    if hostnamectl --version > /dev/null; then
         hostnamectl --json=short | jq -r '.["OperatingSystemPrettyName"]'
         return 0
     fi
 
-    if lsb_release -i | grep -oP "Distributor ID:\s+\K.*" > /dev/null; then
+    if lsb_release -v > /dev/null; then
         lsb_release -i | grep -oP "Distributor ID:\s+\K.*"
 		return 0
     fi

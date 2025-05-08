@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text;
-using System.ComponentModel; // For Win32Exception
 
 namespace Bayt_API;
 
@@ -11,44 +10,43 @@ namespace Bayt_API;
 /// </summary>
 public class ShellResult
 {
-    /// <summary>
-    /// Gets the standard output produced by the process.
-    /// </summary>
-    public string StandardOutput { get; init; } = string.Empty;
+	/// <summary>
+	/// Contains the standard output produced by the process.
+	/// </summary>
+	public string StandardOutput { get; init; } = string.Empty;
 
-    /// <summary>
-    /// Gets the standard error output produced by the process.
-    /// </summary>
-    public string StandardError { get; init; } = string.Empty;
+	/// <summary>
+	/// Contains the standard error output produced by the process.
+	/// </summary>
+	public string StandardError { get; init; } = string.Empty;
 
-    /// <summary>
-    /// Gets the exit code returned by the process.
-    /// </summary>
-    public int ExitCode { get; init; }
+	/// <summary>
+	/// Contains the exit code returned by the process.
+	/// </summary>
+	public int ExitCode { get; init; }
 
-    /// <summary>
-    /// Gets a value indicating whether the process completed successfully (ExitCode is 0).
-    /// Note: A process might succeed (ExitCode 0) but still write warnings to StandardError.
-    /// </summary>
-    public bool Success => ExitCode == 0;
+	/// <summary>
+	/// Contains a value indicating whether the process completed successfully.
+	/// </summary>
+	public bool Success => ExitCode == 0;
 }
 
 public static class ShellMethods
 {
-    /// <summary>
-    /// Runs an external program and captures its output.
-    /// </summary>
-    /// <param name="program">The path to the program to execute.</param>
-    /// <param name="arguments">The command-line arguments to pass to the program.</param>
-    /// <param name="timeoutMilliseconds">The maximum time to wait for the process to exit, in milliseconds. Defaults to 10 seconds.</param>
-    /// <returns>A <see cref="ShellResult"/> containing the process output, error, and exit code.</returns>
-    /// <exception cref="FileNotFoundException">Thrown if the specified program executable is not found.</exception>
-    /// <exception cref="InvalidOperationException">Thrown if there is an error starting the process.</exception>
-    /// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
-    public static ShellResult RunShell(string program, string arguments = "", int timeoutMilliseconds = 1500)
-    {
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
+	/// <summary>
+	/// Runs an external program and captures its output.
+	/// </summary>
+	/// <param name="program">The path to the program to execute.</param>
+	/// <param name="arguments">The command-line arguments to pass to the program.</param>
+	/// <param name="timeoutMilliseconds">The maximum time to wait for the process to exit, in milliseconds.
+	/// Defaults to 1.5 seconds.</param>
+	/// <returns>A <see cref="ShellResult"/> containing the process output, error, and exit code.</returns>
+	/// <exception cref="InvalidOperationException">Thrown if there is an error starting the process.</exception>
+	/// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
+	public static ShellResult RunShell(string program, string arguments = "", int timeoutMilliseconds = 1500)
+	{
+		using var process = new Process();
+		process.StartInfo = new ProcessStartInfo
         {
             FileName = program,
             Arguments = arguments,
@@ -74,10 +72,6 @@ public static class ShellMethods
         try
         {
             process.Start();
-        }
-        catch (Win32Exception ex) when (ex.NativeErrorCode == 2) // ERROR_FILE_NOT_FOUND
-        {
-            throw new FileNotFoundException($"The program '{program}' was not found at the specified path.", program, ex);
         }
         catch (Exception ex)
         {
@@ -152,21 +146,20 @@ public static class ShellMethods
         {
              try
              {
-                 // Check HasExited before attempting to kill to avoid exceptions
-                 if (!process.HasExited)
-                 {
-                     Debug.WriteLine($"Process '{programName}' timed out or streams did not close. Attempting to kill.");
-                     process.Kill(true); // Kill process and its children
-                     // Optionally wait a very short time for the kill operation
-                     // process.WaitForExit(500);
-                     Debug.WriteLine($"Process '{programName}' kill signal sent.");
-                 }
+	             // Check HasExited before attempting to kill to avoid exceptions
+	             if (process.HasExited) return;
+
+	             Debug.WriteLine($"Process '{programName}' timed out or streams did not close. Attempting to kill.");
+                 process.Kill(true); // Kill process and its children
+                 // Optionally wait a very short time for the kill operation
+                 // process.WaitForExit(500);
+                 Debug.WriteLine($"Process '{programName}' kill signal sent.");
              }
-             catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or NotSupportedException)
+             catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException)
              {
-                 // Log if killing failed (e.g., process already exited, access denied)
+                 // Log if killing failed (e.g., the process already exited or access denied)
                  Debug.WriteLine($"Failed to kill process '{programName}' after timeout: {ex.Message}");
              }
         }
-    }
+	}
 }

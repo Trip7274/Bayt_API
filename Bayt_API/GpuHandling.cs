@@ -6,7 +6,6 @@ public static class GpuHandling
 	{
 		public required string Brand { get; init; }
 		public string Name { get; init; } = "Unidentified GPU";
-		public required string PciId { get; init; }
 		public bool IsMissing { get; init; }
 
 		public float? GraphicsUtilPerc { get; init; }
@@ -52,7 +51,6 @@ public static class GpuHandling
 				gpuDataList.Add(new GpuData
 				{
 					Brand = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"gpu_brand {gpuId}").StandardOutput.TrimEnd('\n'),
-					PciId = gpuId,
 					IsMissing = true
 				});
 				continue;
@@ -69,7 +67,6 @@ public static class GpuHandling
 				{
 					Brand = arrayOutput[0],
 					Name = arrayOutput[1].Trim('"'),
-					PciId = gpuId,
 					IsMissing = false,
 
 					GraphicsUtilPerc = ParseFloatNullable(arrayOutput[2]),

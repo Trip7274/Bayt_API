@@ -77,8 +77,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 				gpuStatsDict.Add(new Dictionary<string, dynamic?>
 				{
 					{ "IsMissing", gpuData.IsMissing },
-					{ "Brand", gpuData.Brand },
-					{ "PciId", gpuData.PciId }
+					{ "Brand", gpuData.Brand }
 				});
 				continue;
 			}
@@ -87,7 +86,6 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 			{
 				{ "Name", gpuData.Name },
 				{ "Brand", gpuData.Brand },
-				{ "PciId", gpuData.PciId },
 				{ "IsMissing", gpuData.IsMissing },
 
 				{ "OverallUtilPerc", gpuData.GraphicsUtilPerc },

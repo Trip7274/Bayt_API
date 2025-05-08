@@ -36,10 +36,9 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 						{
 							{ "Version", ApiConfig.Version },
 							{ "ApiVersion", ApiConfig.ApiVersion },
-							{ "LastUpdate", ApiConfig.LastUpdated.ToUniversalTime().ToLongTimeString() },
-							{ "NextUpdate", ApiConfig.LastUpdated.ToUniversalTime().AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate).ToLongTimeString() },
-							{ "DelaySec", ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate },
-							{ "IsNew", !Caching.IsDataStale() }
+							{ "LastUpdate", ApiConfig.LastUpdated.ToUniversalTime() },
+							{ "NextUpdate", ApiConfig.LastUpdated.ToUniversalTime().AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) },
+							{ "DelaySec", ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate }
 						}
 					]
 				},
@@ -116,7 +115,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 			{ "TotalMemoryBytes", memoryStats.TotalMemory },
 
 			{"PercUsed", $"{memoryStats.UsedMemoryPercent}"}
-		}!]);
+		}]);
 
 		var disksDictList = new List<Dictionary<string, dynamic?>>();
 		foreach (var watchedDisk in watchedDiskData)

@@ -21,11 +21,12 @@ Bayt is still in a very early alpha phase
 - [ ] API documentation
 
 ## Dependencies
-Currently, this is only supported on Linux using the .NET 9 runtime, and these are the specific dependencies for each GPU vendor:
+Currently, this is only supported on Linux using the ASP.NET Core Runtime 9,
+and these are the specific dependencies for each GPU vendor:
 - NVIDIA Systems:
 	- `nvidia-smi`
 - Intel GPU Systems:
-	- `intel-gpu-tools` and root permissions
+	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as sudo beforehand)
 - AMD GPU Systems:
 	- `amdgpu_top`
 

@@ -26,7 +26,6 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 		var cpuStats = cache.GetCpuData();
 		var gpuStats = cache.GetGpuData();
 		var memoryStats = cache.GetMemoryData();
-		bool isPrivileged = cache.IsPrivileged;
 
 		var responseDictionary =
 			new Dictionary<string, Dictionary<string, string>[]>
@@ -37,7 +36,6 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 						{
 							{ "Version", ApiConfig.Version },
 							{ "ApiVersion", $"{ApiConfig.ApiVersion}" },
-							{ "PrivilegedServer", $"{isPrivileged}" },
 							{ "LastUpdate", ApiConfig.LastUpdated.ToUniversalTime().ToLongTimeString() },
 							{ "NextUpdate", ApiConfig.LastUpdated.ToUniversalTime().AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate).ToLongTimeString() },
 							{ "DelaySec", ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate.ToString() },
@@ -75,11 +73,23 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 
 		foreach (var gpuData in gpuStats)
 		{
+			if (gpuData.IsMissing)
+			{
+				gpuStatsDict.Add(new Dictionary<string, string>
+				{
+					{"IsMissing", $"{gpuData.IsMissing}"},
+					{"Brand", gpuData.Brand},
+					{"PciId", gpuData.PciId},
+				});
+				continue;
+			}
+
 			gpuStatsDict.Add(new Dictionary<string, string>
 			{
 				{"Name", gpuData.Name},
 				{"Brand", gpuData.Brand},
 				{"PciId", gpuData.PciId},
+				{"IsMissing", $"{gpuData.IsMissing}"},
 
 				{"OverallUtilPerc", $"{gpuData.GraphicsUtilPerc}"},
 				{"VramUtilPerc", $"{gpuData.VramUtilPerc}"},

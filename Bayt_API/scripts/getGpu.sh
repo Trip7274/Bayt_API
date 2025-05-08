@@ -21,19 +21,48 @@
 # Power draw (W) = power.draw (NVIDIA, Intel, AMD)
 # Temperature (C) = temperature.gpu (NVIDIA, AMD)
 
+LOGPATH="logs/GPU.log"
+logHelper(){
+	# Truncate the log file if it's over 10K lines
+	if [ "$(cat $LOGPATH | wc -l)" -gt "10000" ]; then
+	    tail -c 8500 "$LOGPATH" > "$LOGPATH.tmp" && mv "$LOGPATH.tmp" "$LOGPATH"
+	fi
+
+	echo "[$(date +%c)] $1" | tee -a "$LOGPATH" >&2
+
+	if [ "$2" = "stdout" ]; then
+	    echo "$1"
+	fi
+}
+
+if [ ! -d "$(dirname $LOGPATH)" ]; then
+    mkdir "$(dirname $LOGPATH)"
+fi
+
+if [ ! -f "$LOGPATH" ]; then
+    touch "$LOGPATH"
+fi
+
+logHelper "\n\n"
+logHelper "---getGpu.sh started---"
+
 STAT="$1"
 PCIID="$2"
-echo "STAT: $STAT, PCI ID: $PCIID" >&2
+logHelper "STAT: '$STAT', PCI ID: '$PCIID'"
 
 [ "$STAT" = "All" ] && STAT=""
 
 if [ "$STAT" = "gpu_ids" ]; then
     IDS="$(lspci | grep ' VGA ' | grep -oE -- "[0-9]+:[0-9]+.[0-9]")"
+    logHelper "PCI ID list was requested. Returning array"
 
-    echo "$IDS"
+    logHelper "$IDS" "stdout"
+    logHelper "---Exiting (OK)---"
     exit 0
 
 elif [ "$PCIID" = "" ]; then
+	logHelper "No PCI ID was provided, unable to continue"
+	logHelper "---Exiting (Fail 01)---"
     exit 01
 fi
 
@@ -60,23 +89,27 @@ getNvidia() {
 	}
 
 	if ! nvidia-smi --version > /dev/null; then
+		logHelper "nvidia-smi check failed. Make sure it's installed. (Try running 'nvidia-smi --version' in a terminal?)"
 		return
 	fi
 
 
+	CATTEDOUTPUT=""
 	if [ "$STAT" != "" ]; then
-	    getNvidiaStat
+		logHelper "Specific stat requested, returning '$STAT'"
+
+	    CATTEDOUTPUT=$(getNvidiaStat)
 	else
-		CATTEDOUTPUT=""
+		logHelper "All stats requested, returning array"
 
         for i in "${POSSIBLESTATS[@]}"; do
         	STAT="$i"
         	CATTEDOUTPUT+="$(getNvidiaStat)|"
         done
-
-        echo "$CATTEDOUTPUT"
 	fi
 
+	logHelper "$CATTEDOUTPUT" "stdout"
+	logHelper "---Exiting (OK)---"
     exit 0
 }
 
@@ -128,24 +161,30 @@ getAmd() {
 	}
 
 	if ! amdgpu_top -V > /dev/null; then
+		logHelper "amdgpu_top check failed. Make sure it's installed. (Try running 'amdgpu_top -V' in a terminal?)"
 		return
 	fi
 
+
+	logHelper "Fetching amdgpu_top output for '$PCIID' device"
 	OUTPUT=$(amdgpu_top -d --pci 0000:"$PCIID" --json)
 
+	CATTEDOUTPUT=""
     if [ "$STAT" != "" ]; then
-        getAmdStat
+    	logHelper "Specific stat requested, returning '$STAT'"
+
+        CATTEDOUTPUT=$(getAmdStat)
     else
-    	CATTEDOUTPUT=""
+    	logHelper "All stats requested, returning array"
 
     	for i in "${POSSIBLESTATS[@]}"; do
     		STAT="$i"
     		CATTEDOUTPUT+="$(getAmdStat)|"
     	done
-
-    	echo "$CATTEDOUTPUT"
     fi
 
+	logHelper "$CATTEDOUTPUT" "stdout"
+	logHelper "---Exiting (OK)---"
 	exit 0
 }
 
@@ -183,30 +222,36 @@ getIntel() {
             *)
             	echo null
             ;;
-
             esac
     	}
 
-	if [ "$(id -u)" != 0 ] || ! intel_gpu_top -h > /dev/null; then
-	    OUTPUT=$(cat skeletonIntelData.json)
-	else
-		OUTPUT=$(timeout 0.5 intel_gpu_top -J -d sys:/sys/devices/pci0000:00/0000:"$PCIID")
-        OUTPUT=$(echo "$OUTPUT" | tail -n +3)
+	if ! intel_gpu_top -h > /dev/null; then
+		logHelper "intel_gpu_top seems to not have the CAP_PERFMON capability set and that you have it installed. Null data will be returned."
+	    return
 	fi
 
+
+	logHelper "Fetching intel_gpu_top output for '$PCIID' device"
+	OUTPUT=$(timeout 0.5 intel_gpu_top -J -d sys:/sys/devices/pci0000:00/0000:"$PCIID")
+    OUTPUT=$(echo "$OUTPUT" | tail -n +3)
+
+	CATTEDOUTPUT=""
 	if [ "$STAT" != "" ]; then
-        getIntelStat
+		logHelper "Specific stat requested, returning '$STAT'"
+
+        CATTEDOUTPUT=$(getIntelStat)
+
 	else
-		CATTEDOUTPUT=""
+		logHelper "All stats requested, returning array"
 
 		for i in "${POSSIBLESTATS[@]}"; do
 			STAT="$i"
 			CATTEDOUTPUT+="$(getIntelStat)|"
 		done
-
-		echo "$CATTEDOUTPUT"
 	fi
 
+	logHelper "$CATTEDOUTPUT" "stdout"
+	logHelper "---Exiting (OK)---"
 	exit 0
 }
 
@@ -214,25 +259,27 @@ getIntel() {
 BRAND="$(lspci | grep ' VGA ' | grep "$PCIID" | grep -o -E -- "(NVIDIA)?(AMD)?(Intel)?")"
 
 if [ "$STAT" = "gpu_brand" ]; then
-    echo "$BRAND"
+	logHelper "GPU Brand requested. Returning '$BRAND'"
+    logHelper "$BRAND" "stdout"
+
+    logHelper "---Exiting (OK)---"
     exit 0
 fi
 
 case $BRAND in
 	"NVIDIA")
+		logHelper "Chose NVIDIA branch"
 		getNvidia
 	;;
 
 	"AMD")
+		logHelper "Chose AMD branch"
 		getAmd
 	;;
 
 	"Intel")
+		logHelper "Chose Intel branch"
 		getIntel
-	;;
-
-	*)
-		true
 	;;
 esac
 
@@ -240,5 +287,8 @@ for i in "${POSSIBLESTATS[@]}"; do
     CATTEDOUTPUT+="null|"
 done
 
-# TODO: Output in JSON for easier parsing and more readable code on the C# end
+# TODO: Output in CBOR/MessagePack for easier parsing and more readable code in C#
 echo "$CATTEDOUTPUT"
+
+logHelper "Was unable to fetch any stats and returned nulls for device '$PCIID' of the brand '$BRAND'"
+logHelper "---Exiting (Fail)---"

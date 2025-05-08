@@ -5,8 +5,9 @@ public static class GpuHandling
 	public class GpuData
 	{
 		public required string Brand { get; init; }
-		public required string Name { get; init; }
+		public string Name { get; init; } = "Unidentified GPU";
 		public required string PciId { get; init; }
+		public bool IsMissing { get; init; }
 
 		public float? GraphicsUtilPerc { get; init; }
 		public float? VramUtilPerc { get; init; } // NVIDIA + AMD only
@@ -46,6 +47,17 @@ public static class GpuHandling
 			string rawOutput = shellScriptProcess.StandardOutput.TrimEnd('|');
 			string[] arrayOutput = rawOutput.Split('|');
 
+			if (arrayOutput[1] == "null")
+			{
+				gpuDataList.Add(new GpuData
+				{
+					Brand = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"gpu_brand {gpuId}").StandardOutput.TrimEnd('\n'),
+					PciId = gpuId,
+					IsMissing = true
+				});
+				continue;
+			}
+
 			if (arrayOutput[0] == "AMD")
 			{ // Only runs for AMD, I'd do this in the bash script, but I'd rather eat a fork than do more arithmetic in bash
 				arrayOutput[3] = $"{float.Parse(arrayOutput[5]) / float.Parse(arrayOutput[4]) * 100}";
@@ -58,6 +70,7 @@ public static class GpuHandling
 					Brand = arrayOutput[0],
 					Name = arrayOutput[1].Trim('"'),
 					PciId = gpuId,
+					IsMissing = false,
 
 					GraphicsUtilPerc = ParseFloatNullable(arrayOutput[2]),
 
@@ -78,11 +91,15 @@ public static class GpuHandling
 			}
 			catch (IndexOutOfRangeException e)
 			{
-				Console.WriteLine(e.Message);
-				Console.WriteLine($"Shell output: \"{shellScriptProcess.StandardOutput.TrimEnd('\n')}\"");
-				Console.WriteLine($"Shell error output: \"{shellScriptProcess.StandardError.TrimEnd('\n')}\"");
-				Console.WriteLine($"Shell exit code: \"{shellScriptProcess.ExitCode}\"");
-				return [];
+				Console.WriteLine($"""
+				                   IndexOutOfRange error while parsing data for GPU '{gpuId}'!
+				                   {e.Message}
+				                   Stack Trace: {e.StackTrace}
+				                   Shell exit code: {shellScriptProcess.ExitCode}
+				                   Full Shell log was saved in "{ApiConfig.BaseExecutablePath}/logs/GPU.log"
+				                   
+				                   For now, skipping this GPU...
+				                   """);
 			}
 		}
 

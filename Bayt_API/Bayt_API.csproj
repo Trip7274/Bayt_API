@@ -23,12 +23,4 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
-
-	<!-- Copy the skeleton Intel data file to the compile directory -->
-	<ItemGroup>
-		<None Update="skeletonIntelData.json">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-	</ItemGroup>
-
 </Project>

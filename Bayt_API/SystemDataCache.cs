@@ -15,7 +15,6 @@ public class SystemDataCache
     // Unchanging Values
 
     private readonly StatsApi.GeneralSpecs _cachedGeneralSpecs = StatsApi.GetGeneralSpecs();
-    public bool IsPrivileged { get; } = ShellMethods.RunShell("id", "-u").StandardOutput == "0";
 
     // Methods to get data, encapsulating the caching logic
     public StatsApi.GeneralSpecs GetGeneralSpecs()

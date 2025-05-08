@@ -7,3 +7,4 @@ riderModule.iml
 .idea
 # This one is because I have the debug build's config directory symlinked to my solution directory, just for ease of use.
 Bayt_API/config
+Bayt_API/logs

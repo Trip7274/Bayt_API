@@ -3,7 +3,9 @@ The Bayt API aims to be a unified API to provide useful statistics and controls 
 
 The word "Bayt" comes from Arabic and means "House", because a good house provides you with a powerful, reliable foundation to decorate and make your own however you'd like!
 
-Bayt is still in a very early alpha phase
+Bayt is still in a very early alpha phase.
+
+More detailed info on Bayt can be found in [the repository's wiki!](https://github.com/Trip7274/Bayt_API/wiki)
 
 ## Planned Features:
 - [X] Provide general system information

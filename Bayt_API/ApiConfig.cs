@@ -50,7 +50,7 @@ public static class ApiConfig
 			public byte ConfigVersion { get; init; }
 
 			public required string BackendName { get; init; }
-			public ushort SecondsToUpdate { get; init; }
+			public ushort SecondsToUpdate { get; set; }
 			public ushort NetworkPort { get; init; }
 
 			public required Dictionary<string, string> WatchedMounts { get; init; }

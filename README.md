@@ -11,8 +11,8 @@ More detailed info on Bayt can be found in [the repository's wiki!](https://gith
 - [X] Provide general system information
 - [X] GPU-related information (NVIDIA, AMD, Intel)
 - [X] Proper configuration files (JSON-based)
-- [ ] Configuration-altering endpoints
-- [ ] More granular data-fetching endpoints
+- [X] Configuration-altering endpoints
+- [X] More granular data-fetching endpoints
 - [ ] Basic "reference" frontend implementation
 - [ ] Binary distribution across different Linux repos
 - [ ] Docker container implementation(?)

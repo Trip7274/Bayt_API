@@ -74,7 +74,8 @@ public static class StatsApi
 		}
 
 		double totalMem = double.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "Total").StandardOutput);
-		double usedMem = double.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "Used").StandardOutput);
+		double usedMem = double.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "Used").StandardOutput); // TODO: Extract using `free`
+                                                                                                                                    // for fewer bash executions
 
 		return new MemoryData
 		{

@@ -19,19 +19,46 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 Console.WriteLine($"Starting API at: http://localhost:{ApiConfig.MainConfigs.ConfigProps.NetworkPort}");
 app.Urls.Add($"http://localhost:{ApiConfig.MainConfigs.ConfigProps.NetworkPort}");
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache, HttpContext context) =>
 	{
-		var generalSpecs = cache.GetGeneralSpecs();
-		var watchedDiskData = cache.GetDiskData();
-		var cpuStats = cache.GetCpuData();
-		var gpuStats = cache.GetGpuData();
-		var memoryStats = cache.GetMemoryData();
+		string[] possibleStats = ["Meta", "System", "CPU", "GPU", "Memory", "Mounts"];
 
-		var responseDictionary =
-			new Dictionary<string, Dictionary<string, dynamic>[]>
+		var checkedInput = await RequestChecking.CheckContType(context);
+		if (checkedInput.ErrorMessage is not null)
+		{
+			return Results.BadRequest(checkedInput.ErrorMessage);
+		}
+
+		List<string> requestedStats;
+		try
+		{
+			requestedStats = (JsonSerializer.Deserialize<Dictionary<string, List<string>>>(checkedInput.RequestBody) ?? []).Values.First();
+		}
+		catch (JsonException)
+		{
+			Console.WriteLine("Invalid JSON input. Using default list.");
+			requestedStats = ["All"];
+		}
+
+		if (requestedStats.Count == 0)
+		{
+			return Results.BadRequest("List must contain more than 0 elements.");
+		}
+
+		if (requestedStats.Contains("All"))
+		{
+			requestedStats = possibleStats.ToList();
+		}
+
+		Dictionary<string, Dictionary<string, dynamic>[]> responseDictionary = [];
+
+		foreach (var requestedStat in requestedStats)
+		{
+			switch (requestedStat)
 			{
+				case "Meta":
 				{
-					"Meta", [
+					responseDictionary.Add("Meta", [
 						new Dictionary<string, dynamic>
 						{
 							{ "Version", ApiConfig.Version },
@@ -40,11 +67,14 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 							{ "NextUpdate", ApiConfig.LastUpdated.ToUniversalTime().AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) },
 							{ "DelaySec", ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate }
 						}
-					]
-				},
+					]);
+					break;
+				}
 
+				case "System":
 				{
-					"System", [
+					var generalSpecs = cache.GetGeneralSpecs();
+					responseDictionary.Add("System", [
 						new Dictionary<string, dynamic>
 						{
 							{ "Hostname", generalSpecs.Hostname.TrimEnd('\n') },
@@ -53,11 +83,14 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 							{ "KernelVersion", generalSpecs.KernelVersion.TrimEnd('\n') },
 							{ "KernelArch", generalSpecs.KernelArch.TrimEnd('\n') }
 						}
-					]
-				},
+					]);
+					break;
+				}
 
+				case "CPU":
 				{
-					"CPU", [
+					var cpuStats = cache.GetCpuData();
+					responseDictionary.Add("CPU", [
 						new Dictionary<string, dynamic>
 						{
 							{ "Name", StatsApi.CpuData.Name.TrimEnd('\n') },
@@ -65,94 +98,127 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 							{ "CoreCount", cpuStats.PhysicalCoreCount },
 							{ "ThreadCount", cpuStats.ThreadCount }
 						}
-					]
+					]);
+					break;
 				}
-			};
-		var gpuStatsDict = new List<Dictionary<string, dynamic?>>();
 
-		foreach (var gpuData in gpuStats)
-		{
-			if (gpuData.IsMissing)
-			{
-				gpuStatsDict.Add(new Dictionary<string, dynamic?>
+				case "GPU":
 				{
-					{ "IsMissing", gpuData.IsMissing },
-					{ "Brand", gpuData.Brand }
-				});
-				continue;
-			}
+					var gpuStats = cache.GetGpuData();
+					var gpuStatsDict = new List<Dictionary<string, dynamic?>>();
 
-			gpuStatsDict.Add(new Dictionary<string, dynamic?>
-			{
-				{ "Name", gpuData.Name },
-				{ "Brand", gpuData.Brand },
-				{ "IsMissing", gpuData.IsMissing },
+					foreach (var gpuData in gpuStats)
+					{
+						if (gpuData.IsMissing)
+						{
+							gpuStatsDict.Add(new Dictionary<string, dynamic?>
+							{
+								{ "IsMissing", gpuData.IsMissing },
+								{ "Brand", gpuData.Brand }
+							});
+							continue;
+						}
 
-				{ "OverallUtilPerc", gpuData.GraphicsUtilPerc },
-				{ "VramUtilPerc", gpuData.VramUtilPerc },
-				{ "VramTotalBytes", gpuData.VramTotalBytes },
-				{ "VramUsedBytes", gpuData.VramUsedBytes },
+						gpuStatsDict.Add(new Dictionary<string, dynamic?>
+						{
+							{ "Name", gpuData.Name },
+							{ "Brand", gpuData.Brand },
+							{ "IsMissing", gpuData.IsMissing },
 
-				{ "EncoderUtilPerc", gpuData.EncoderUtilPerc },
-				{ "DecoderUtilPerc", gpuData.DecoderUtilPerc },
-				{ "VideoEnhanceUtilPerc", gpuData.VideoEnhanceUtilPerc },
+							{ "OverallUtilPerc", gpuData.GraphicsUtilPerc },
+							{ "VramUtilPerc", gpuData.VramUtilPerc },
+							{ "VramTotalBytes", gpuData.VramTotalBytes },
+							{ "VramUsedBytes", gpuData.VramUsedBytes },
 
-				{ "GraphicsFrequencyMHz", gpuData.GraphicsFrequency },
-				{ "EncoderDecoderFrequencyMHz", gpuData.EncDecFrequency },
+							{ "EncoderUtilPerc", gpuData.EncoderUtilPerc },
+							{ "DecoderUtilPerc", gpuData.DecoderUtilPerc },
+							{ "VideoEnhanceUtilPerc", gpuData.VideoEnhanceUtilPerc },
 
-				{ "PowerUseWatts", gpuData.PowerUse },
-				{ "TemperatureC", gpuData.TemperatureC }
-			});
-		}
-		responseDictionary.Add("GPU", gpuStatsDict.ToArray()!);
+							{ "GraphicsFrequencyMHz", gpuData.GraphicsFrequency },
+							{ "EncoderDecoderFrequencyMHz", gpuData.EncDecFrequency },
 
-		responseDictionary.Add("Memory", [new Dictionary<string, dynamic>
-		{
-			{ "AvailableMemoryBytes", memoryStats.AvailableMemory },
-			{ "UsedMemoryBytes", memoryStats.UsedMemory },
-			{ "TotalMemoryBytes", memoryStats.TotalMemory },
+							{ "PowerUseWatts", gpuData.PowerUse },
+							{ "TemperatureC", gpuData.TemperatureC }
+						});
+					}
+					responseDictionary.Add("GPU", gpuStatsDict.ToArray()!);
 
-			{"PercUsed", $"{memoryStats.UsedMemoryPercent}"}
-		}]);
+					break;
+				}
 
-		var disksDictList = new List<Dictionary<string, dynamic?>>();
-		foreach (var watchedDisk in watchedDiskData)
-		{
-			if (watchedDisk.IsMissing)
-			{
-				disksDictList.Add(new Dictionary<string, dynamic?>
+				case "Memory":
 				{
-					{ "MountPoint", watchedDisk.MountPoint },
-					{ "MountName", watchedDisk.MountName },
-					{ "IsMissing", watchedDisk.IsMissing }
-				});
-				continue;
+					var memoryStats = cache.GetMemoryData();
+
+					responseDictionary.Add("Memory", [new Dictionary<string, dynamic>
+					{
+						{ "AvailableMemoryBytes", memoryStats.AvailableMemory },
+						{ "UsedMemoryBytes", memoryStats.UsedMemory },
+						{ "TotalMemoryBytes", memoryStats.TotalMemory },
+
+						{ "PercUsed", memoryStats.UsedMemoryPercent }
+					}]);
+
+					break;
+				}
+
+				case "Mounts":
+				{
+					var watchedDiskData = cache.GetDiskData();
+
+					var disksDictList = new List<Dictionary<string, dynamic?>>();
+					foreach (var watchedDisk in watchedDiskData)
+					{
+						if (watchedDisk.IsMissing)
+						{
+							disksDictList.Add(new Dictionary<string, dynamic?>
+							{
+								{ "MountPoint", watchedDisk.MountPoint },
+								{ "MountName", watchedDisk.MountName },
+								{ "IsMissing", watchedDisk.IsMissing }
+							});
+							continue;
+						}
+						disksDictList.Add(new Dictionary<string, dynamic?>
+						{
+							{ "DeviceName", watchedDisk.DeviceName ?? "" },
+							{ "MountPoint", watchedDisk.MountPoint },
+							{ "MountName", watchedDisk.MountName },
+
+							{ "DevicePath", watchedDisk.DevicePath },
+							{ "Filesystem", watchedDisk.FileSystem },
+
+							{ "IsMissing", watchedDisk.IsMissing },
+
+							{ "UsedDiskBytes", watchedDisk.UsedSize },
+							{ "FreeDiskBytes", watchedDisk.FreeSize },
+							{ "TotalDiskBytes",watchedDisk.TotalSize },
+							{ "PercUsed", watchedDisk.UsedSizePercent },
+
+							{ "TemperatureLabel", watchedDisk.TemperatureLabel ?? "" },
+							{ "TemperatureC", watchedDisk.TemperatureC },
+							{ "TemperatureMinC", watchedDisk.TemperatureMinC },
+							{ "TemperatureMaxC", watchedDisk.TemperatureMaxC },
+							{ "TemperatureCritC", watchedDisk.TemperatureCritC }
+						});
+					}
+
+					responseDictionary.Add("Mounts", disksDictList.ToArray()!);
+
+					break;
+				}
+
+				default:
+				{
+					responseDictionary.Add(requestedStat, [new Dictionary<string, dynamic>
+					{
+						{ requestedStat, "Unknown stat. Please check your request and try again." }
+					}]);
+					break;
+				}
 			}
-			disksDictList.Add(new Dictionary<string, dynamic?>
-			{
-				{ "DeviceName", watchedDisk.DeviceName ?? "" },
-				{ "MountPoint", watchedDisk.MountPoint },
-				{ "MountName", watchedDisk.MountName },
-
-				{ "DevicePath", watchedDisk.DevicePath },
-				{ "Filesystem", watchedDisk.FileSystem },
-
-				{ "IsMissing", watchedDisk.IsMissing },
-
-				{ "UsedDiskBytes", watchedDisk.UsedSize },
-				{ "FreeDiskBytes", watchedDisk.FreeSize },
-				{ "TotalDiskBytes",watchedDisk.TotalSize },
-				{ "PercUsed", watchedDisk.UsedSizePercent },
-
-				{ "TemperatureLabel", watchedDisk.TemperatureLabel ?? "" },
-				{ "TemperatureC", watchedDisk.TemperatureC },
-				{ "TemperatureMinC", watchedDisk.TemperatureMinC },
-				{ "TemperatureMaxC", watchedDisk.TemperatureMaxC },
-				{ "TemperatureCritC", watchedDisk.TemperatureCritC }
-			});
 		}
 
-		responseDictionary.Add("Mounts", disksDictList.ToArray()!);
 
 		if (!Caching.IsDataStale())
 		{
@@ -170,19 +236,13 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", (SystemDataCache cache) =>
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context) => {
 	// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
 
-	string? errorMessage = RequestChecking.CheckContType(context);
-	if (errorMessage is not null)
+	var checkedInput = await RequestChecking.CheckContType(context);
+	if (checkedInput.ErrorMessage is null)
 	{
-		return Results.BadRequest(errorMessage);
+		return Results.BadRequest(checkedInput.ErrorMessage);
 	}
 
-	string requestBody;
-	using (var reader = new StreamReader(context.Request.Body))
-	{
-		requestBody = await reader.ReadToEndAsync();
-	}
-
-	var newConfigs = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(requestBody) ?? [];
+	var newConfigs = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(checkedInput.RequestBody) ?? [];
 	ApiConfig.MainConfigs.EditConfig(newConfigs);
 
 	return Results.NoContent();
@@ -215,19 +275,13 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context) =>
 {
-	string? errorMessage = RequestChecking.CheckContType(context);
-	if (errorMessage is not null)
+	var checkedInput = await RequestChecking.CheckContType(context);
+	if (checkedInput.ErrorMessage is not null)
 	{
-		return Results.BadRequest(errorMessage);
+		return Results.BadRequest(checkedInput.ErrorMessage);
 	}
 
-	string requestBody;
-	using (var reader = new StreamReader(context.Request.Body))
-	{
-		requestBody = await reader.ReadToEndAsync();
-	}
-
-	var mountPoints = JsonSerializer.Deserialize<Dictionary<string, string?>>(requestBody) ?? [];
+	var mountPoints = JsonSerializer.Deserialize<Dictionary<string, string?>>(checkedInput.RequestBody) ?? [];
 	if (mountPoints.Count == 0)
 	{
 		return Results.BadRequest("List must contain more than 0 elements.");

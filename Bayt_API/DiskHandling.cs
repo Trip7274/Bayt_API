@@ -81,7 +81,7 @@ public static class DiskHandling
 
 	public static List<DiskData> GetDiskDatas(Dictionary<string, string> mountPoints, List<DiskData>? oldDiskDatas = null)
 	{
-		if (oldDiskDatas is not null && Caching.IsDataStale())
+		if (oldDiskDatas is not null && Caching.IsDataFresh())
 		{
 			return oldDiskDatas;
 		}

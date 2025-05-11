@@ -26,7 +26,7 @@ public static class GpuHandling
 
 	public static List<GpuData> GetGpuDataList(List<GpuData>? oldGpuData = null)
 	{
-		if (oldGpuData is not null && Caching.IsDataStale())
+		if (oldGpuData is not null && Caching.IsDataFresh())
 		{
 			return oldGpuData;
 		}

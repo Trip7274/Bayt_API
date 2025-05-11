@@ -220,7 +220,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		}
 
 
-		if (!Caching.IsDataStale())
+		if (!Caching.IsDataFresh())
 		{
 			ApiConfig.LastUpdated = DateTime.Now;
 		}

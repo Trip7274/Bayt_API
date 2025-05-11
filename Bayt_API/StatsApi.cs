@@ -42,7 +42,7 @@ public static class StatsApi
 
 	public static CpuData GetCpuData(CpuData? olCpuData = null)
 	{
-		if (olCpuData is not null && Caching.IsDataStale())
+		if (olCpuData is not null && Caching.IsDataFresh())
 		{
 			return olCpuData;
 		}
@@ -74,7 +74,7 @@ public static class StatsApi
 
 	public static MemoryData GetMemoryData(MemoryData? oldMemoryData = null)
 	{
-		if (oldMemoryData is not null && Caching.IsDataStale())
+		if (oldMemoryData is not null && Caching.IsDataFresh())
 		{
 			return oldMemoryData;
 		}

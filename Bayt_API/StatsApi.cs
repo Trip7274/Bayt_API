@@ -39,17 +39,7 @@ public static class StatsApi
 		public ushort PhysicalCoreCount { get; init; }
 		public ushort ThreadCount { get; init; }
 	}
-	
 
-	public class MemoryData
-	{
-		public ulong TotalMemory { get; init; }
-		public ulong UsedMemory { get; init; }
-		public ulong AvailableMemory { get; init; }
-
-		public byte UsedMemoryPercent => (byte) ((float) UsedMemory / TotalMemory * 100);
-	}
-	
 	public static CpuData GetCpuData(CpuData? olCpuData = null)
 	{
 		if (olCpuData is not null && Caching.IsDataStale())
@@ -70,6 +60,16 @@ public static class StatsApi
 			PhysicalCoreCount = ushort.Parse(rawOutput[1]),
 			ThreadCount = ushort.Parse(rawOutput[2])
 		};
+	}
+	
+
+	public class MemoryData
+	{
+		public ulong TotalMemory { get; init; }
+		public ulong UsedMemory { get; init; }
+		public ulong AvailableMemory { get; init; }
+
+		public byte UsedMemoryPercent => (byte) ((float) UsedMemory / TotalMemory * 100);
 	}
 
 	public static MemoryData GetMemoryData(MemoryData? oldMemoryData = null)

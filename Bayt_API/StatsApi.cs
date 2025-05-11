@@ -45,9 +45,8 @@ public static class StatsApi
 	{
 		public ulong TotalMemory { get; init; }
 		public ulong UsedMemory { get; init; }
+		public ulong AvailableMemory { get; init; }
 
-
-		public ulong AvailableMemory => TotalMemory - UsedMemory;
 		public byte UsedMemoryPercent => (byte) ((float) UsedMemory / TotalMemory * 100);
 	}
 	
@@ -58,11 +57,18 @@ public static class StatsApi
 			return olCpuData;
 		}
 
+		var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "AllUtil").StandardOutput.Split('|');
+
+		if (rawOutput.Length != 3)
+		{
+			throw new Exception("Invalid output from getCpu.sh");
+		}
+
 		return new CpuData
 		{
-			UtilizationPerc = float.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "UtilPerc").StandardOutput),
-			PhysicalCoreCount = ushort.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "PhysicalCores").StandardOutput),
-			ThreadCount = ushort.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "ThreadCount").StandardOutput)
+			UtilizationPerc = float.Parse(rawOutput[0]),
+			PhysicalCoreCount = ushort.Parse(rawOutput[1]),
+			ThreadCount = ushort.Parse(rawOutput[2])
 		};
 	}
 
@@ -73,14 +79,18 @@ public static class StatsApi
 			return oldMemoryData;
 		}
 
-		double totalMem = double.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "Total").StandardOutput);
-		double usedMem = double.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "Used").StandardOutput); // TODO: Extract using `free`
-                                                                                                                                    // for fewer bash executions
+		var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "All").StandardOutput.Split('|');
+
+		if (rawOutput.Length != 3)
+		{
+			throw new Exception("Invalid output from getMem.sh");
+		}
 
 		return new MemoryData
 		{
-			TotalMemory = (ulong) Math.Round(totalMem * 1048576),
-			UsedMemory = (ulong) Math.Round(usedMem * 1048576)
+			TotalMemory = ulong.Parse(rawOutput[0]),
+			UsedMemory = ulong.Parse(rawOutput[1]),
+			AvailableMemory = ulong.Parse(rawOutput[2])
 		};
 	}
 }

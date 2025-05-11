@@ -28,10 +28,13 @@ logHelper(){
 	    tail -c 8500 "$LOGPATH" > "$LOGPATH.tmp" && mv "$LOGPATH.tmp" "$LOGPATH"
 	fi
 
-	echo "[$(date +%c)] $1" | tee -a "$LOGPATH" >&2
+	LOGMESSAGE="$1"
+	STDOUT="$2"
 
-	if [ "$2" = "stdout" ]; then
-	    echo "$1"
+	echo "[$(date +%c)] $LOGMESSAGE" | tee -a "$LOGPATH" >&2
+
+	if [ "$STDOUT" = "stdout" ]; then
+	    echo "$LOGMESSAGE"
 	fi
 }
 
@@ -43,7 +46,6 @@ if [ ! -f "$LOGPATH" ]; then
     touch "$LOGPATH"
 fi
 
-logHelper "\n\n"
 logHelper "---getGpu.sh started---"
 
 STAT="$1"

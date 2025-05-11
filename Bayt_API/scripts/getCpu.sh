@@ -12,7 +12,7 @@ case $OPERATION in
     ;;
 
 	"UtilPerc")
-		top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}'
+		grep 'cpu' < /proc/stat | awk '{print ($5*100)/($2+$3+$4+$5+$6+$7+$8+$9+$10)}'| awk '{print 100-$1}'
     ;;
 
 	"PhysicalCores")
@@ -21,6 +21,14 @@ case $OPERATION in
 
 	"ThreadCount")
 		nproc --all
+	;;
+
+	"AllUtil")
+		UTILPERC="$(grep 'cpu' < /proc/stat | awk '{print ($5*100)/($2+$3+$4+$5+$6+$7+$8+$9+$10)}'| awk '{print 100-$1}')"
+		PCORES="$(grep -oP "cpu cores\s+:\s+\K[0-9]+" < /proc/cpuinfo | head -n 1)"
+		THREADS="$(nproc --all)"
+
+		echo "$UTILPERC|$PCORES|$THREADS"
 	;;
 
 	*)

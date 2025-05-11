@@ -1,31 +1,44 @@
 #!/bin/sh
 
-# Returns in MiBs
+# Returns in Bytes
 
 STAT="$1"
 
 [ "$STAT" = "" ] && exit 1
 
-SEDEX=""
+REGEX=""
 
 case $STAT in
-  "Total")
-    SEDEX="s/.*: *\([0-9.]*\)%* total.*/\1/"
+  	"Total")
+    	REGEX="Mem:\s+\K[0-9]+"
     ;;
 
-  "Free")
-	SEDEX="s/.*, *\([0-9.]*\)%* free.*/\1/"
+	"Used")
+		REGEX="Mem:\s+[0-9]+\s+\K[0-9]+\s+\K[0-9]+"
+	;;
+
+	"Free")
+    	REGEX="Mem:\s+[0-9]+\s+\K[0-9]+\s+[0-9]+\s+[0-9]+\s+[0-9]+\s+\K[0-9]+"
     ;;
 
-  "Used")
-    SEDEX="s/.*, *\([0-9.]*\)%* used.*/\1/"
-    ;;
+	"All")
+		TOTALREGEX="Mem:\s+\K[0-9]+"
+        USEDREGEX="Mem:\s+[0-9]+\s+\K[0-9]+\s+\K[0-9]+"
+        AVAILABLEREGEX="Mem:\s+[0-9]+\s+\K[0-9]+\s+[0-9]+\s+[0-9]+\s+[0-9]+\s+\K[0-9]+"
 
-  *)
-    exit 2
-    ;;
+		OUTPUT="$(free -b)"
+		TOTAL="$(echo "$OUTPUT" | grep -oP "$TOTALREGEX")"
+		USED="$(echo "$OUTPUT" | grep -oP "$USEDREGEX")"
+		AVAILABLE="$(echo "$OUTPUT" | grep -oP "$AVAILABLEREGEX")"
+
+		echo "$TOTAL|$USED|$AVAILABLE"
+		exit 0
+	;;
+
+	*)
+    	exit 2
+	;;
 esac
 
 
-
-top -bn1 | grep "MiB Mem" | sed "$SEDEX"
+free -b | grep -oP "$REGEX"

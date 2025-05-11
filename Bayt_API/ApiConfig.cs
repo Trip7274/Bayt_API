@@ -9,8 +9,7 @@ public static class ApiConfig
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public static DateTime LastUpdated { get; set; }
-	public static readonly string BaseExecutablePath = Path.GetDirectoryName(Environment.ProcessPath)
-	                                                   ?? throw new Exception("Could not get process path");
+	public static readonly string BaseExecutablePath = Environment.CurrentDirectory;
 	private static readonly string BaseConfigPath = Path.Combine(BaseExecutablePath, "config");
 	private static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
 

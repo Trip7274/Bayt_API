@@ -1,7 +1,10 @@
 # General Overview
-The Bayt API aims to be a unified API to provide useful statistics and controls relating to your homeserver. This provides a stable, yet powerful base for your preferred frontend, and the freedom to choose or make your own frontend without the need to reinvent the wheel with a new backend.
+The Bayt API aims to be a unified API to provide useful statistics and controls relating to your homeserver. 
+This provides a stable, yet powerful base for your preferred frontend,
+and the freedom to choose or make your own frontend without the need to reinvent the wheel with a new backend.
 
-The word "Bayt" comes from Arabic and means "House", because a good house provides you with a powerful, reliable foundation to decorate and make your own however you'd like!
+The word "Bayt" comes from Arabic and means "House", because a good house provides you with a good, 
+reliable foundation to decorate and make your own however you'd like!
 
 Bayt is still in a very early alpha phase.
 
@@ -16,13 +19,13 @@ More detailed info on Bayt can be found in [the repository's wiki!](https://gith
 - [ ] Basic "reference" frontend implementation
 - [ ] More server-management endpoints
 - [ ] Binary distribution across different Linux repos
-- [ ] Docker container implementation(if possible)
+- [ ] Docker container implementation (if possible)
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
 - [ ] SMB Share management endpoints
 - [ ] Docker container management endpoints
 - [ ] Detailed permissions
 - [ ] API documentation
-- [ ] Plugin support(if practical)
+- [ ] Plugin support (if practical)
 
 ## Dependencies
 Currently, this is only supported on Linux using the ASP.NET Core Runtime 9,
@@ -34,7 +37,7 @@ and these are the specific dependencies for each GPU vendor:
 - AMD GPU Systems:
 	- `amdgpu_top`
 
-Along with semi-obvious things such as `bash`, `grep`, `sed`, `awk`, `head`
+Along with utilites you probably already have, such as `bash`, `grep`, `sed`, `awk`, `head`, and `df`
 
 ## Installation and usage
 Bayt is still in a very early stage, thus the compiled binaries are unavailable. 

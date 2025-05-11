@@ -26,7 +26,10 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		var checkedInput = await RequestChecking.CheckContType(context);
 		if (checkedInput.ErrorMessage is not null)
 		{
-			return Results.BadRequest(checkedInput.ErrorMessage);
+			if (checkedInput.RequestBody != "")
+			{
+				return Results.BadRequest(checkedInput.ErrorMessage);
+			}
 		}
 
 		List<string> requestedStats;
@@ -210,10 +213,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 
 				default:
 				{
-					responseDictionary.Add(requestedStat, [new Dictionary<string, dynamic>
-					{
-						{ requestedStat, "Unknown stat. Please check your request and try again." }
-					}]);
+					responseDictionary.Add(requestedStat, [new Dictionary<string, dynamic>()]);
 					break;
 				}
 			}

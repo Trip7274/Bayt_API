@@ -8,6 +8,7 @@ public static class ApiConfig
 	public const string Version = "0.5.7";
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
+	public const ushort NetworkPort = 5899;
 	public static DateTime LastUpdated { get; set; }
 	public static readonly string BaseExecutablePath = Environment.CurrentDirectory;
 	private static readonly string BaseConfigPath = Path.Combine(BaseExecutablePath, "config");
@@ -51,8 +52,6 @@ public static class ApiConfig
 
 			public required string BackendName { get; init; }
 			public ushort SecondsToUpdate { get; set; }
-			public ushort NetworkPort { get; init; }
-
 			public required Dictionary<string, string> WatchedMounts { get; init; }
 		}
 		private static readonly List<string> RequiredProperties = ["ConfigVersion", "WatchedMounts"];
@@ -103,7 +102,6 @@ public static class ApiConfig
 				ConfigVersion = ApiVersion,
 				BackendName = "Bayt API Host",
 				SecondsToUpdate = 5,
-				NetworkPort = 5899,
 				WatchedMounts = new Dictionary<string, string> { {"/", "Root Partition"} }
 			}), Encoding.UTF8);
 		}

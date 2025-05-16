@@ -92,8 +92,8 @@ public static class ShellMethods
             // Process completed normally
             return new ShellResult
             {
-                StandardOutput = outputBuilder.ToString(),
-                StandardError = errorBuilder.ToString(),
+                StandardOutput = outputBuilder.ToString().TrimEnd('\n'),
+                StandardError = errorBuilder.ToString().TrimEnd('\n'),
                 ExitCode = process.ExitCode // Get the actual exit code
             };
         }

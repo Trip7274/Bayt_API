@@ -17,8 +17,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-Console.WriteLine($"Starting API at: http://localhost:{ApiConfig.MainConfigs.ConfigProps.NetworkPort}");
-app.Urls.Add($"http://localhost:{ApiConfig.MainConfigs.ConfigProps.NetworkPort}");
+Console.WriteLine($"Starting API at: http://localhost:{ApiConfig.NetworkPort}");
+app.Urls.Add($"http://localhost:{ApiConfig.NetworkPort}");
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache, HttpContext context) =>
 	{
 		string[] possibleStats = ["Meta", "System", "CPU", "GPU", "Memory", "Mounts"];

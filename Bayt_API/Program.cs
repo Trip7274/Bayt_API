@@ -87,7 +87,13 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 				{
 					var cpuStats = cache.GetCpuData();
 					responseDictionary.Add("CPU", [
-						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(cpuStats)) ?? []
+						new Dictionary<string, dynamic>
+						{
+							{ "Name", StatsApi.CpuData.Name.TrimEnd('\n') },
+							{ "UtilPerc", cpuStats.UtilizationPerc },
+							{ "CoreCount", cpuStats.PhysicalCoreCount },
+							{ "ThreadCount", cpuStats.ThreadCount }
+						}
 					]);
 					break;
 				}

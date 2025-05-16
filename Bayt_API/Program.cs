@@ -78,14 +78,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 				{
 					var generalSpecs = cache.GetGeneralSpecs();
 					responseDictionary.Add("System", [
-						new Dictionary<string, dynamic>
-						{
-							{ "Hostname", generalSpecs.Hostname.TrimEnd('\n') },
-							{ "DistroName", generalSpecs.Distroname.TrimEnd('\n') },
-							{ "KernelName", generalSpecs.KernelName.TrimEnd('\n') },
-							{ "KernelVersion", generalSpecs.KernelVersion.TrimEnd('\n') },
-							{ "KernelArch", generalSpecs.KernelArch.TrimEnd('\n') }
-						}
+						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(generalSpecs)) ?? []
 					]);
 					break;
 				}
@@ -94,13 +87,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 				{
 					var cpuStats = cache.GetCpuData();
 					responseDictionary.Add("CPU", [
-						new Dictionary<string, dynamic>
-						{
-							{ "Name", StatsApi.CpuData.Name.TrimEnd('\n') },
-							{ "UtilPerc", cpuStats.UtilizationPerc },
-							{ "CoreCount", cpuStats.PhysicalCoreCount },
-							{ "ThreadCount", cpuStats.ThreadCount }
-						}
+						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(cpuStats)) ?? []
 					]);
 					break;
 				}
@@ -122,27 +109,9 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 							continue;
 						}
 
-						gpuStatsDict.Add(new Dictionary<string, dynamic?>
-						{
-							{ "Name", gpuData.Name },
-							{ "Brand", gpuData.Brand },
-							{ "IsMissing", gpuData.IsMissing },
-
-							{ "OverallUtilPerc", gpuData.GraphicsUtilPerc },
-							{ "VramUtilPerc", gpuData.VramUtilPerc },
-							{ "VramTotalBytes", gpuData.VramTotalBytes },
-							{ "VramUsedBytes", gpuData.VramUsedBytes },
-
-							{ "EncoderUtilPerc", gpuData.EncoderUtilPerc },
-							{ "DecoderUtilPerc", gpuData.DecoderUtilPerc },
-							{ "VideoEnhanceUtilPerc", gpuData.VideoEnhanceUtilPerc },
-
-							{ "GraphicsFrequencyMHz", gpuData.GraphicsFrequency },
-							{ "EncoderDecoderFrequencyMHz", gpuData.EncDecFrequency },
-
-							{ "PowerUseWatts", gpuData.PowerUse },
-							{ "TemperatureC", gpuData.TemperatureC }
-						});
+						gpuStatsDict.Add(
+							JsonSerializer.Deserialize<Dictionary<string, dynamic?>>(JsonSerializer.Serialize(gpuData)) ?? []
+							);
 					}
 					responseDictionary.Add("GPU", gpuStatsDict.ToArray()!);
 
@@ -153,14 +122,9 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 				{
 					var memoryStats = cache.GetMemoryData();
 
-					responseDictionary.Add("Memory", [new Dictionary<string, dynamic>
-					{
-						{ "AvailableMemoryBytes", memoryStats.AvailableMemory },
-						{ "UsedMemoryBytes", memoryStats.UsedMemory },
-						{ "TotalMemoryBytes", memoryStats.TotalMemory },
-
-						{ "PercUsed", memoryStats.UsedMemoryPercent }
-					}]);
+					responseDictionary.Add("Memory", [
+						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(memoryStats)) ?? []
+					]);
 
 					break;
 				}
@@ -182,28 +146,9 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 							});
 							continue;
 						}
-						disksDictList.Add(new Dictionary<string, dynamic?>
-						{
-							{ "DeviceName", watchedDisk.DeviceName ?? "" },
-							{ "MountPoint", watchedDisk.MountPoint },
-							{ "MountName", watchedDisk.MountName },
-
-							{ "DevicePath", watchedDisk.DevicePath },
-							{ "Filesystem", watchedDisk.FileSystem },
-
-							{ "IsMissing", watchedDisk.IsMissing },
-
-							{ "UsedDiskBytes", watchedDisk.UsedSize },
-							{ "FreeDiskBytes", watchedDisk.FreeSize },
-							{ "TotalDiskBytes",watchedDisk.TotalSize },
-							{ "PercUsed", watchedDisk.UsedSizePercent },
-
-							{ "TemperatureLabel", watchedDisk.TemperatureLabel ?? "" },
-							{ "TemperatureC", watchedDisk.TemperatureC },
-							{ "TemperatureMinC", watchedDisk.TemperatureMinC },
-							{ "TemperatureMaxC", watchedDisk.TemperatureMaxC },
-							{ "TemperatureCritC", watchedDisk.TemperatureCritC }
-						});
+						disksDictList.Add(
+							JsonSerializer.Deserialize<Dictionary<string, dynamic?>>(JsonSerializer.Serialize(watchedDisk)) ?? []
+							);
 					}
 
 					responseDictionary.Add("Mounts", disksDictList.ToArray()!);
@@ -213,7 +158,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 
 				default:
 				{
-					responseDictionary.Add(requestedStat, [new Dictionary<string, dynamic>()]);
+					responseDictionary.Add(requestedStat, [[]]);
 					break;
 				}
 			}

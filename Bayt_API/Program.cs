@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Bayt_API;
 
@@ -39,12 +40,13 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		}
 		catch (JsonException)
 		{
-			Console.WriteLine("Invalid JSON input. Using default list.");
+			Debug.WriteLine("Got a request with malformed JSON, returning all stats.");
 			requestedStats = ["All"];
 		}
 
 		if (requestedStats.Count == 0)
 		{
+			Debug.WriteLine($"Got a request asking for '{string.Join(", ", requestedStats)}', but none matched so we're returning a BadRequest.");
 			return Results.BadRequest("List must contain more than 0 elements.");
 		}
 
@@ -52,6 +54,10 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		{
 			requestedStats = possibleStats.ToList();
 		}
+
+		// Request checks done
+
+		Debug.WriteLine($"Got a request asking for: {string.Join(", ", requestedStats)}");
 
 		Dictionary<string, Dictionary<string, dynamic>[]> responseDictionary = [];
 

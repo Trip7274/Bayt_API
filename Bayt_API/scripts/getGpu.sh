@@ -228,13 +228,14 @@ getIntel() {
     	}
 
 	if ! intel_gpu_top -h > /dev/null; then
-		logHelper "intel_gpu_top seems to not have the CAP_PERFMON capability set and that you have it installed. Null data will be returned."
+		logHelper "intel_gpu_top seems to not have the CAP_PERFMON capability set or haven't been installed. Null data will be returned."
 	    return
 	fi
 
 
 	logHelper "Fetching intel_gpu_top output for '$PCIID' device"
-	OUTPUT=$(timeout 0.5 intel_gpu_top -J -d sys:/sys/devices/pci0000:00/0000:"$PCIID")
+	# intel_gpu_top doesn't have a one-shot mode for some reason, so we have to limit it
+	OUTPUT=$(timeout 0.1 intel_gpu_top -J -d sys:/sys/devices/pci0000:00/0000:"$PCIID")
     OUTPUT=$(echo "$OUTPUT" | tail -n +3)
 
 	CATTEDOUTPUT=""

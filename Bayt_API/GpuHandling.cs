@@ -10,8 +10,8 @@ public static class GpuHandling
 
 		public float? GraphicsUtilPerc { get; init; }
 		public float? VramUtilPerc { get; init; } // NVIDIA + AMD only
-		public double? VramTotalBytes { get; init; } // AMD + NVIDIA only
-		public double? VramUsedBytes { get; init; } // AMD + NVIDIA only
+		public ulong? VramTotalBytes { get; init; } // AMD + NVIDIA only
+		public ulong? VramUsedBytes { get; init; } // AMD + NVIDIA only
 
 		public float? EncoderUtilPerc { get; init; }
 		public float? DecoderUtilPerc { get; init; } // NVIDIA-only
@@ -72,8 +72,8 @@ public static class GpuHandling
 					GraphicsUtilPerc = ParseFloatNullable(arrayOutput[2]),
 
 					VramUtilPerc = ParseFloatNullable(arrayOutput[3]),
-					VramTotalBytes = ParseDoubleNullable(arrayOutput[4]),
-					VramUsedBytes = ParseDoubleNullable(arrayOutput[5]),
+					VramTotalBytes = ParseUlongNullable(arrayOutput[4]),
+					VramUsedBytes = ParseUlongNullable(arrayOutput[5]),
 
 					EncoderUtilPerc = ParseFloatNullable(arrayOutput[6]),
 					DecoderUtilPerc = ParseFloatNullable(arrayOutput[7]),
@@ -108,9 +108,9 @@ public static class GpuHandling
 		return float.TryParse(value, out var result) ? result : null;
 	}
 
-	private static double? ParseDoubleNullable(string value)
+	private static ulong? ParseUlongNullable(string value)
 	{
-		return float.TryParse(value, out var result) ? result : null;
+		return ulong.TryParse(value, out var result) ? result : null;
 	}
 
 	private static sbyte? ParseSByteNullable(string value)

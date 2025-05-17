@@ -10,8 +10,8 @@ public static class GpuHandling
 
 		public float? GraphicsUtilPerc { get; init; }
 		public float? VramUtilPerc { get; init; } // NVIDIA + AMD only
-		public float? VramTotalBytes { get; init; } // AMD-only
-		public float? VramUsedBytes { get; init; } // AMD-only
+		public double? VramTotalBytes { get; init; } // AMD + NVIDIA only
+		public double? VramUsedBytes { get; init; } // AMD + NVIDIA only
 
 		public float? EncoderUtilPerc { get; init; }
 		public float? DecoderUtilPerc { get; init; } // NVIDIA-only
@@ -56,8 +56,8 @@ public static class GpuHandling
 				continue;
 			}
 
-			if (arrayOutput[0] == "AMD")
-			{ // Only runs for AMD, I'd do this in the bash script, but I'd rather eat a fork than do more arithmetic in bash
+			if (arrayOutput[3] == "null")
+			{
 				arrayOutput[3] = $"{float.Parse(arrayOutput[5]) / float.Parse(arrayOutput[4]) * 100}";
 			}
 
@@ -72,8 +72,8 @@ public static class GpuHandling
 					GraphicsUtilPerc = ParseFloatNullable(arrayOutput[2]),
 
 					VramUtilPerc = ParseFloatNullable(arrayOutput[3]),
-					VramTotalBytes = ParseFloatNullable(arrayOutput[4]),
-					VramUsedBytes = ParseFloatNullable(arrayOutput[5]),
+					VramTotalBytes = ParseDoubleNullable(arrayOutput[4]),
+					VramUsedBytes = ParseDoubleNullable(arrayOutput[5]),
 
 					EncoderUtilPerc = ParseFloatNullable(arrayOutput[6]),
 					DecoderUtilPerc = ParseFloatNullable(arrayOutput[7]),
@@ -104,6 +104,11 @@ public static class GpuHandling
 	}
 
 	private static float? ParseFloatNullable(string value)
+	{
+		return float.TryParse(value, out var result) ? result : null;
+	}
+
+	private static double? ParseDoubleNullable(string value)
 	{
 		return float.TryParse(value, out var result) ? result : null;
 	}

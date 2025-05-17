@@ -8,8 +8,8 @@
 #
 # Graphics Util (%) = utilization.gpu (NVIDIA, Intel [3D Util], AMD [Graphics])
 #
-# VRAM Total (Bytes) = memory.total (AMD)
-# VRAM Used (Bytes) = memory.used (AMD)
+# VRAM Total (Bytes) = memory.total (AMD, NVIDIA)
+# VRAM Used (Bytes) = memory.used (AMD, NVIDIA)
 # VRAM Util (%) = utilization.memory (NVIDIA)
 #
 # GPU Encoder Util (%) = utilization.encoder (NVIDIA, Intel ["Video" Engine], AMD ["MediaEngine"])
@@ -80,12 +80,63 @@ getNvidia() {
 				echo "NVIDIA"
 			;;
 
-        	"utilization.videoenhance" | "memory.total" | "memory.used")
-        		echo null
+			"gpu_name")
+				nvidia-smi --query-gpu="$STAT" --format=csv,noheader,nounits --id="$PCIID"
+			;;
+
+     		"utilization.gpu")
+     			echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?GPU\s+:\s*\K\d+'
+     		;;
+
+   			"utilization.memory")
+   				UNTRIMMED_OUTPUT="$(echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?Memory\s+:\s*\K\d+ '| tr -d '\0')"
+                echo "${UNTRIMMED_OUTPUT%% *}"
+   			;;
+
+			"memory.total")
+				(( FINAL_VALUE = "$(echo "$OUTPUT" | grep -oPz '(?s)FB Memory Usage.*?Total\s+:\s*\K\d+' | tr -d '\0')" * 1048576 ))
+
+				echo "$FINAL_VALUE"
+			;;
+
+			"memory.used")
+				(( FINAL_VALUE = "$(echo "$OUTPUT" | grep -oPz '(?s)FB Memory Usage.*?Used\s+:\s*\K\d+' | tr -d '\0')" * 1048576 ))
+
+                echo "$FINAL_VALUE"
+			;;
+
+     		"utilization.encoder")
+     			echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?Encoder\s+:\s*\K\d+'
+     		;;
+
+   			"utilization.decoder")
+     			echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?Decoder\s+:\s*\K\d+'
+     		;;
+
+        	"utilization.videoenhance")
+        		echo "null"
         	;;
 
+     		"clocks.current.graphics")
+     			UNTRIMMED_OUTPUT="$(echo "$OUTPUT" | grep -oPz '(?s)Clocks.*?Graphics\s+:\s*\K\d+ '| tr -d '\0')"
+				echo "${UNTRIMMED_OUTPUT%% *}"
+     		;;
+
+   			"clocks.current.video")
+   				UNTRIMMED_OUTPUT="$(echo "$OUTPUT" | grep -oPz '(?s)Clocks.*?Video\s+:\s*\K\d+ '| tr -d '\0')"
+                echo "${UNTRIMMED_OUTPUT%% *}"
+   			;;
+
+  			"power.draw")
+  				 echo "$OUTPUT" | grep -oPz '(?s)Power Samples.*?Avg\s+:\s*\K\d+.?\d*'
+  			;;
+
+ 			"temperature.gpu")
+ 				echo "$OUTPUT" | grep -oPz '(?s)Temperature.*?GPU Current Temp\s+:\s*\K\d+'
+ 			;;
+
         	*)
-        		nvidia-smi --query-gpu="$STAT" --format=csv,noheader,nounits --id="$PCIID"
+        		echo "null"
         	;;
         esac
 	}
@@ -95,18 +146,19 @@ getNvidia() {
 		return
 	fi
 
+	OUTPUT="$(nvidia-smi -q -d MEMORY,UTILIZATION,TEMPERATURE,ENCODER_STATS,POWER,CLOCK | tail -n +10)"
 
 	CATTEDOUTPUT=""
 	if [ "$STAT" != "" ]; then
 		logHelper "Specific stat requested, returning '$STAT'"
 
-	    CATTEDOUTPUT=$(getNvidiaStat)
+	    CATTEDOUTPUT=$(getNvidiaStat | tr -d '\0')
 	else
 		logHelper "All stats requested, returning array"
 
         for i in "${POSSIBLESTATS[@]}"; do
         	STAT="$i"
-        	CATTEDOUTPUT+="$(getNvidiaStat)|"
+        	CATTEDOUTPUT+="$(getNvidiaStat | tr -d '\0')|"
         done
 	fi
 

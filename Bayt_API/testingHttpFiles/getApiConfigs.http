@@ -1,7 +1,6 @@
+### Fetches the general API Configuration
 @Version = 0
 @Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}
 
-GET {{Bayt_API_HostAddress}}/getMountsList/
+GET {{Bayt_API_HostAddress}}/getApiConfigs/
 Accept: application/json
-
-# Fetches the list of watched mounts

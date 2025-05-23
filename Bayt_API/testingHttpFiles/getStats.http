@@ -1,11 +1,10 @@
+### Fetch system stats
 @Version = 0
 @Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}
 
 GET {{Bayt_API_HostAddress}}/getStats/
 Accept: application/json
 Content-Type: application/json
-
-# Fetches your system's general stats
 
 
 {

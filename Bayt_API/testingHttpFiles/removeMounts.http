@@ -1,0 +1,13 @@
+### Delete a mountpoint
+@Version = 0
+@Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}
+
+DELETE {{Bayt_API_HostAddress}}/removeMounts/ HTTP/2
+Accept: application/json
+Content-Type: application/json
+
+{
+    "Mounts": [ "/mnt" ]
+}
+
+###

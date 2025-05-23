@@ -249,4 +249,26 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context)
 	return Results.NoContent();
 }).WithName("AddMounts").Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status400BadRequest);
 
+
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext context) =>
+{
+	var checkedInput = await RequestChecking.CheckContType(context);
+	if (checkedInput.ErrorMessage is not null)
+	{
+		return Results.BadRequest(checkedInput.ErrorMessage);
+	}
+
+	// This is a bit of a mess, but it's shorthand for:
+	// get the list of mount points from the request, if it's null, get an empty list.
+	var mountPoints = (JsonSerializer.Deserialize<Dictionary<string, List<string>>>(checkedInput.RequestBody) ?? new() {{"Mounts", []}})["Mounts"];
+	if (mountPoints.Count == 0)
+	{
+		return Results.BadRequest("List must contain more than 0 elements.");
+	}
+
+	ApiConfig.MainConfigs.RemoveMountpoint(mountPoints);
+
+	return Results.NoContent();
+}).WithName("RemoveMounts");
+
 app.Run();

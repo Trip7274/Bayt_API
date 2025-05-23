@@ -5,8 +5,8 @@ public static class StatsApi
 
 	public class GeneralSpecs
 	{
-		public required string Hostname { get; init; }
-		public required string Distroname { get; init; }
+		public required string HostName { get; init; }
+		public required string DistroName { get; init; }
 		public required string KernelName { get; init; }
 		public required string KernelVersion { get; init; }
 		public required string KernelArch { get; init; }
@@ -21,8 +21,8 @@ public static class StatsApi
 
 		return new GeneralSpecs
 		{
-			Hostname = ShellMethods.RunShell("uname", "-n").StandardOutput,
-			Distroname = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", "Distro.Name").StandardOutput,
+			HostName = ShellMethods.RunShell("uname", "-n").StandardOutput,
+			DistroName = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", "Distro.Name").StandardOutput,
 			KernelName = ShellMethods.RunShell("uname", "-s").StandardOutput,
 			KernelVersion = ShellMethods.RunShell("uname", "-r").StandardOutput,
 			KernelArch = ShellMethods.RunShell("uname", "-m").StandardOutput

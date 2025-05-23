@@ -1,0 +1,290 @@
+### updateLiveConfigs Test
+@Version = 0
+@Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}
+
+< {%
+	client.global.set("startTime", Date.now());
+%}
+
+POST {{Bayt_API_HostAddress}}/updateLiveConfigs/
+Accept: application/json
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 204, "Response status is not 204");
+		client.assert(response.body === "" || response.body === null, `Response json is not empty, got: ${response.body}`);
+
+		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+	});
+%}
+
+### getMountsList Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+
+GET {{Bayt_API_HostAddress}}/getMountsList/
+
+> {%
+    client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+
+		console.log(response.body);
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 200, "Response status is not 200");
+		client.assert(response.body !== "", "Response json is empty");
+
+		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+    })
+%}
+
+### getApiConfigs Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+
+GET {{Bayt_API_HostAddress}}/getApiConfigs/
+
+> {%
+    client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+
+
+		console.log(response.body);
+		console.log(response.body["WatchedMounts"]);
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+
+		client.assert(response.status === 200, "Response status is not 200");
+		client.assert(response.body !== "", "Response json is empty");
+
+		client.assert(response.body.hasOwnProperty("ConfigVersion"), "ConfigVersion property missing");
+		client.assert(response.body.hasOwnProperty("BackendName"), "BackendName property missing");
+		client.assert(response.body.hasOwnProperty("SecondsToUpdate"), "SecondsToUpdate property missing");
+		client.assert(response.body.hasOwnProperty("WatchedMounts"), "WatchedMounts property missing");
+
+		client.assert(response.body["WatchedMounts"] !== "", "WatchedMounts doesn't have any children");
+
+		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+	})
+%}
+
+### addMounts Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+
+POST {{Bayt_API_HostAddress}}/addMounts/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "/mnt": "Mount Partition"
+}
+
+> {%
+    client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 204, "Response status is not 204");
+		client.assert(response.body === "" || response.body === null, "Response json is not empty");
+		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+	})
+%}
+
+### removeMounts Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+
+DELETE {{Bayt_API_HostAddress}}/removeMounts/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "Mounts": ["/mnt"]
+}
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 204, "Response status is not 204");
+		client.assert(response.body === "" || response.body === null, "Response json is not empty");
+		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+	})
+%}
+
+
+### getStats Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+GET {{Bayt_API_HostAddress}}/getStats/
+Accept: application/json
+Content-Type: application/json
+
+
+{
+    "Stats": ["All"]
+}
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 200, "Response status is not 200");
+		client.assert(timeToRespond < 650, `Response execution time is too long, got ${timeToRespond}ms`);
+
+        client.assert(response.body !== "" && response.body !== null, "Response json is empty or null");
+
+		// Property checks
+		client.assert(response.body.hasOwnProperty("Meta") && typeof response.body.Meta === "object", "Meta property missing or malformed");
+		if (response.body.hasOwnProperty("Meta")) {
+			const metaField = response.body.Meta[0];
+			const requiredFields = {
+				"Version": "string",
+				"ApiVersion": "number",
+				"LastUpdate": "string",
+				"NextUpdate": "string",
+				"DelaySec": "number"
+			}
+
+			for (const field in requiredFields) {
+				client.assert(metaField.hasOwnProperty(field) && (typeof metaField[field] === requiredFields[field]), `Meta.${field} property missing or of the wrong type`);
+			}
+
+			// Check if ApiVersion and Version fields follow semver (e.g., Version is "3.0.0" and ApiVersion is 3)
+			if (metaField.hasOwnProperty("ApiVersion") && metaField.hasOwnProperty("Version")) {
+				client.assert(metaField.ApiVersion == metaField.Version.substring(0, metaField.Version.indexOf(".")),
+                    `Meta.ApiVersion and Meta.Version are not equal. This project uses semver
+                     (expected ${metaField.ApiVersion}, got ${metaField.Version.substring(0, metaField.Version.indexOf("."))} from 'Version')`);
+            }
+        }
+
+		client.assert(response.body.hasOwnProperty("System") && typeof response.body.System === "object", "System property missing or malformed");
+		if (response.body.hasOwnProperty("System")) {
+			const systemField = response.body.System[0];
+			const requiredFields = {
+				"HostName": "string",
+				"DistroName": "string",
+				"KernelName": "string",
+				"KernelVersion": "string",
+				"KernelArch": "string"
+			}
+
+			for (const field in requiredFields) {
+				client.assert(systemField.hasOwnProperty(field) && (typeof systemField[field] === requiredFields[field]), `System.${field} property missing or of the wrong type`);
+			}
+        }
+
+		client.assert(response.body.hasOwnProperty("CPU") && typeof response.body.CPU === "object", "CPU property missing or malformed");
+		if (response.body.hasOwnProperty("CPU")) {
+			const cpuField = response.body.CPU[0];
+			const requiredFields = {
+				"Name": "string",
+				"UtilPerc": "number",
+				"CoreCount": "number",
+				"ThreadCount": "number"
+			}
+
+			for (const field in requiredFields) {
+				client.assert(cpuField.hasOwnProperty(field) && (typeof cpuField[field] === requiredFields[field]), `CPU.${field} property missing or of the wrong type`);
+			}
+		}
+
+		client.assert(response.body.hasOwnProperty("GPU") && typeof response.body.GPU === "object", "GPU property missing or malformed");
+		if (response.body.hasOwnProperty("GPU")) {
+			const allGpus = response.body.GPU;
+			const supportedBrands = ["NVIDIA", "AMD", "Intel"];
+
+			for (const gpu in allGpus) {
+				const currentGpu = allGpus[gpu];
+
+				client.assert(currentGpu.hasOwnProperty("Brand") && typeof currentGpu.Brand === "string" && supportedBrands.includes(currentGpu.Brand), `GPU.Brand property missing or malformed`);
+				client.assert(currentGpu.hasOwnProperty("IsMissing") && typeof currentGpu.IsMissing === "boolean", "GPU.IsMissing property missing or of the wrong type");
+
+				// If GPU is missing, skip the rest of the checks
+				if (currentGpu.hasOwnProperty("IsMissing") && !currentGpu.IsMissing) {
+					const requiredFields = {
+						"Name": "string",
+						"GraphicsUtilPerc": "number",
+						"VramUtilPerc": "number",
+						"VramTotalBytes": "number",
+						"VramUsedBytes": "number",
+						"EncoderUtilPerc": "number",
+						"DecoderUtilPerc": "number",
+						"VideoEnhanceUtilPerc": "number",
+						"GraphicsFrequency": "number",
+                        "EncDecFrequency": "number",
+                        "PowerUse": "number",
+                        "TemperatureC": "number"
+                    }
+
+					for (const field in requiredFields) {
+						client.assert(currentGpu.hasOwnProperty(field) && (typeof currentGpu[field] === requiredFields[field] || currentGpu[field] == null), `GPU.${gpu}.${field} property missing or of the wrong type`);
+                    }
+				}
+			}
+        }
+
+		client.assert(response.body.hasOwnProperty("Memory") && typeof response.body.Memory === "object", "Memory property missing or malformed");
+		if (response.body.hasOwnProperty("Memory")) {
+			const memoryField = response.body.Memory[0];
+			const requiredFields = {
+				"TotalMemory": "number",
+				"UsedMemory": "number",
+				"AvailableMemory": "number",
+				"UsedMemoryPercent": "number"
+			}
+
+			for (const field in requiredFields) {
+				client.assert(memoryField.hasOwnProperty(field) && (typeof memoryField[field] === requiredFields[field]), `Memory.${field} property missing or of the wrong type`);
+			}
+        }
+
+		client.assert(response.body.hasOwnProperty("Mounts") && typeof response.body.Mounts === "object", "Mounts property missing or malformed");
+		if (response.body.hasOwnProperty("Mounts")) {
+			const allMounts = response.body.Mounts;
+
+            for (const mount in allMounts) {
+				const currentMount = allMounts[mount];
+
+				client.assert(currentMount.hasOwnProperty("MountPoint") && typeof currentMount.MountPoint === "string" && currentMount.MountPoint !== "", "Mounts.MountPoint property missing or of the wrong type");
+				client.assert(currentMount.hasOwnProperty("IsMissing") && typeof currentMount.IsMissing === "boolean", "Mounts.IsMissing property missing or of the wrong type");
+
+				// If the mount is missing, skip the rest of the checks
+				if (currentMount.hasOwnProperty("IsMissing") && !currentMount.IsMissing) {
+					const requiredFields = {
+						"DeviceName": "string",
+						"MountName": "string",
+						"DevicePath": "string",
+						"FileSystem": "string",
+
+						"TotalSize": "number",
+						"FreeSize": "number",
+						"UsedSize": "number",
+						"UsedSizePercent": "number",
+
+                        "TemperatureLabel": "string",
+                        "TemperatureC": "number",
+                        "TemperatureMinC": "number",
+                        "TemperatureMaxC": "number",
+                        "TemperatureCritC": "number"
+					}
+
+					for (const field in requiredFields) {
+						client.assert(currentMount.hasOwnProperty(field) && typeof currentMount[field] === requiredFields[field], `Mount.${mount}.${field} property missing or of the wrong type`);
+					}
+				}
+			}
+        }
+	})
+%}

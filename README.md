@@ -6,7 +6,7 @@ and the freedom to choose or make your own frontend without the need to reinvent
 The word "Bayt" comes from Arabic and means "House", because a good house provides you with a good, 
 reliable foundation to decorate and make your own however you'd like!
 
-Bayt is still in a very early alpha phase.
+Bayt is still in an early alpha phase.
 
 More detailed info on Bayt can be found in [the repository's wiki!](https://github.com/Trip7274/Bayt_API/wiki)
 
@@ -16,15 +16,28 @@ More detailed info on Bayt can be found in [the repository's wiki!](https://gith
 - [X] Proper configuration files (JSON-based)
 - [X] Configuration-altering endpoints
 - [X] More granular data-fetching endpoints
-- [ ] Basic "reference" frontend implementation
+- [ ] Basic "reference" frontend implementation (Delayed as I have very little experience with frontends, 
+please do help out if you have the experience!)
 - [ ] More server-management endpoints
+	- [ ] WoL management and support
+	- [ ] Cronjob management endpoint and functionality (For running scripts and such)
+	- [ ] Shutdown and restart endpoints
+	- [ ] Arbitrary JSON/CBOR exchange endpoints for things like client-wide configs
+	- [ ] SMB Share management endpoints
+	- [ ] Docker container management endpoints
+		- [ ] A container catalouge with pre-made and configurable compose files for popular containers? (Jellyfin, Various game servers, Immich, Cloudflare Tunnels, etc.)
+		- This should be provided by a donation-funded but public repository. Consider allowing custom repositories to be made and used
+	- \[Open an issue to suggest more!\]
+- [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
+- [ ] Detailed permissions
+	- [ ] Silo arbitrary JSON/CBOR to each client
+	- [ ] Add a permission to manage clients (with a dangerous disclaimer)
+	- [ ] Add a way to revoke clients without relying on any clients (Helper CLI?)
+	- [ ] Establish permission presets (Simple stat-viewing dashboards need less access than server management clients)
+- [ ] API documentation (Partially done, still a long way from finished, though)
 - [ ] Binary distribution across different Linux repos
 - [ ] Docker container implementation (if possible)
-- [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
-- [ ] SMB Share management endpoints
-- [ ] Docker container management endpoints
-- [ ] Detailed permissions
-- [ ] API documentation
+- *----1.0 Release!----*
 - [ ] Plugin support (if practical)
 
 ## Dependencies

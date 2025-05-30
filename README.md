@@ -43,7 +43,7 @@ please do help out if you have the experience!)
 ## Dependencies
 Currently, this is only supported on Linux using the ASP.NET Core Runtime 9,
 and these are the specific dependencies for each GPU vendor:
-- NVIDIA Systems:
+- NVIDIA Systems: (looking for testers; progress paused)
 	- `nvidia-smi`
 - Intel GPU Systems:
 	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as sudo beforehand)

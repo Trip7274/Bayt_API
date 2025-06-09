@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Text.Json;
 using Bayt_API;
 
@@ -271,4 +272,79 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext con
 	return Results.NoContent();
 }).WithName("RemoveMounts");
 
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", async (HttpContext context) =>
+{
+	var checkedInput = await RequestChecking.CheckContType(context);
+	if (checkedInput.ErrorMessage is not null)
+	{
+		return Results.BadRequest(checkedInput.ErrorMessage);
+	}
+
+	var clientsRaw = JsonSerializer.Deserialize<Dictionary<string, string>>(checkedInput.RequestBody) ?? [];
+	Dictionary<string, string> clients = [];
+	if (clientsRaw.Count == 0)
+	{
+		return Results.BadRequest("List must contain more than 0 elements.");
+	}
+
+	foreach (var clientKvp in clientsRaw.Where(clientKvp => IPAddress.TryParse(clientKvp.Key, out _) && clientKvp.Value != ""))
+	{
+		clients.TryAdd(clientKvp.Key, clientKvp.Value);
+	}
+
+	if (clients.Count == 0)
+	{
+		return Results.BadRequest("List evaluated down to 0 valid elements.");
+	}
+
+	ApiConfig.MainConfigs.AddWolClient(clients);
+
+	return Results.NoContent();
+});
+
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext context) =>
+{
+	// TODO: Make this more DRY
+	var checkedInput = await RequestChecking.CheckContType(context);
+	if (checkedInput.ErrorMessage is not null)
+	{
+		return Results.BadRequest(checkedInput.ErrorMessage);
+	}
+
+	var ipAddrs = (JsonSerializer.Deserialize<Dictionary<string, List<string>>>(checkedInput.RequestBody) ?? new() {{"IPs", []}})["IPs"];
+	if (ipAddrs.Count == 0)
+	{
+		return Results.BadRequest("List must contain more than 0 elements.");
+	}
+
+	ApiConfig.MainConfigs.RemoveWolClient(ipAddrs);
+
+	return Results.NoContent();
+});
+
+
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/GetWolClients", () =>
+{
+	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.ConfigProps.WolClients), "application/json", statusCode:StatusCodes.Status200OK);
+}).WithName("GetWolClients").Produces(StatusCodes.Status200OK);
+
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string ipAddress) =>
+{
+	if (ApiConfig.MainConfigs.ConfigProps.WolClientsClass is null)
+	{
+		ApiConfig.MainConfigs.UpdateConfig();
+	}
+
+	var clientToWake =
+		ApiConfig.MainConfigs.ConfigProps.WolClientsClass!.Find(client =>
+			client.IpAddress.ToString() == ipAddress);
+	if (clientToWake is null)
+	{
+		return Results.BadRequest($"No WoL client with IP '{ipAddress}' was found.");
+	}
+
+	WolHandling.WakeClient(clientToWake);
+
+	return Results.NoContent();
+});
 app.Run();

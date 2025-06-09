@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Bayt_API;
 
-// This class was mostly written by Gemini.
+// This class was mostly written by Gemini. TODO: Rewrite this yourself.
 
 /// <summary>
 /// Represents the result of executing a shell command.

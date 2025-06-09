@@ -19,15 +19,12 @@ More detailed info on Bayt can be found in [the repository's wiki!](https://gith
 - [ ] Basic "reference" frontend implementation (Delayed as I have very little experience with frontends, 
 please do help out if you have the experience!)
 - [ ] More server-management endpoints
-	- [ ] WoL management and support
+	- [X] WoL management and support
 	- [ ] Cronjob management endpoint and functionality (For running scripts and such)
 	- [ ] Shutdown and restart endpoints
 	- [ ] Arbitrary JSON/CBOR exchange endpoints for things like client-wide configs
 	- [ ] SMB Share management endpoints
 	- [ ] Docker container management endpoints
-		- [ ] A container catalouge with pre-made and configurable compose files for popular containers? (Jellyfin, Various game servers, Immich, Cloudflare Tunnels, etc.)
-		- This should be provided by a donation-funded but public repository. Consider allowing custom repositories to be made and used
-	- \[Open an issue to suggest more!\]
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions
 	- [ ] Silo arbitrary JSON/CBOR to each client

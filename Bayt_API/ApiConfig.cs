@@ -1,15 +1,19 @@
+using System.Net;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Bayt_API;
 
 public static class ApiConfig
 {
-	public const string Version = "0.5.7";
+	public const string Version = "0.6.8";
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public const ushort NetworkPort = 5899;
 	public static DateTime LastUpdated { get; set; }
+
 	public static readonly string BaseExecutablePath = Environment.CurrentDirectory;
 	private static readonly string BaseConfigPath = Path.Combine(BaseExecutablePath, "config");
 	private static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
@@ -52,9 +56,12 @@ public static class ApiConfig
 
 			public required string BackendName { get; init; }
 			public ushort SecondsToUpdate { get; set; }
-			public required Dictionary<string, string> WatchedMounts { get; init; }
+			public required Dictionary<string, string> WatchedMounts { get; init; } // e.g. "/": "Root Partition"
+			public required Dictionary<string, Dictionary<string, string?>> WolClients { get; init; }
+			[JsonIgnore]
+			public List<WolHandling.WolClient>? WolClientsClass { get; set; }
 		}
-		private static readonly List<string> RequiredProperties = ["ConfigVersion", "WatchedMounts"];
+		private static readonly List<string> RequiredProperties = ["ConfigVersion", "WatchedMounts", "WolClients"];
 
 
 		/// <summary>
@@ -67,8 +74,12 @@ public static class ApiConfig
 		{
 			CheckConfig();
 
-			return JsonSerializer.Deserialize<ConfigProperties>(File.ReadAllText(ConfigFilePath, Encoding.UTF8))
+			var configProperties = JsonSerializer.Deserialize<ConfigProperties>(File.ReadAllText(ConfigFilePath, Encoding.UTF8))
 			       ?? throw new Exception("Failed to deserialize config file");
+
+			LoadWolClientsList(ref configProperties);
+
+			return configProperties;
 		}
 
 		// Config file maintainence
@@ -102,7 +113,8 @@ public static class ApiConfig
 				ConfigVersion = ApiVersion,
 				BackendName = "Bayt API Host",
 				SecondsToUpdate = 5,
-				WatchedMounts = new Dictionary<string, string> { {"/", "Root Partition"} }
+				WatchedMounts = new() { {"/", "Root Partition"} },
+				WolClients = []
 			}), Encoding.UTF8);
 		}
 
@@ -187,6 +199,8 @@ public static class ApiConfig
 			UpdateConfig();
 		}
 
+		// Mountpoint management
+
 		/// <summary>
 		/// Adds however many mountpoints you'd like to the in-disk configuration and updates the live configuration.
 		/// </summary>
@@ -240,6 +254,104 @@ public static class ApiConfig
 			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
 			UpdateConfig();
 		}
+
+		// WOL management
+
+		private static void LoadWolClientsList(ref ConfigProperties configProps)
+		{
+			if (configProps.WolClientsClass is not null)
+			{
+				return;
+			}
+
+			List<WolHandling.WolClient> wolClientsList = [];
+
+			foreach (var wolClientDict in configProps.WolClients)
+			{
+				try
+				{
+					IPAddress? broadcastAddress = null;
+					if (wolClientDict.Value.TryGetValue("BroadcastAddress", out var rawBroadcastAddress) && rawBroadcastAddress != "null" && rawBroadcastAddress != null)
+					{
+						broadcastAddress = IPAddress.Parse(rawBroadcastAddress);
+					}
+
+					wolClientsList.Add(new WolHandling.WolClient
+					{
+						Name = wolClientDict.Value.GetValueOrDefault("Name"),
+						PhysicalAddress = PhysicalAddress.Parse(wolClientDict.Key),
+						IpAddress = IPAddress.Parse(wolClientDict.Value["IpAddress"]!),
+						SubnetMask = IPAddress.Parse(wolClientDict.Value["SubnetMask"]!),
+						BroadcastAddress = broadcastAddress
+					});
+				}
+				catch (Exception e)
+				{
+					wolClientDict.Value.TryGetValue("Name", out var name);
+					Console.WriteLine($"[ERROR] Failed to load a WoL client from the configuration file. Detected name: '{name ?? "(unable to fetch name)"}' Skipping.\nError: {e.Message}\nStack trace: {e.StackTrace}");
+				}
+			}
+
+			configProps.WolClientsClass = wolClientsList;
+		}
+
+		public void AddWolClient(Dictionary<string, string> clients)
+		{
+			// Input format: { "IPv4 Address": "Label" }
+
+			var newConfig = GetConfig();
+
+			foreach (var clientsToAdd in clients)
+			{
+				PhysicalAddress physicalAddress;
+				IPAddress subnetMask;
+				try
+				{
+					physicalAddress = PhysicalAddress.Parse(ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", $"PhysicalAddress {clientsToAdd.Key}").StandardOutput);
+					subnetMask = IPAddress.Parse(ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", "Netmask").StandardOutput);
+				}
+				catch (FormatException)
+				{
+					Console.WriteLine($"[WARNING] Failed to get physical address for {clientsToAdd.Key} ('{clientsToAdd.Value}'), skipping.");
+					continue;
+				}
+
+				newConfig.WolClients.TryAdd(physicalAddress.ToString(), new()
+				{
+					{ "Name", clientsToAdd.Value },
+					{ "IpAddress", clientsToAdd.Key },
+					{ "SubnetMask", subnetMask.ToString() },
+					{ "BroadcastAddress", null }
+				});
+			}
+
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
+			UpdateConfig();
+		}
+
+		public void RemoveWolClient(List<string> clients)
+		{
+			var newConfig = GetConfig();
+
+			foreach (var configKvp in from clientIpAddr in clients from configKvp in newConfig.WolClients where configKvp.Value["IpAddress"] == clientIpAddr select configKvp)
+			{
+				newConfig.WolClients.Remove(configKvp.Key);
+			}
+
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
+			UpdateConfig();
+		}
+
+		internal void UpdateBroadcastAddress(WolHandling.WolClient wolClient, string newBroadcastAddress)
+		{
+			var newConfig = GetConfig();
+
+			newConfig.WolClients[wolClient.PhysicalAddress.ToString()]["BroadcastAddress"] = newBroadcastAddress;
+
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
+			UpdateConfig();
+		}
+
 	}
 
 

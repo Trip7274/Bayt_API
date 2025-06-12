@@ -43,20 +43,30 @@ public static class GpuHandling
 			// "GPU Brand|GPU Name|Graphics Util Perc|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|Encoder Util|Decoder Util?|Video Enhance Util?|Graphics Frequency|Encoder/Decoder Frequency?|Power Usage|TemperatureC?"
 
 			var shellScriptProcess = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {gpuId}");
-			string rawOutput = shellScriptProcess.StandardOutput.TrimEnd('|');
-			string[] arrayOutput = rawOutput.Split('|');
+			string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
 
 			if (arrayOutput[1] == "null")
 			{
 				gpuDataList.Add(new GpuData
 				{
-					Brand = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"gpu_brand {gpuId}").StandardOutput.TrimEnd('\n'),
+					Brand = arrayOutput[0],
 					IsMissing = true
 				});
 				continue;
 			}
 
-			if (arrayOutput[3] == "null")
+			if (arrayOutput[0] == "Virtio")
+			{
+				gpuDataList.Add(new GpuData
+				{
+					Brand = arrayOutput[0],
+					Name = arrayOutput[1].Trim('"'),
+					IsMissing = false
+				});
+				continue;
+			}
+
+			if (arrayOutput[3] == "null" && arrayOutput[4] != "null" && arrayOutput[5] != "null")
 			{
 				arrayOutput[3] = $"{float.Parse(arrayOutput[5]) / float.Parse(arrayOutput[4]) * 100}";
 			}

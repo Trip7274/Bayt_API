@@ -2,8 +2,8 @@
 
 # STAT can be:
 #
-# GPU Brand = gpu_brand (NVIDIA, Intel, AMD)
-# GPU Name = gpu_name (NVIDIA, Intel [Basic], AMD)
+# GPU Brand = gpu_brand (NVIDIA, Intel, AMD, Virtio)
+# GPU Name = gpu_name (NVIDIA, Intel [Basic], AMD, Virtio [Basic])
 # PCI IDs of every GPU = gpu_ids (All)
 #
 # Graphics Util (%) = utilization.gpu (NVIDIA, Intel [3D Util], AMD [Graphics])
@@ -310,8 +310,16 @@ getIntel() {
 	exit 0
 }
 
+getVirtio() {
+	CATTEDOUTPUT="Virtio|Virtual GPU|null|null|null|null|null|null|null|null|null|null|null"
 
-BRAND="$(lspci | grep ' VGA ' | grep "$PCIID" | grep -o -E -- "(NVIDIA)?(AMD)?(Intel)?")"
+	logHelper "$CATTEDOUTPUT" "stdout"
+    logHelper "---Exiting (OK)---"
+    exit 0
+}
+
+
+BRAND="$(lspci | grep ' VGA ' | grep "$PCIID" | grep -o -E -- "(NVIDIA)?(AMD)?(Intel)?(Virtio)?")"
 
 if [ "$STAT" = "gpu_brand" ]; then
 	logHelper "GPU Brand requested. Returning '$BRAND'"
@@ -335,6 +343,11 @@ case $BRAND in
 	"Intel")
 		logHelper "Chose Intel branch"
 		getIntel
+	;;
+
+	"Virtio")
+		logHelper "Chose Virtio branch"
+		getVirtio
 	;;
 esac
 

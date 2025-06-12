@@ -28,19 +28,16 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 	{
 		string[] possibleStats = ["Meta", "System", "CPU", "GPU", "Memory", "Mounts"];
 
-		var checkedInput = await RequestChecking.CheckContType(context);
-		if (checkedInput.ErrorMessage is not null)
-		{
-			if (checkedInput.RequestBody != "")
-			{
-				return Results.BadRequest(checkedInput.ErrorMessage);
-			}
-		}
-
 		List<string> requestedStats;
 		try
 		{
-			requestedStats = (JsonSerializer.Deserialize<Dictionary<string, List<string>>>(checkedInput.RequestBody) ?? []).Values.First();
+			requestedStats =
+				(await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context) ?? [])
+				.Values.First();
+		}
+		catch (BadHttpRequestException e)
+		{
+			return Results.BadRequest(e.Message);
 		}
 		catch (JsonException)
 		{
@@ -48,10 +45,11 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 			requestedStats = ["All"];
 		}
 
+
 		if (requestedStats.Count == 0)
 		{
 			Debug.WriteLine($"Got a request asking for '{string.Join(", ", requestedStats)}', but none matched so we're returning a BadRequest.");
-			return Results.BadRequest("List must contain more than 0 elements.");
+			return Results.BadRequest("Stat list must contain at least 1 element.");
 		}
 
 		if (requestedStats.Contains("All"))
@@ -198,13 +196,16 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context
 {
 	// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
 
-	var checkedInput = await RequestChecking.CheckContType(context);
-	if (checkedInput.ErrorMessage is null)
+	Dictionary<string, dynamic> newConfigs;
+	try
 	{
-		return Results.BadRequest(checkedInput.ErrorMessage);
+		newConfigs = await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, dynamic>>(context) ?? [];
+	}
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
 	}
 
-	var newConfigs = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(checkedInput.RequestBody) ?? [];
 	ApiConfig.MainConfigs.EditConfig(newConfigs);
 
 	return Results.NoContent();
@@ -238,16 +239,19 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context) =>
 {
-	var checkedInput = await RequestChecking.CheckContType(context);
-	if (checkedInput.ErrorMessage is not null)
+	Dictionary<string, string?> mountPoints;
+	try
 	{
-		return Results.BadRequest(checkedInput.ErrorMessage);
+		mountPoints = await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string?>>(context) ?? [];
+	}
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
 	}
 
-	var mountPoints = JsonSerializer.Deserialize<Dictionary<string, string?>>(checkedInput.RequestBody) ?? [];
 	if (mountPoints.Count == 0)
 	{
-		return Results.BadRequest("List must contain more than 0 elements.");
+		return Results.BadRequest("Mountpoints list must contain at least 1 element.");
 	}
 
 	ApiConfig.MainConfigs.AddMountpoint(mountPoints);
@@ -258,15 +262,16 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context)
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext context) =>
 {
-	var checkedInput = await RequestChecking.CheckContType(context);
-	if (checkedInput.ErrorMessage is not null)
+	List<string> mountPoints;
+	try
 	{
-		return Results.BadRequest(checkedInput.ErrorMessage);
+		mountPoints = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context) ?? new() {{"Mounts", []}})["Mounts"];
+	}
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
 	}
 
-	// This is a bit of a mess, but it's shorthand for:
-	// get the list of mount points from the request, if it's null, get an empty list.
-	var mountPoints = (JsonSerializer.Deserialize<Dictionary<string, List<string>>>(checkedInput.RequestBody) ?? new() {{"Mounts", []}})["Mounts"];
 	if (mountPoints.Count == 0)
 	{
 		return Results.BadRequest("List must contain more than 0 elements.");
@@ -283,13 +288,16 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext con
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", async (HttpContext context) =>
 {
-	var checkedInput = await RequestChecking.CheckContType(context);
-	if (checkedInput.ErrorMessage is not null)
+	Dictionary<string, string> clientsRaw;
+	try
 	{
-		return Results.BadRequest(checkedInput.ErrorMessage);
+		clientsRaw = await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? [];
+	}
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
 	}
 
-	var clientsRaw = JsonSerializer.Deserialize<Dictionary<string, string>>(checkedInput.RequestBody) ?? [];
 	Dictionary<string, string> clients = [];
 	if (clientsRaw.Count == 0)
 	{
@@ -313,17 +321,18 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", async (HttpContext conte
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext context) =>
 {
-	// TODO: Make this more DRY
-	var checkedInput = await RequestChecking.CheckContType(context);
-	if (checkedInput.ErrorMessage is not null)
+	List<string> ipAddrs;
+	try
 	{
-		return Results.BadRequest(checkedInput.ErrorMessage);
+		ipAddrs = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context) ?? new() {{"IPs", []}})["IPs"];
 	}
-
-	var ipAddrs = (JsonSerializer.Deserialize<Dictionary<string, List<string>>>(checkedInput.RequestBody) ?? new() {{"IPs", []}})["IPs"];
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
 	if (ipAddrs.Count == 0)
 	{
-		return Results.BadRequest("List must contain more than 0 elements.");
+		return Results.BadRequest("IP address list must contain at least 1 element.");
 	}
 
 	ApiConfig.MainConfigs.RemoveWolClient(ipAddrs);

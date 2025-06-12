@@ -21,6 +21,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 Console.WriteLine($"Starting API at: http://localhost:{ApiConfig.NetworkPort}");
 app.Urls.Add($"http://localhost:{ApiConfig.NetworkPort}");
+
+
+
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache, HttpContext context) =>
 	{
 		string[] possibleStats = ["Meta", "System", "CPU", "GPU", "Memory", "Mounts"];
@@ -189,9 +192,10 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 
 
 
-// General Api Config management
+// API Config management endpoints
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context) => {
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context) =>
+{
 	// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
 
 	var checkedInput = await RequestChecking.CheckContType(context);
@@ -223,7 +227,8 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 }).WithName("UpdateLiveConfigs").Produces(StatusCodes.Status200OK);
 
 
-// Mounts management
+
+// Mount management endpoints
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 {
@@ -271,6 +276,10 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext con
 
 	return Results.NoContent();
 }).WithName("RemoveMounts");
+
+
+
+// WoL endpoints
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", async (HttpContext context) =>
 {
@@ -321,7 +330,6 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext
 
 	return Results.NoContent();
 });
-
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/GetWolClients", () =>
 {

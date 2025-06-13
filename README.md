@@ -20,7 +20,6 @@ More detailed info on Bayt can be found in [the repository's wiki!](https://gith
 please do help out if you have the experience!)
 - [ ] More server-management endpoints
 	- [X] WoL management and support
-	- [ ] Cronjob management endpoint and functionality (For running scripts and such)
 	- [ ] Shutdown and restart endpoints
 	- [ ] Arbitrary JSON/CBOR exchange endpoints for things like client-wide configs
 	- [ ] SMB Share management endpoints
@@ -47,13 +46,31 @@ and these are the specific dependencies for each GPU vendor:
 - AMD GPU Systems:
 	- `amdgpu_top`
 
-Along with utilites you probably already have, such as `bash`, `grep`, `sed`, `awk`, `head`, and `df`
+Along with utilites you probably already have, such as `bash`, (GNU) `grep`, `head`, and `df`.
+
+---
+I mainly test this on CachyOS (Arch-based) and a plain Fedora server, but I do try to use as many distro-agnostic features as I can.
+If you encounter any issues on other distros, feel free to open an issue!
+
+This project also uses shell scripts to fetch most system stats (located in the `Bayt_API/scripts` directory),
+so you shouldn't need C#-specific knowledge to troubleshoot any of the system-facing interactions.
+Do be sure to output the data in the appropriate format, though!
+
+You can find the proper format and documentation in each script's head.
 
 ## Installation and usage
 Bayt is still in a very early stage, thus the compiled binaries are unavailable. 
 You're free to compile the source code and test it out, though!
 
-If you'd like to tinker with it, compilation should be quite simple,
-execute `git clone https://github.com/Trip7274/Bayt_API.git; cd Bayt_API/Bayt_API/; dotnet build --configuration Release` in a shell.
+If you'd like to tinker with it, compilation should be quite simple. Make sure to [grab the .NET SDK 9.0 beforehand](https://learn.microsoft.com/en-us/dotnet/core/install/linux)!
 
-The final binary should be in `bin/Release/net9.0` called `Bayt_API`
+1. Retrieve the latest branch using `git clone https://github.com/Trip7274/Bayt_API.git`
+2. Switch to the appropriate directory using `cd Bayt_API/Bayt_API/`
+3. Compile by running `dotnet build --configuration Release`
+4. Switch to the output directory using `cd bin/Release/net9.0`
+5. Execute the server binary using `./Bayt_API`
+
+If you'd like it as a one-liner, here you go:
+```
+git clone https://github.com/Trip7274/Bayt_API.git; cd Bayt_API/Bayt_API/; dotnet build --configuration Release; cd bin/Release/net9.0; ./Bayt_API
+```

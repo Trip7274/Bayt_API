@@ -1,8 +1,15 @@
 #!/bin/sh
 
-# Returns in Bytes
-
 STAT="$1"
+
+# The expected output format varies depending on $STAT. All units are in Bytes and are expected to be ulong.
+#
+# $STAT can be:
+# "Total" to fetch the total system memory
+# "Used" to fetch the used system memory
+# "Available" or "Free" to fetch the AVAILABLE system memory
+#
+# "All" for a list of all the previously stated stats. This is expected to be a string in the format: "Total|Used|Available"
 
 [ "$STAT" = "" ] && exit 1
 
@@ -17,7 +24,8 @@ case $STAT in
 		REGEX="Mem:\s+[0-9]+\s+\K[0-9]+\s+\K[0-9]+"
 	;;
 
-	"Free")
+	"Free" | "Available")
+		# This outputs the AVAILABLE memory, the "Free" case is there for compatibility.
     	REGEX="Mem:\s+[0-9]+\s+\K[0-9]+\s+[0-9]+\s+[0-9]+\s+[0-9]+\s+\K[0-9]+"
     ;;
 

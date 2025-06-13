@@ -1,11 +1,14 @@
 #!/bin/sh
 
+STAT="$1"
+
+
+# This is currently quite empty, but also very simple.
 # STAT can be:
-# "Distro.Name" for the Distro's name
+#
+# "Distro.Name" for the Distro's name [string]
 # TODO: Would be great if we could get the ANSI colors (from /etc/os-release) and convert them to HEX, to help frontend customization.
 #
-
-STAT="$1"
 
 [ "$STAT" = "" ] && exit 01
 

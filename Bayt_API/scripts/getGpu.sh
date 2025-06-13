@@ -1,6 +1,18 @@
 #!/bin/bash
 
-# STAT can be:
+STAT="$1"
+PCIID="$2"
+
+# Expected output: "GPU Brand [string]|GPU Name [string?]|Graphics Util Perc [float?]|VRAM Util Perc [float?]|VRAM Total Bytes [ulong?]|VRAM Used Bytes [ulong?]|Encoder Util [float?]|Decoder Util [float?]|Video Enhance Util [float?]|Graphics Frequency [float?]|Encoder/Decoder Frequency [float?]|Power Usage [float?]|TemperatureC [sbyte?]"
+# The only REQUIRED output is the GPU Brand, everything else can be "null". If the GPU Name is reported as null, the GPU will be reported as missing.
+# When the $STAT is "gpu_ids", the expected output is a newline-seperated list of PCI IDs. For example:
+# """
+# 03:00.0
+# 13:00.0
+# """
+# If the $STAT is NOT "gpu_ids", then it is expected that the specific GPU ID is passed as $PCIID
+#
+# $STAT can be:
 #
 # GPU Brand = gpu_brand (NVIDIA, Intel, AMD, Virtio)
 # GPU Name = gpu_name (NVIDIA, Intel [Basic], AMD, Virtio [Basic])
@@ -48,8 +60,6 @@ fi
 
 logHelper "---getGpu.sh started---"
 
-STAT="$1"
-PCIID="$2"
 logHelper "STAT: '$STAT', PCI ID: '$PCIID'"
 
 [ "$STAT" = "All" ] && STAT=""

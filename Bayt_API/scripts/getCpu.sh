@@ -1,5 +1,17 @@
 #!/bin/sh
 
+STAT="$1"
+
+# The output format varies here, usually being a single number if the $STAT wasn't "AllUtil". Consult the list below for specific types and documentation
+#
+# $STAT can be:
+# "Name" for the CPU's name                                                    [string]
+# "UtilPerc" for the CPU's utilization percentage (over all cores)             [float]
+# "PhysicalCores" for the physical CPU core count                              [ushort]
+# "ThreadCount" for the amount of logical CPU cores (AKA threads)              [ushort]
+#
+# "AllUtil" for a list with the format: "UtilPerc|PhysicalCores|ThreadCount"
+
 LOGPATH="logs/CPU.log"
 logHelper(){
 	# Truncate the log file if it's over 10K lines
@@ -39,7 +51,7 @@ getUtil() {
     logHelper "$UTILPERC" "stdout"
 }
 
-getPcores() {
+getPhysicalCores() {
 	PCORES="$(grep -oP "cpu cores\s+:\s+\K[0-9]+" < /proc/cpuinfo | head -n 1)"
     logHelper "PhysicalCores requested, returned: '$PCORES'"
 
@@ -55,39 +67,41 @@ getThreads() {
 
 logHelper "---getCpu.sh started---"
 
-OPERATION=$1
-
-if [ "$OPERATION" = "" ]; then
-	logHelper "OPERATION not provided, exiting..."
+if [ "$STAT" = "" ]; then
+	logHelper "STAT not provided, exiting..."
 	logHelper "---Exiting (Fail 01)---"
 
 	exit 1
 fi
 
-case $OPERATION in
+case $STAT in
 	"Name")
+		logHelper "CPU name requested, choosing that branch."
     	getName
     ;;
 
 	"UtilPerc")
+		logHelper "CPU utilization requested, choosing that branch."
 		getUtil
     ;;
 
 	"PhysicalCores")
-		getPcores
+		logHelper "CPU physical core count requested, choosing that branch."
+		getPhysicalCores
 	;;
 
 	"ThreadCount")
+		logHelper "CPU thread count requested, choosing that branch."
 		getThreads
 	;;
 
 	"AllUtil")
-		logHelper "AllUtil requested, returning list"
-		logHelper "$(getUtil)|$(getPcores)|$(getThreads)" "stdout"
+		logHelper "All stats requested, returning list"
+		logHelper "$(getUtil)|$(getPhysicalCores)|$(getThreads)" "stdout"
 	;;
 
 	*)
-		logHelper "$OPERATION requested, returning null as it isn't recognized"
+		logHelper "'$STAT' requested, returning null as it isn't recognized"
 		logHelper "null" "stdout"
 	;;
 esac

@@ -3,6 +3,16 @@
 STAT="$1"
 IPADDR="$2"
 
+# The expected format is a bare string.
+# $IPADDR is expected only when $STAT is "PhysicalAddress".
+#
+# $STAT can be:
+# "PhysicalAddress" to retrieve the Physical (or MAC) address of a specific machine in the LAN. Falls back to "null" in case it was not found. (TODO: Add more fallback options to fetch the physical address)
+# "NetworkDevice" for the current device's default network device. Example: "enp14s0"
+# "Netmask" for the default network devices's netmask. Example: "255.255.255.0"
+# "LocalAddress" for the current device's local IP address. Example: "192.168.1.2"
+#
+
 [ "$STAT" = "" ] && echo null && exit 01
 
 NETDEV="$(ip -o -f inet route | grep -oP "(wl[^\s]*)?(en[^\s]*)?" | head -n 1)"

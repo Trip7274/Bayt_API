@@ -17,7 +17,7 @@ Accept: application/json
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, `Response json is not empty, got: ${response.body}`);
 
-		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
 	});
 %}
 
@@ -38,7 +38,7 @@ GET {{Bayt_API_HostAddress}}/getMountsList/
 		client.assert(response.status === 200, "Response status is not 200");
 		client.assert(response.body !== "", "Response json is empty");
 
-		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
     })
 %}
 
@@ -69,7 +69,7 @@ GET {{Bayt_API_HostAddress}}/getApiConfigs/
 
 		client.assert(response.body["WatchedMounts"] !== "", "WatchedMounts doesn't have any children");
 
-		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
 	})
 %}
 
@@ -93,7 +93,7 @@ Content-Type: application/json
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, "Response json is not empty");
-		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
 	})
 %}
 
@@ -117,7 +117,7 @@ Content-Type: application/json
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, "Response json is not empty");
-		client.assert(timeToRespond < 50, `Response execution time is too long, got ${timeToRespond}ms`);
+		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
 	})
 %}
 

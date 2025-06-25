@@ -32,7 +32,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		try
 		{
 			requestedStats =
-				(await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context) ?? [])
+				(await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context, false) ?? [])
 				.Values.First();
 		}
 		catch (BadHttpRequestException e)
@@ -185,8 +185,9 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		}
 		return Results.Text(JsonSerializer.Serialize(responseDictionary), "application/json", statusCode:StatusCodes.Status200OK);
 	})
-	.WithName("GetStats")
-	.Produces(StatusCodes.Status200OK);
+	.Produces(StatusCodes.Status200OK)
+	.Produces(StatusCodes.Status400BadRequest)
+	.WithName("GetStats");
 
 
 
@@ -210,13 +211,16 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context
 
 	return Results.NoContent();
 
-}).WithName("ChangeDelay").Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status400BadRequest);
+}).Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status400BadRequest)
+	.WithName("EditConfig");
 
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
 {
 	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.ConfigProps), "application/json", statusCode:StatusCodes.Status200OK);
-}).WithName("GetActiveApiConfigs").Produces(StatusCodes.Status200OK);
+}).Produces(StatusCodes.Status200OK)
+	.WithName("GetActiveApiConfigs");
 
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
@@ -225,7 +229,8 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 
 	return Results.NoContent();
 
-}).WithName("UpdateLiveConfigs").Produces(StatusCodes.Status200OK);
+}).Produces(StatusCodes.Status200OK)
+	.WithName("UpdateLiveConfigs");
 
 
 
@@ -234,7 +239,8 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 {
 	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.ConfigProps.WatchedMounts), "application/json", statusCode:StatusCodes.Status200OK);
-}).WithName("GetMountsList").Produces(StatusCodes.Status200OK);
+}).Produces(StatusCodes.Status200OK)
+	.WithName("GetMountsList");
 
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context) =>
@@ -257,7 +263,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context)
 	ApiConfig.MainConfigs.AddMountpoint(mountPoints);
 
 	return Results.NoContent();
-}).WithName("AddMounts").Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status400BadRequest);
+}).WithName("AddMounts").Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status400BadRequest)
+	.WithName("AddMounts");
 
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext context) =>
@@ -280,7 +288,9 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext con
 	ApiConfig.MainConfigs.RemoveMountpoint(mountPoints);
 
 	return Results.NoContent();
-}).WithName("RemoveMounts");
+}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithName("RemoveMounts");
 
 
 
@@ -317,7 +327,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", async (HttpContext conte
 	ApiConfig.MainConfigs.AddWolClient(clients);
 
 	return Results.NoContent();
-});
+}).Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status400BadRequest)
+	.WithName("AddWolClients");
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext context) =>
 {
@@ -338,12 +350,15 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext
 	ApiConfig.MainConfigs.RemoveWolClient(ipAddrs);
 
 	return Results.NoContent();
-});
+}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithName("RemoveWolClients");
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/GetWolClients", () =>
 {
 	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.ConfigProps.WolClients), "application/json", statusCode:StatusCodes.Status200OK);
-}).WithName("GetWolClients").Produces(StatusCodes.Status200OK);
+}).Produces(StatusCodes.Status200OK)
+	.WithName("GetWolClients");
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string ipAddress) =>
 {
@@ -364,4 +379,185 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string ipAddress) =>
 
 	return Results.NoContent();
 });
+}).Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status400BadRequest)
+	.WithName("WakeWolClient");
+
+// Client Data endpoints
+// I'd like to note that I feel like the names for these can still use some work.
+
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (HttpContext context) =>
+{
+	/* Format:
+	 *
+	 * {
+	 *		"clientName": "jsonFileNameWithExtension"
+	 * }
+	 *
+	 * Sorta like "clientData/{key}/{value}"
+	 * Must authenticate the clientName to be under the jurisdiction of the requesting client in the future.
+	 */
+
+	KeyValuePair<string, string> dataFile;
+	try
+	{
+		dataFile = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? throw new BadHttpRequestException("Request body must be a JSON object.")).First();
+	}
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
+
+	try
+	{
+		return Results.Text(DataEndpointManagement.GetDataFile(dataFile.Key, dataFile.Value), dataFile.Value.EndsWith(".json") ? "application/json" : "text/plain");
+	}
+	catch (FileNotFoundException e)
+	{
+		return Results.NotFound(e.Message);
+	}
+}).Produces(StatusCodes.Status200OK)
+	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status404NotFound)
+	.WithName("GetClientData");;
+
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context) =>
+{
+	/*
+	 * The syntax of the request should be:
+	 *	{
+	 * 		"format": "json",
+	 * 		"folder": "Test",
+	 * 		"fileName": "configs.json",
+	 * 		"data": {
+	 * 			"Version": 1,
+	 *  		"Working": true
+	 * 		}
+	 *	}
+	 *
+	 * The value of "data" can be a string containing Base64-encoded data if "format" is not "json"
+	 */
+
+	List<Dictionary<string, dynamic>> piecesOfData;
+	try
+	{
+		piecesOfData = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<Dictionary<string, dynamic>>>>(context) ?? throw new BadHttpRequestException("Request body must be a JSON object.")).Values.First();
+	}
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
+
+	if (piecesOfData.Count == 0)
+	{
+		return Results.BadRequest("Request body must contain at least 1 element.");
+	}
+
+	foreach (var pieceOfData in piecesOfData)
+	{
+		if (pieceOfData.Count != 4)
+		{
+			throw new BadHttpRequestException("Invalid format of data object.");
+		}
+
+		DataEndpointManagement.DataFileMetadata metadataObject;
+		if (pieceOfData["format"].ToString() == "json")
+		{
+			metadataObject = new DataEndpointManagement.DataFileMetadata(
+				pieceOfData["format"].ToString(),
+				pieceOfData["folder"].ToString(),
+				pieceOfData["fileName"].ToString(),
+				null,
+				JsonDocument.Parse(JsonSerializer.Serialize(pieceOfData["data"]))
+			);
+		}
+		else
+		{
+			metadataObject = new DataEndpointManagement.DataFileMetadata(
+				pieceOfData["format"].ToString(),
+				pieceOfData["folder"].ToString(),
+				pieceOfData["fileName"].ToString(),
+				pieceOfData["data"].ToString(),
+				null
+
+			);
+		}
+
+		await DataEndpointManagement.SetDataFile(metadataObject);
+	}
+
+	return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status400BadRequest)
+	.WithName("SetClientData");
+
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", async (HttpContext context) =>
+{
+	/*
+	 * {
+	 *		"folder": "file"
+	 * }
+	 */
+
+	Dictionary<string, string> dataFiles;
+	try
+	{
+		dataFiles = await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? throw new BadHttpRequestException("Request body must be a JSON object.");
+	}
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
+
+	if (dataFiles.Count == 0)
+	{
+		return Results.BadRequest("Request body must contain at least 1 element.");
+	}
+
+	DataEndpointManagement.DeleteDataFiles(dataFiles);
+
+	return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status400BadRequest)
+	.WithName("DeleteClientData");
+
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", async (HttpContext context) =>
+{
+	/*
+	 * {
+	 *		"folderName": "folder1"
+	 * }
+	 */
+
+	string folderName;
+	try
+	{
+		folderName = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? throw new BadHttpRequestException("Request body must be a JSON object."))["folderName"] ;
+	}
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
+
+	if (folderName.Length == 0)
+	{
+		return Results.BadRequest("Requested folder name must not be empty.");
+	}
+
+	try
+	{
+		DataEndpointManagement.DeleteDataFolder(folderName);
+	}
+	catch (DirectoryNotFoundException)
+	{
+		return Results.NotFound($"Folder '{folderName}' was not found.");
+	}
+
+	return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status404NotFound)
+	.WithName("DeleteClientDataFolder");
+
+
 app.Run();

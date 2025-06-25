@@ -1,0 +1,51 @@
+### Fetch data file
+@Version = 0
+@Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}
+
+GET {{Bayt_API_HostAddress}}/getData/
+Accept: application/json
+Content-Type: application/json
+
+
+{
+    "Test": "configs.json"
+}
+
+
+### Set data file and folder
+POST {{Bayt_API_HostAddress}}/setData/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "Request": [
+        {
+            "format": "json",
+            "folder": "Test/subfolder",
+            "fileName": "configs.json",
+            "data": {
+                "Version": 1,
+                "Working": true
+            }
+        }
+    ]
+}
+
+### Delete data file
+DELETE {{Bayt_API_HostAddress}}/deleteData/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "Test/subfolder": "configs.json"
+}
+
+
+### Delete specific data folder recursively
+DELETE {{Bayt_API_HostAddress}}/deletefolder/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "folderName": "Test/subfolder"
+}

@@ -378,7 +378,6 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string ipAddress) =>
 	WolHandling.WakeClient(clientToWake);
 
 	return Results.NoContent();
-});
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.WithName("WakeWolClient");

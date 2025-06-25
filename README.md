@@ -21,7 +21,7 @@ please do help out if you have the experience!)
 - [ ] More server-management endpoints
 	- [X] WoL management and support
 	- [ ] Shutdown and restart endpoints
-	- [ ] Arbitrary JSON/CBOR exchange endpoints for things like client-wide configs
+	- [X] Arbitrary data exchange endpoints for things like client-wide configs
 	- [ ] SMB Share management endpoints
 	- [ ] Docker container management endpoints
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)

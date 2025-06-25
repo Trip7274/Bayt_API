@@ -83,7 +83,7 @@ Accept: application/json
 Content-Type: application/json
 
 {
-    "/mnt": "Mount Partition"
+    "/tmp": "Temporary Partition"
 }
 
 > {%
@@ -107,7 +107,7 @@ Accept: application/json
 Content-Type: application/json
 
 {
-    "Mounts": ["/mnt"]
+    "Mounts": ["/tmp"]
 }
 
 > {%
@@ -121,6 +121,110 @@ Content-Type: application/json
 	})
 %}
 
+### setData Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+POST {{Bayt_API_HostAddress}}/setData/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "Request": [
+        {
+            "format": "json",
+            "folder": "Testing/subfolder1",
+            "fileName": "testFile.json",
+            "data": {
+                "Version": 1,
+                "Working": true
+            }
+        }
+    ]
+}
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 204, "Response status is not 204");
+		client.assert(response.body === "" || response.body === null, "Response json is not empty");
+		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
+	})
+%}
+
+### getData Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+GET {{Bayt_API_HostAddress}}/getData/
+Accept: application/json
+Content-Type: application/json
+
+
+{
+    "Testing/subfolder2": "testFile.json"
+}
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+		const bodyField = response.body;
+
+		client.assert(response.status === 200, "Response status is not 200");
+		client.assert(bodyField !== "" && bodyField !== null, "Response json is empty");
+		client.assert((bodyField.hasOwnProperty("Version") && bodyField["Version"] === 1) && (bodyField.hasOwnProperty("Working") && bodyField["Working"] === true), `Response json is not as expected (got '${bodyField["Version"]}' and '${bodyField["Working"]}')`)
+		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
+	})
+%}
+
+### deleteData Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+DELETE {{Bayt_API_HostAddress}}/deleteData/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "Testing/subfolder3": "testFile.json"
+}
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 204, "Response status is not 204");
+		client.assert(response.body === "" || response.body === null, "Response json is not empty");
+		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
+	})
+%}
+
+### deleteFolder Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+DELETE {{Bayt_API_HostAddress}}/deletefolder/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "folderName": "Testing/subfolder44"
+}
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 204, "Response status is not 204");
+		client.assert(response.body === "" || response.body === null, "Response json is not empty");
+		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
+	})
+%}
 
 ### getStats Test
 < {%

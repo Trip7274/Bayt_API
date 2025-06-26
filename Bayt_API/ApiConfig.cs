@@ -56,6 +56,7 @@ public static class ApiConfig
 
 			public required string BackendName { get; init; }
 			public ushort SecondsToUpdate { get; set; }
+			public string PathToDataFolder { get; set; } = "clientData";
 			public required Dictionary<string, string> WatchedMounts { get; init; } // e.g. "/": "Root Partition"
 			public required Dictionary<string, Dictionary<string, string?>> WolClients { get; init; }
 			[JsonIgnore]
@@ -113,6 +114,7 @@ public static class ApiConfig
 				ConfigVersion = ApiVersion,
 				BackendName = "Bayt API Host",
 				SecondsToUpdate = 5,
+				PathToDataFolder = "clientData",
 				WatchedMounts = new() { {"/", "Root Partition"} },
 				WolClients = []
 			}), Encoding.UTF8);
@@ -144,7 +146,6 @@ public static class ApiConfig
 
 
 				if (jsonDocument.TryGetProperty("ConfigVersion", out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() > ApiVersion)
-					// Boohoo, Rider, I know ApiVersion is currently 0, hush.
 				{
 					Console.WriteLine($"[WARNING] Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons.");
 				}

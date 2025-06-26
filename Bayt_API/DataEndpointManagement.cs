@@ -5,7 +5,7 @@ namespace Bayt_API;
 
 public static class DataEndpointManagement
 {
-	private static readonly string ClientDataFolder = Path.Combine(ApiConfig.BaseExecutablePath, "clientData");
+	private static string ClientDataFolder => Path.GetRelativePath(ApiConfig.BaseExecutablePath, ApiConfig.MainConfigs.ConfigProps.PathToDataFolder);
 
 	private const string DefaultReadmeContent = """
 	                                     This folder contains all server-wide data for each client, separated by client.
@@ -18,7 +18,7 @@ public static class DataEndpointManagement
 	{
 		public DataFileMetadata(string format, string folder, string fileName, string? fileDataBase64 = null, JsonDocument? fileDataJson = null)
 		{
-			if (fileDataBase64 is null && fileDataJson is null)
+			if (fileDataJson is null && fileDataBase64 is null)
 			{
 				throw new ArgumentException("Either fileDataBase64 or fileDataJson must be provided.");
 			}

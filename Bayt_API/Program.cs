@@ -565,4 +565,6 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", async (HttpContext con
 	.WithName("DeleteClientDataFolder");
 
 
+Console.WriteLine("Starting API...\n");
+
 app.Run();

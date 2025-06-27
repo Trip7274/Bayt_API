@@ -22,6 +22,12 @@ app.UseHttpsRedirection();
 Console.WriteLine($"Starting API at: http://localhost:{ApiConfig.NetworkPort}");
 app.Urls.Add($"http://localhost:{ApiConfig.NetworkPort}");
 
+if (Environment.OSVersion.Platform != PlatformID.Unix)
+{
+	Console.WriteLine($"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like.\n" +
+	                  "Here be dragons, as this implementation is only targeted and supported for Unix-like systems.");
+}
+
 
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache, HttpContext context) =>

@@ -19,12 +19,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-Console.WriteLine($"Starting API at: http://localhost:{ApiConfig.NetworkPort}");
+Console.WriteLine($"[INFO] Starting API at: http://localhost:{ApiConfig.NetworkPort}");
 app.Urls.Add($"http://localhost:{ApiConfig.NetworkPort}");
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
-	Console.WriteLine($"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like.\n" +
+	Console.WriteLine($"[WARNING] Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like.\n" +
 	                  "Here be dragons, as this implementation is only targeted and supported for Unix-like systems.");
 }
 
@@ -566,5 +566,6 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", async (HttpContext con
 
 
 Console.WriteLine("Starting API...\n");
+Console.WriteLine("[INFO] Starting API...\n");
 
 app.Run();

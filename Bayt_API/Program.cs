@@ -19,13 +19,24 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-Console.WriteLine($"[INFO] Starting API at: http://localhost:{ApiConfig.NetworkPort}");
-app.Urls.Add($"http://localhost:{ApiConfig.NetworkPort}");
+
+string localhostUrl = $"http://localhost:{ApiConfig.NetworkPort}";
+Console.WriteLine($"[INFO] Adding URL '{localhostUrl}' to listen list");
+app.Urls.Add(localhostUrl);
+
+if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
+{
+	string ipUrl = $"http://{StatsApi.GetLocalIpAddress()}:{ApiConfig.NetworkPort}";
+	Console.WriteLine($"[INFO] Adding URL '{ipUrl}' to listen list");
+	app.Urls.Add(ipUrl);
+}
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
+	Console.ForegroundColor = ConsoleColor.Yellow;
 	Console.WriteLine($"[WARNING] Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like.\n" +
 	                  "Here be dragons, as this implementation is only targeted and supported for Unix-like systems.");
+	Console.ResetColor();
 }
 
 

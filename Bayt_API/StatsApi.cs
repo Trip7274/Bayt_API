@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Sockets;
+
 namespace Bayt_API;
 
 public static class StatsApi
@@ -92,5 +95,15 @@ public static class StatsApi
 			UsedMemory = ulong.Parse(rawOutput[1]),
 			AvailableMemory = ulong.Parse(rawOutput[2])
 		};
+	}
+
+	public static IPAddress GetLocalIpAddress()
+	{
+		using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
+		socket.Connect("1.1.1.1", 65530);
+		var endPoint = socket.LocalEndPoint as IPEndPoint ?? IPEndPoint.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getNet.sh", "LocalAddress").StandardOutput);
+		var localIp = endPoint.Address;
+
+		return localIp;
 	}
 }

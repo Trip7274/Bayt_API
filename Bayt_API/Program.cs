@@ -451,7 +451,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (HttpContext context) =>
 }).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
-	.WithName("GetClientData");;
+	.WithName("GetClientData");
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context) =>
 {
@@ -592,7 +592,58 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", async (HttpContext con
 	.WithName("DeleteClientDataFolder");
 
 
-Console.WriteLine("Starting API...\n");
+// Power endpoint
+
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/powerOperation", async (HttpContext context) =>
+{
+	string operation;
+	try
+	{
+		operation = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? new Dictionary<string, string> {{"Operation", ""}})["Operation"];
+	}
+	catch (BadHttpRequestException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
+
+	ShellResult? operationShell;
+	switch (operation)
+	{
+		case "poweroff" or "shutdown": {
+			Console.WriteLine("[INFO] Recieved poweroff request, attempting to shut down...");
+			operationShell = ShellMethods.RunShell("sudo", "-n /sbin/poweroff");
+			break;
+		}
+		case "reboot" or "restart":
+		{
+			Console.WriteLine("[INFO] Recieved reboot request, attempting to reboot...");
+			operationShell = ShellMethods.RunShell("sudo", "-n /sbin/reboot");
+			break;
+		}
+
+		default:
+		{
+			return Results.BadRequest("Operation must be either ('poweroff'|'shutdown') or ('reboot'|'restart').");
+		}
+	}
+
+	if (!operationShell.Success)
+	{
+		Dictionary<string, string> errorMessage = new()
+		{
+			{"Message", "Seems like the power operation failed. Did you run SetupBayt.sh on this user?"},
+			{"stdout", operationShell.StandardOutput},
+			{"stderr", operationShell.StandardError}
+		};
+		return Results.InternalServerError(errorMessage);
+	}
+
+	return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status400BadRequest)
+	.WithName("PowerOperation");
+
+
 Console.WriteLine("[INFO] Starting API...\n");
 
 app.Run();

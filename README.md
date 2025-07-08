@@ -20,7 +20,7 @@ More detailed info on Bayt can be found in [the repository's wiki!](https://gith
 please do help out if you have the experience!)
 - [ ] More server-management endpoints
 	- [X] WoL management and support
-	- [ ] Shutdown and restart endpoints
+	- [X] Shutdown and restart endpoints
 	- [X] Arbitrary data exchange endpoints for things like client-wide configs
 	- [ ] SMB Share management endpoints
 	- [ ] Docker container management endpoints

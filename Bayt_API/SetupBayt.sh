@@ -41,42 +41,22 @@ if [ "$SETUP_NOCONFIRM" != "1" ]; then
 	read -r _
 fi
 
-logHelper "Checking for the BaytApi group..."
-if ! grep "BaytApi" -q < /etc/group; then
-	logHelper "BaytApi group not found, creating..."
-	sudo groupadd BaytApi
-	logHelper "BaytApi group was made successfully!" "OK"
-
-else
-	logHelper "BaytApi group exists." "OK"
-fi
-
-logHelper "Checking if '$USER' is in the BaytApi group..."
-if ! groups "$USER" | grep "BaytApi" -q; then
-    logHelper "$USER is not in the BaytApi group, enrolling..."
-	sudo usermod -aG BaytApi "$USER"
-	logHelper "$USER was successfully enrolled into the group!" "OK"
-
-else
-	logHelper "$USER is already in the BaytApi group." "OK"
-fi
-
-logHelper "Checking if the BaytApi group has special permissions..."
-if sudo test ! -f "/etc/sudoers.d/10-BaytApi"; then
-	logHelper "Granting special permissions to the BaytApi group..."
+logHelper "Checking if the user has the required permissions..."
+if sudo test ! -f "/etc/sudoers.d/10-BaytApi-$USER"; then
+	logHelper "Granting special permissions to the user..."
 
     touch "10-BaytApi"
-    echo "%BaytApi ALL=NOPASSWD:/usr/bin/poweroff" > 10-BaytApi
+    echo "$USER ALL = NOPASSWD: /sbin/poweroff, /sbin/reboot" > 10-BaytApi
     sudo chown root:root "10-BaytApi"
     sudo chmod 0440 "10-BaytApi"
     checkSudoers "10-BaytApi"
 
-    sudo mv 10-BaytApi /etc/sudoers.d/10-BaytApi
-    checkSudoers /etc/sudoers.d/10-BaytApi
+    sudo mv "10-BaytApi" "/etc/sudoers.d/10-BaytApi-$USER"
+    checkSudoers "/etc/sudoers.d/10-BaytApi-$USER"
     logHelper "Permissions were granted successfully!" "OK"
 
 else
-	logHelper "Seems like the BaytApi group already has special permissions" "OK"
+	logHelper "Seems like the user already has special permissions" "OK"
 fi
 
 logHelper "You should now be able to run Bayt using this user. Have fun!" "OK"

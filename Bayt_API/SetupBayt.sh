@@ -55,6 +55,7 @@ logHelper "Checking if '$USER' is in the BaytApi group..."
 if ! groups "$USER" | grep "BaytApi" -q; then
     logHelper "$USER is not in the BaytApi group, enrolling..."
 	sudo usermod -aG BaytApi "$USER"
+	logHelper "$USER was successfully enrolled into the group!" "OK"
 
 else
 	logHelper "$USER is already in the BaytApi group." "OK"

@@ -59,4 +59,48 @@ else
 	logHelper "Seems like the user already has special permissions" "OK"
 fi
 
-logHelper "You should now be able to run Bayt using this user. Have fun!" "OK"
+
+printf "\n"
+logHelper "Permission checks done, running checks for GPU dependencies..."
+
+gpuList="$(lspci | grep ' VGA ' | grep -oE "(NVIDIA)?(AMD)?(Intel)?")"
+
+if echo "$gpuList" | grep -q "NVIDIA"; then
+	logHelper "NVIDIA GPU detected, checking for nvidia-smi..."
+
+	if ! nvidia-smi --version > /dev/null; then
+    	logHelper "nvidia-smi check failed. Make sure it's installed. (Try running 'nvidia-smi --version' in a terminal?)" "ERROR"
+    else
+    	logHelper "nvidia-smi was detected!" "OK"
+    fi
+fi
+
+if echo "$gpuList" | grep -q "AMD"; then
+	logHelper "AMD GPU detected, checking for amd-smi..."
+
+	if ! amd-smi -h > /dev/null; then
+    	logHelper "amd-smi check failed. Make sure it's installed. (Try running 'amd-smi -h' in a terminal?)" "ERROR"
+    else
+    	logHelper "amd-smi was detected!" "OK"
+
+    	logHelper "amd-smi recommends the user to be in the render group. Checking and current user..."
+    	if ! groups | grep -q "render"; then
+    	    sudo usermod -aG render "$USER"
+    	    logHelper "This user was enrolled successfully!" "OK"
+    	else
+    		logHelper "This user seems to already be in the render group." "OK"
+    	fi
+    fi
+fi
+
+if echo "$gpuList" | grep -q "Intel"; then
+	logHelper "Intel GPU detected, checking for intel_gpu_top..."
+
+	if ! intel_gpu_top -h > /dev/null; then
+    	logHelper "intel_gpu_top seems to not have the CAP_PERFMON capability set or haven't been installed. (Try running 'intel_gpu_top -h' in a terminal?)" "ERROR"
+    else
+    	logHelper "intel_gpu_top was detected!" "OK"
+    fi
+fi
+
+logHelper "You should now be able to run Bayt using this user. Enjoy!" "OK"

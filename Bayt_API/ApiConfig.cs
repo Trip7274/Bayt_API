@@ -8,7 +8,7 @@ namespace Bayt_API;
 
 public static class ApiConfig
 {
-	public const string Version = "0.8.9";
+	public const string Version = "0.8.10";
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public const ushort NetworkPort = 5899;

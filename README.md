@@ -37,14 +37,14 @@ please do help out if you have the experience!)
 - [ ] Plugin support (if practical)
 
 ## Dependencies
-Currently, this is only supported on Linux using the ASP.NET Core Runtime 9,
+Currently, this is only supported on Linux using the [ASP.NET Core Runtime 9](https://learn.microsoft.com/en-us/dotnet/core/install/linux),
 and these are the specific dependencies for each GPU vendor:
 - NVIDIA Systems: (looking for testers; progress paused)
 	- `nvidia-smi`
 - Intel GPU Systems:
 	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as sudo beforehand)
 - AMD GPU Systems:
-	- `amdgpu_top`
+	- `amdgpu_top` (Currently requires a build that contains the commit [6503b16](https://github.com/Umio-Yasuno/amdgpu_top/commit/6503b1688d6f4b70a48003e32f1a2761d26eaa5f). Either compile manually or use the [amdgpu_top-git](https://aur.archlinux.org/packages/amdgpu_top-git) AUR package)
 
 Along with utilites you probably already have, such as `bash`, (GNU) `grep`, `head`, and `df`.
 

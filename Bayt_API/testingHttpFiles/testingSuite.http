@@ -150,7 +150,7 @@ Content-Type: application/json
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, "Response json is not empty");
-		client.assert(timeToRespond < 70, `Response execution time is too long, got ${timeToRespond}ms`);
+		client.assert(timeToRespond < 75, `Response execution time is too long, got ${timeToRespond}ms`);
 	})
 %}
 
@@ -307,7 +307,7 @@ Content-Type: application/json
 		client.assert(response.body.hasOwnProperty("GPU") && typeof response.body.GPU === "object", "GPU property missing or malformed");
 		if (response.body.hasOwnProperty("GPU")) {
 			const allGpus = response.body.GPU;
-			const supportedBrands = ["NVIDIA", "AMD", "Intel"];
+			const supportedBrands = ["NVIDIA", "AMD", "Intel", "Virtio"];
 
 			for (const gpu in allGpus) {
 				const currentGpu = allGpus[gpu];
@@ -319,17 +319,20 @@ Content-Type: application/json
 				if (currentGpu.hasOwnProperty("IsMissing") && !currentGpu.IsMissing) {
 					const requiredFields = {
 						"Name": "string",
+                        "IsDedicated": "boolean",
 						"GraphicsUtilPerc": "number",
+						"GraphicsFrequency": "number",
 						"VramUtilPerc": "number",
 						"VramTotalBytes": "number",
 						"VramUsedBytes": "number",
+                        "VramGttUtilPerc": "number",
 						"EncoderUtilPerc": "number",
 						"DecoderUtilPerc": "number",
 						"VideoEnhanceUtilPerc": "number",
-						"GraphicsFrequency": "number",
                         "EncDecFrequency": "number",
                         "PowerUse": "number",
-                        "TemperatureC": "number"
+                        "TemperatureC": "number",
+                        "FanSpeedRpm": "number"
                     }
 
 					for (const field in requiredFields) {

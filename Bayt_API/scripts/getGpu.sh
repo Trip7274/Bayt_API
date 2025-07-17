@@ -3,7 +3,7 @@
 STAT="$1"
 PCIID="$2"
 
-# Expected output: "GPU Brand [string]|GPU Name [string?]|Graphics Util Perc [float?]|VRAM Util Perc [float?]|VRAM Total Bytes [ulong?]|VRAM Used Bytes [ulong?]|Encoder Util [float?]|Decoder Util [float?]|Video Enhance Util [float?]|Graphics Frequency [float?]|Encoder/Decoder Frequency [float?]|Power Usage [float?]|TemperatureC [sbyte?]"
+# Expected output: "GPU Brand [string]|GPU Name [string?]|GPU Type [Bool?]|Graphics Util Perc [float?]|VRAM Util Perc [float?]|VRAM Total Bytes [ulong?]|VRAM Used Bytes [ulong?]|Encoder Util [float?]|Decoder Util [float?]|Video Enhance Util [float?]|Graphics Frequency [float?]|Encoder/Decoder Frequency [float?]|Power Usage [float?]|TemperatureC [sbyte?]|FanSpeedRPM [ushort?]"
 # The only REQUIRED output is the GPU Brand, everything else can be "null". If the GPU Name is reported as null, the GPU will be reported as missing.
 # When the $STAT is "gpu_ids", the expected output is a newline-seperated list of PCI IDs. For example:
 # """
@@ -16,6 +16,7 @@ PCIID="$2"
 #
 # GPU Brand = gpu_brand (NVIDIA, Intel, AMD, Virtio)
 # GPU Name = gpu_name (NVIDIA, Intel [Basic], AMD, Virtio [Basic])
+# GPU Type (isDedicatedGpu?) = gpu.dedicated (AMD)
 # PCI IDs of every GPU = gpu_ids (All)
 #
 # Graphics Util (%) = utilization.gpu (NVIDIA, Intel [3D Util], AMD)
@@ -32,6 +33,7 @@ PCIID="$2"
 #
 # Power draw (W) = power.draw (NVIDIA, Intel, AMD)
 # Temperature (C) = temperature.gpu (NVIDIA, AMD)
+# Fan Speed (RPM) = fan.speed (AMD)
 
 LOGPATH="logs/GPU.log"
 logHelper(){
@@ -88,10 +90,10 @@ elif [ "$STAT" = "gpu_brand" ]; then
     exit 0
 fi
 
-POSSIBLESTATS=("gpu_brand" "gpu_name" "utilization.gpu" "utilization.memory" "memory.total" "memory.used" \
-				"utilization.encoder" "utilization.decoder" "utilization.videoenhance" "clocks.current.graphics" \
-				"clocks.current.video" "power.draw" "temperature.gpu")
 
+POSSIBLESTATS=("gpu_brand" "gpu_name" "gpu.dedicated" "utilization.gpu" "clocks.current.graphics" "utilization.memory" "memory.total" "memory.used" \
+				"utilization.encoder" "utilization.decoder" "utilization.videoenhance" \
+				"clocks.current.video" "power.draw" "temperature.gpu" "fan.speed")
 
 getNvidia() {
 	getNvidiaStat() {
@@ -198,6 +200,25 @@ getAmd() {
                 echo "$OUTPUT" | jq '.[0]["DeviceName"]'
             ;;
 
+        	"gpu.dedicated")
+        		TYPE="$(echo "$OUTPUT" | jq '.[0]["GPU Type"]')"
+
+        		case $TYPE in
+        		'"dGPU"')
+        			echo "true"
+        		;;
+
+      			'"APU"')
+      				echo "false"
+      			;;
+
+     			*)
+     				logHelper "Failed getting GPU type. Got '$TYPE' instead of 'dGPU'/'APU'. Outputting null..."
+     				echo "null"
+     			;;
+        		esac
+        	;;
+
             "utilization.gpu")
             	echo "$OUTPUT" | jq '.[0]["gpu_activity"]["GFX"]["value"]'
             ;;
@@ -227,6 +248,14 @@ getAmd() {
         	"temperature.gpu")
         		echo "$OUTPUT" | jq '.[0]["Sensors"]["Edge Temperature"]["value"]'
         	;;
+
+     		"fan.speed")
+     		if [ "$(echo "$OUTPUT" | jq '.[0]["Sensors"]["Fan"]')" != "null" ]; then
+     		    echo "$OUTPUT" | jq '.[0]["Sensors"]["Fan"]["value"]'
+     		else
+     			echo "null"
+     		fi
+     		;;
 
             *)
             	echo null

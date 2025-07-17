@@ -76,20 +76,12 @@ if echo "$gpuList" | grep -q "NVIDIA"; then
 fi
 
 if echo "$gpuList" | grep -q "AMD"; then
-	logHelper "AMD GPU detected, checking for amd-smi..."
+	logHelper "AMD GPU detected, checking for amdgpu_top..."
 
-	if ! amd-smi -h > /dev/null; then
-    	logHelper "amd-smi check failed. Make sure it's installed. (Try running 'amd-smi -h' in a terminal?)" "ERROR"
+	if ! amdgpu_top --version > /dev/null; then
+    	logHelper "amdgpu_top check failed. Make sure it's installed. (Try running 'amdgpu_top --version' in a terminal?)" "ERROR"
     else
-    	logHelper "amd-smi was detected!" "OK"
-
-    	logHelper "amd-smi recommends the user to be in the render group. Checking and current user..."
-    	if ! groups | grep -q "render"; then
-    	    sudo usermod -aG render "$USER"
-    	    logHelper "This user was enrolled successfully!" "OK"
-    	else
-    		logHelper "This user seems to already be in the render group." "OK"
-    	fi
+    	logHelper "amdgpu_top was detected!" "OK"
     fi
 fi
 

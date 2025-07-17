@@ -46,7 +46,7 @@ and these are the specific dependencies for each GPU vendor:
 - AMD GPU Systems:
 	- `amdgpu_top` (Currently requires a build that contains the commit [6503b16](https://github.com/Umio-Yasuno/amdgpu_top/commit/6503b1688d6f4b70a48003e32f1a2761d26eaa5f). Either compile manually or use the [amdgpu_top-git](https://aur.archlinux.org/packages/amdgpu_top-git) AUR package)
 
-Along with utilites you probably already have, such as `bash`, (GNU) `grep`, `head`, and `df`.
+Along with utilites you probably already have, such as `bash`, (GNU) `grep`, `head`, `jq`, and `df`.
 
 ---
 I mainly test this on CachyOS (Arch-based) and a plain Fedora server, but I do try to use as many distro-agnostic features as I can.

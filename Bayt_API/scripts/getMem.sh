@@ -31,7 +31,7 @@ case $STAT in
 
 	"All")
 		TOTALREGEX="Mem:\s+\K[0-9]+"
-        USEDREGEX="Mem:\s+[0-9]+\s+\K[0-9]+\s+\K[0-9]+"
+        USEDREGEX="Mem:\s+[0-9]+\s+\K[0-9]+"
         AVAILABLEREGEX="Mem:\s+[0-9]+\s+\K[0-9]+\s+[0-9]+\s+[0-9]+\s+[0-9]+\s+\K[0-9]+"
 
 		OUTPUT="$(free -b)"

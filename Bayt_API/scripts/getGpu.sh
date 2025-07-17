@@ -18,18 +18,18 @@ PCIID="$2"
 # GPU Name = gpu_name (NVIDIA, Intel [Basic], AMD, Virtio [Basic])
 # PCI IDs of every GPU = gpu_ids (All)
 #
-# Graphics Util (%) = utilization.gpu (NVIDIA, Intel [3D Util], AMD [Graphics])
+# Graphics Util (%) = utilization.gpu (NVIDIA, Intel [3D Util], AMD)
+# Graphics Frequency (MHz) = clocks.current.graphics (NVIDIA, Intel [Overall freq.], AMD)
 #
 # VRAM Total (Bytes) = memory.total (AMD, NVIDIA)
 # VRAM Used (Bytes) = memory.used (AMD, NVIDIA)
 # VRAM Util (%) = utilization.memory (NVIDIA)
 #
-# GPU Encoder Util (%) = utilization.encoder (NVIDIA, Intel ["Video" Engine], AMD ["MediaEngine"])
+# GPU Encoder Util (%) = utilization.encoder (NVIDIA, Intel ["Video" Engine], AMD [Average of Enc+Dec])
 # GPU Decoder Util (%) = utilization.decoder (NVIDIA)
 # "VideoEnhance" Engine Util (%) = utilization.videoenhance (Intel)
-#
-# Graphics Frequency (MHz) = clocks.current.graphics (NVIDIA, Intel [Overall freq.], AMD)
 # Video Encoder/Decoder Frequency (MHz) = clocks.current.video (NVIDIA)
+#
 # Power draw (W) = power.draw (NVIDIA, Intel, AMD)
 # Temperature (C) = temperature.gpu (NVIDIA, AMD)
 
@@ -62,7 +62,11 @@ logHelper "---getGpu.sh started---"
 
 logHelper "STAT: '$STAT', PCI ID: '$PCIID'"
 
+# --- Logging setup done ---
+
 [ "$STAT" = "All" ] && STAT=""
+
+BRAND="$(lspci | grep ' VGA ' | grep "$PCIID" | grep -o -E -- "(NVIDIA)?(AMD)?(Intel)?(Virtio)?")"
 
 if [ "$STAT" = "gpu_ids" ]; then
     IDS="$(lspci | grep ' VGA ' | grep -oE -- "[0-9]+:[0-9]+.[0-9]")"
@@ -76,6 +80,12 @@ elif [ "$PCIID" = "" ]; then
 	logHelper "No PCI ID was provided, unable to continue"
 	logHelper "---Exiting (Fail 01)---"
     exit 01
+elif [ "$STAT" = "gpu_brand" ]; then
+	logHelper "GPU Brand requested. Returning '$BRAND'"
+    logHelper "$BRAND" "stdout"
+
+    logHelper "---Exiting (OK)---"
+    exit 0
 fi
 
 POSSIBLESTATS=("gpu_brand" "gpu_name" "utilization.gpu" "utilization.memory" "memory.total" "memory.used" \
@@ -211,11 +221,11 @@ getAmd() {
             ;;
 
             "power.draw")
-                echo "$OUTPUT" | jq '.[0]["Sensors"]["GFX Power"]["value"]'
+                echo "$OUTPUT" | jq '.[0]["Sensors"]["Average Power"]["value"]'
             ;;
 
         	"temperature.gpu")
-        		echo "$OUTPUT" | jq '.[0]["Sensors"]["CPU Tctl"]["value"]'
+        		echo "$OUTPUT" | jq '.[0]["Sensors"]["Edge Temperature"]["value"]'
         	;;
 
             *)
@@ -231,7 +241,7 @@ getAmd() {
 
 
 	logHelper "Fetching amdgpu_top output for '$PCIID' device"
-	OUTPUT=$(amdgpu_top -d --pci 0000:"$PCIID" --json)
+	OUTPUT=$(amdgpu_top -d --pci 0000:"$PCIID" --single --json)
 
 	CATTEDOUTPUT=""
     if [ "$STAT" != "" ]; then
@@ -327,17 +337,6 @@ getVirtio() {
     logHelper "---Exiting (OK)---"
     exit 0
 }
-
-
-BRAND="$(lspci | grep ' VGA ' | grep "$PCIID" | grep -o -E -- "(NVIDIA)?(AMD)?(Intel)?(Virtio)?")"
-
-if [ "$STAT" = "gpu_brand" ]; then
-	logHelper "GPU Brand requested. Returning '$BRAND'"
-    logHelper "$BRAND" "stdout"
-
-    logHelper "---Exiting (OK)---"
-    exit 0
-fi
 
 case $BRAND in
 	"NVIDIA")

@@ -4,24 +4,95 @@ public static class GpuHandling
 {
 	public class GpuData
 	{
+		/// <summary>
+		/// Friendly name of the GPU (e.g. "NVIDIA RTX 5070 Ti" or "AMD Radeon RX 9070 XT")
+		/// </summary>
 		public string? Name { get; init; }
+		/// <summary>
+		/// One of: "NVIDIA", "AMD", "Intel", or "Virtio". Used to differenciate what features should be expected from every brand.
+		/// </summary>
+		/// <remarks>
+		///	"Virtio" is always displayed with minimal, usually generic stats (Brand, Name, Not missing)
+		/// </remarks>
 		public required string Brand { get; init; }
+		/// <summary>
+		/// This is set to true by default if the <c>Name</c> field is (literally) "null". Used to indicate this GPU should be skipped from processing and will not contain other data.
+		/// </summary>
 		public bool IsMissing { get; init; }
 
+		/// <summary>
+		/// Current utilization percentage of the graphics core in the GPU. Preferrably up to 2 decimals in percision
+		/// </summary>
 		public float? GraphicsUtilPerc { get; init; }
-		public float? VramUtilPerc { get; init; } // NVIDIA + AMD only
-		public ulong? VramTotalBytes { get; init; } // AMD + NVIDIA only
-		public ulong? VramUsedBytes { get; init; } // AMD + NVIDIA only
-
-		public float? EncoderUtilPerc { get; init; }
-		public float? DecoderUtilPerc { get; init; } // NVIDIA-only
-		public float? VideoEnhanceUtilPerc { get; init; } // Intel-only
-
+		/// <summary>
+		/// Current operating frequency of the graphics core. Unit is MHz.
+		/// </summary>
 		public float? GraphicsFrequency { get; init; }
-		public float? EncDecFrequency { get; init; } // NVIDIA-only
 
+		/// <summary>
+		/// Utilization percentage of VRAM space. Perferrably up to 2 decimals in percision.
+		/// </summary>
+		/// <remarks>
+		///	 Currently NVIDIA + AMD only
+		/// </remarks>
+		public float? VramUtilPerc { get; init; }
+		/// <summary>
+		///	Total size of VRAM space. Unit is Bytes.
+		/// </summary>
+		/// <remarks>
+		///	Currently AMD + NVIDIA only
+		/// </remarks>
+		public ulong? VramTotalBytes { get; init; }
+		/// <summary>
+		///	Number of bytes used in VRAM space.
+		/// </summary>
+		/// <remarks>
+		///	Currently AMD + NVIDIA only
+		/// </remarks>
+		public ulong? VramUsedBytes { get; init; }
+
+		/// <summary>
+		/// Utilization percentage of the encoder engine.
+		/// </summary>
+		/// <remarks>
+		///	On NVIDIA, this is purely encode utilization, on Intel+AMD, it's the average of Encode+Decode. This is due to limitations in the current interface for both.
+		/// </remarks>
+		public float? EncoderUtilPerc { get; init; }
+		/// <summary>
+		/// Utilization percentage of the decoding engine.
+		/// </summary>
+		/// <remarks>
+		///	Currently NVIDIA only, where it's purely decode utilization.
+		/// </remarks>
+		public float? DecoderUtilPerc { get; init; }
+		/// <summary>
+		/// Utilization of the "VideoEnhance" Engine on Intel GPUs.
+		/// </summary>
+		/// <remarks>
+		///	Currently Intel only, Jellyfin docs describe it as "QSV VPP processor workload".
+		/// </remarks>
+		public float? VideoEnhanceUtilPerc { get; init; }
+
+		/// <summary>
+		/// Frequency of the encoding and decoding engines. Unit is MHz.
+		/// </summary>
+		/// <remarks>
+		///	Currently NVIDIA only.
+		/// </remarks>
+		public float? EncDecFrequency { get; init; }
+
+		/// <summary>
+		/// Average power usage of the whole GPU device. Unit is Watts.
+		/// </summary>
 		public float? PowerUse { get; init; }
 		public sbyte? TemperatureC { get; init; } // NVIDIA + AMD only
+		/// <summary>
+		/// Average temperature of the GPU die. Unit is in Celsius.
+		/// </summary>
+		/// <remarks>
+		///	Currently NVIDIA + AMD only
+		/// </remarks>
+		public sbyte? TemperatureC { get; init; }
 	}
 
 	public static List<GpuData> GetGpuDataList(List<GpuData>? oldGpuData = null)

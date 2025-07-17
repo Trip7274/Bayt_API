@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 STAT="$1"
 
@@ -37,6 +37,17 @@ if [ ! -f "$LOGPATH" ]; then
     touch "$LOGPATH"
 fi
 
+logHelper "---getCpu.sh started---"
+
+# --- Logging setup done ---
+
+if [ "$STAT" = "" ]; then
+	logHelper "STAT not provided, exiting..."
+	logHelper "---Exiting (Fail 01)---"
+
+	exit 1
+fi
+
 getName() {
 	NAME="$(lscpu | grep -oP 'Model name:\s+\K.*')"
     logHelper "Name requested, returned '$NAME'"
@@ -45,7 +56,7 @@ getName() {
 }
 
 getUtil() {
-	UTILPERC="$(grep 'cpu ' < /proc/stat | awk '{print ($5*100)/($2+$3+$4+$5+$6+$7+$8+$9+$10)}'| awk '{print 100-$1}')"
+	UTILPERC="$(cat <(grep 'cpu ' /proc/stat) <(sleep 0.1 && grep 'cpu ' /proc/stat) | awk -v RS="" '{print ($13-$2+$15-$4)*100/($13-$2+$15-$4+$16-$5)}')"
     logHelper "UtilPerc requested, returned '$UTILPERC'"
 
     logHelper "$UTILPERC" "stdout"
@@ -65,14 +76,6 @@ getThreads() {
     logHelper "$THREADS" "stdout"
 }
 
-logHelper "---getCpu.sh started---"
-
-if [ "$STAT" = "" ]; then
-	logHelper "STAT not provided, exiting..."
-	logHelper "---Exiting (Fail 01)---"
-
-	exit 1
-fi
 
 case $STAT in
 	"Name")

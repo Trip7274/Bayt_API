@@ -59,7 +59,7 @@ public static class StatsApi
 
 		return new CpuData
 		{
-			UtilizationPerc = float.Parse(rawOutput[0]),
+			UtilizationPerc = (float) Math.Round(float.Parse(rawOutput[0]), 2),
 			PhysicalCoreCount = ushort.Parse(rawOutput[1]),
 			ThreadCount = ushort.Parse(rawOutput[2])
 		};

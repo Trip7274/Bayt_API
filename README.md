@@ -44,7 +44,7 @@ and these are the specific dependencies for each GPU vendor:
 - Intel GPU Systems:
 	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as sudo beforehand)
 - AMD GPU Systems:
-	- `amdgpu_top` (Currently requires a build that contains the commit [6503b16](https://github.com/Umio-Yasuno/amdgpu_top/commit/6503b1688d6f4b70a48003e32f1a2761d26eaa5f). Either compile manually or use the [amdgpu_top-git](https://aur.archlinux.org/packages/amdgpu_top-git) AUR package)
+	- `amdgpu_top` (Currently requires a build that contains the commit [04983eb](https://github.com/Umio-Yasuno/amdgpu_top/commit/04983ebf5563982c9d685e587a8a1f2a48252811). Either compile manually or use the [amdgpu_top-git](https://aur.archlinux.org/packages/amdgpu_top-git) AUR package)
 
 Along with utilites you probably already have, such as `bash`, (GNU) `grep`, `head`, `jq`, and `df`.
 

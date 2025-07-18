@@ -25,6 +25,7 @@ PCIID="$2"
 # VRAM Total (Bytes) = memory.total (AMD, NVIDIA)
 # VRAM Used (Bytes) = memory.used (AMD, NVIDIA)
 # VRAM Util (%) = utilization.memory (NVIDIA)
+# VRAM GTT Util (%) = memory.gtt.util (AMD)
 #
 # GPU Encoder Util (%) = utilization.encoder (NVIDIA, Intel ["Video" Engine], AMD [Average of Enc+Dec])
 # GPU Decoder Util (%) = utilization.decoder (NVIDIA)
@@ -68,10 +69,11 @@ logHelper "STAT: '$STAT', PCI ID: '$PCIID'"
 
 [ "$STAT" = "All" ] && STAT=""
 
-BRAND="$(lspci | grep ' VGA ' | grep "$PCIID" | grep -o -E -- "(NVIDIA)?(AMD)?(Intel)?(Virtio)?")"
+LSPCIOUTPUT="$(lspci | grep ' VGA ')"
+BRAND="$(echo "$LSPCIOUTPUT" | grep "$PCIID" | grep -o -E -- "(NVIDIA)?(AMD)?(Intel)?(Virtio)?")"
 
 if [ "$STAT" = "gpu_ids" ]; then
-    IDS="$(lspci | grep ' VGA ' | grep -oE -- "[0-9]+:[0-9]+.[0-9]")"
+    IDS="$(echo "$LSPCIOUTPUT" | grep -oE -- "[0-9]+:[0-9]+\.[0-9]+(\.[0-9]+)?")"
     logHelper "PCI ID list was requested. Returning array"
 
     logHelper "$IDS" "stdout"
@@ -91,9 +93,10 @@ elif [ "$STAT" = "gpu_brand" ]; then
 fi
 
 
-POSSIBLESTATS=("gpu_brand" "gpu_name" "gpu.dedicated" "utilization.gpu" "clocks.current.graphics" "utilization.memory" "memory.total" "memory.used" \
-				"utilization.encoder" "utilization.decoder" "utilization.videoenhance" \
-				"clocks.current.video" "power.draw" "temperature.gpu" "fan.speed")
+POSSIBLESTATS=("gpu_brand" "gpu_name" "gpu.dedicated" "utilization.gpu" "clocks.current.graphics" \
+ 				"utilization.memory" "memory.total" "memory.used" "memory.gtt.util" "utilization.encoder" \
+ 				"utilization.decoder" "utilization.videoenhance" "clocks.current.video" "power.draw" \
+				"temperature.gpu" "fan.speed")
 
 getNvidia() {
 	getNvidiaStat() {
@@ -232,6 +235,10 @@ getAmd() {
         		(( FINAL_VALUE="$(echo "$OUTPUT" | jq '.[0]["VRAM"]["Total VRAM Usage"]["value"]')" * 1048576 ))
         		echo "$FINAL_VALUE"
         	;;
+
+     		"memory.gtt.util")
+     			echo "$OUTPUT" | jq '.[0]["gpu_activity"]["Memory"]["value"]'
+     		;;
 
             "utilization.encoder")
             	echo "$OUTPUT" | jq '.[0]["gpu_activity"]["MediaEngine"]["value"]'

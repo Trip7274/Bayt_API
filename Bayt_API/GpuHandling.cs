@@ -133,7 +133,7 @@ public static class GpuHandling
 		foreach (var gpuId in gpuIds)
 		{
 			// Format should be:
-			// "GPU Brand|GPU Name|IsGpuDedicated?|Graphics Util Perc|Graphics Frequency|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|Encoder Util|Decoder Util?|Video Enhance Util?|Encoder/Decoder Frequency?|Power Usage|TemperatureC?|FanSpeedRPM?"
+			// "GPU Brand|GPU Name|IsGpuDedicated?|Graphics Util Perc|Graphics Frequency|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|VRAM GTT Usage Perc?|Encoder Util|Decoder Util?|Video Enhance Util?|Encoder/Decoder Frequency?|Power Usage|TemperatureC?|FanSpeedRPM?"
 
 			var shellScriptProcess = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {gpuId}");
 			string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
@@ -180,15 +180,16 @@ public static class GpuHandling
 					VramUtilPerc = ParseTypeNullable<float>(arrayOutput[5]),
 					VramTotalBytes = ParseTypeNullable<ulong>(arrayOutput[6]),
 					VramUsedBytes = ParseTypeNullable<ulong>(arrayOutput[7]),
+					VramGttUtilPerc = ParseTypeNullable<sbyte>(arrayOutput[8]),
 
-					EncoderUtilPerc = ParseTypeNullable<float>(arrayOutput[8]),
-					DecoderUtilPerc = ParseTypeNullable<float>(arrayOutput[9]),
-					VideoEnhanceUtilPerc = ParseTypeNullable<float>(arrayOutput[10]),
-					EncDecFrequency = ParseTypeNullable<float>(arrayOutput[11]),
+					EncoderUtilPerc = ParseTypeNullable<float>(arrayOutput[9]),
+					DecoderUtilPerc = ParseTypeNullable<float>(arrayOutput[10]),
+					VideoEnhanceUtilPerc = ParseTypeNullable<float>(arrayOutput[11]),
+					EncDecFrequency = ParseTypeNullable<float>(arrayOutput[12]),
 
-					PowerUse = ParseTypeNullable<float>(arrayOutput[12]),
-					TemperatureC = ParseTypeNullable<sbyte>(arrayOutput[13]),
-					FanSpeedRpm = ParseTypeNullable<ushort>(arrayOutput[14])
+					PowerUse = ParseTypeNullable<float>(arrayOutput[13]),
+					TemperatureC = ParseTypeNullable<sbyte>(arrayOutput[14]),
+					FanSpeedRpm = ParseTypeNullable<ushort>(arrayOutput[15])
 				});
 			}
 			catch (IndexOutOfRangeException e)

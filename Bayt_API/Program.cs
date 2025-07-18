@@ -10,19 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<SystemDataCache>();
-var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-	app.MapOpenApi();
-}
-
-app.UseHttpsRedirection();
-
-string localhostUrl = $"http://localhost:{ApiConfig.NetworkPort}";
-Console.WriteLine($"[INFO] Adding URL '{localhostUrl}' to listen list");
-app.Urls.Add(localhostUrl);
+Console.WriteLine($"[INFO] Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list");
+builder.WebHost.ConfigureKestrel(opts => opts.Listen(IPAddress.Loopback, ApiConfig.NetworkPort));
 
 if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 {
@@ -42,10 +32,25 @@ if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 		}
 	}
 
-	string ipUrl = $"http://{localIp}:{ApiConfig.NetworkPort}";
-	Console.WriteLine($"[INFO] Adding URL '{ipUrl}' to listen list");
-	app.Urls.Add(ipUrl);
+	Console.WriteLine($"[INFO] Adding URL '{localIp}:{ApiConfig.NetworkPort}' to listen list");
+	builder.WebHost.ConfigureKestrel(opts => opts.Listen(localIp, ApiConfig.NetworkPort));
 }
+
+if (Environment.GetEnvironmentVariable("BAYT_USE_SOCK") == "1")
+{
+	Console.WriteLine($"[INFO] Adding URL 'unix://{ApiConfig.UnixSocketPath}' to listen list");
+	builder.WebHost.ConfigureKestrel(opts => opts.ListenUnixSocket(ApiConfig.UnixSocketPath));
+}
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+	app.MapOpenApi();
+}
+
+app.UseHttpsRedirection();
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {

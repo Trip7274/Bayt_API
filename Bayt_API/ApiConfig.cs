@@ -15,6 +15,7 @@ public static class ApiConfig
 	public static DateTime LastUpdated { get; set; }
 
 	public static readonly string BaseExecutablePath = Environment.CurrentDirectory;
+	public static readonly string UnixSocketPath = Path.Combine(BaseExecutablePath, "bayt.sock");
 	private static readonly string BaseConfigPath = Path.Combine(BaseExecutablePath, "config");
 	private static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
 

@@ -22,7 +22,6 @@ please do help out if you have the experience!)
 	- [X] WoL management and support
 	- [X] Shutdown and restart endpoints
 	- [X] Arbitrary data exchange endpoints for things like client-wide configs
-	- [ ] SMB Share management endpoints
 	- [ ] Docker container management endpoints
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions

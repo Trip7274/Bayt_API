@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace Bayt_API;
@@ -161,5 +162,67 @@ public static class ShellMethods
                  Debug.WriteLine($"Failed to kill process '{programName}' after timeout: {ex.Message}");
              }
         }
+	}
+
+
+	/// <summary>
+	/// Check if a script exists, is executable, and supports the required features.
+	/// </summary>
+	/// <param name="scriptPath">The path to the script file.</param>
+	/// <param name="requiredSupports">List of features it's expected to support. Leave empty to skip feature checks.</param>
+	/// <param name="loggingFeatureName">General feature name for use in logs. For example, "GPU stats" </param>
+	/// <returns>Full array of the supported features.</returns>
+	/// <exception cref="FileNotFoundException">The script file was not found or was not executable.</exception>
+	/// <exception cref="FileLoadException">The script file exited with a non-zero exit code after being prompted for supports list.</exception>
+	/// <exception cref="NotSupportedException">One or more of the requested features was not supported.</exception>
+	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
+	public static string[] CheckScriptSupports(string scriptPath, List<string> requiredSupports, string loggingFeatureName)
+	{
+		if (!File.Exists(scriptPath) || (File.GetUnixFileMode(scriptPath) & UnixFileMode.UserExecute) == 0)
+		{
+			Console.ForegroundColor = ConsoleColor.Red;
+			Console.WriteLine(
+				$"[ERROR] No executable script was found at '{scriptPath}' (did you remember to chmod +x it?)");
+			Console.ResetColor();
+			throw new FileNotFoundException($"Could not find an executable script at '{scriptPath}", scriptPath);
+		}
+
+		var supportsShell = RunShell(scriptPath, "testSupports");
+		if (!supportsShell.Success)
+		{
+			Console.ForegroundColor = ConsoleColor.Red;
+			Console.WriteLine($"[ERROR] Checking for shell supports failed with code: {supportsShell.ExitCode}. Your scripts may be out of date with your server binary.\n" +
+			                  $"Path: {scriptPath}");
+			Console.ResetColor();
+			throw new FileLoadException($"Shell supports check failed with code: {supportsShell.ExitCode}. ({scriptPath})");
+		}
+
+		if (requiredSupports.Count == 0)
+		{
+			return [];
+		}
+
+		string[] supportsList = supportsShell.StandardOutput.Trim('|').Split('|');
+
+		byte index = 0;
+		foreach (var supportsEntry in supportsList)
+		{
+			if (supportsEntry == requiredSupports[index])
+			{
+				requiredSupports.RemoveAt(index);
+			}
+			index++;
+		}
+
+		if (requiredSupports.Count == 0)
+		{
+			return supportsList;
+		}
+
+		Console.ForegroundColor = ConsoleColor.Red;
+		Console.WriteLine($"[ERROR] The script at '{scriptPath}' does not indicate support for a feature that was required. ('{loggingFeatureName}')");
+		Console.ResetColor();
+
+		throw new NotSupportedException($"The script at '{scriptPath}' does not indicate support for a feature that was required. ('{loggingFeatureName}')");
 	}
 }

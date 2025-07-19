@@ -137,6 +137,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 						{
 							{ "Name", StatsApi.CpuData.Name.TrimEnd('\n') },
 							{ "UtilPerc", cpuStats.UtilizationPerc },
+							// TODO: Add average CPU temperature
 							{ "CoreCount", cpuStats.PhysicalCoreCount },
 							{ "ThreadCount", cpuStats.ThreadCount }
 						}

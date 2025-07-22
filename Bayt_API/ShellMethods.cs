@@ -166,12 +166,12 @@ public static class ShellMethods
 
 
 	/// <summary>
-	/// Check if a script exists, is executable, and supports the required features.
+	/// Check if a script exists, is executable, and supports the required features. If not, this will throw an exception.
 	/// </summary>
 	/// <param name="scriptPath">The path to the script file.</param>
 	/// <param name="requiredSupports">List of features it's expected to support. Leave empty to skip feature checks.</param>
 	/// <param name="loggingFeatureName">General feature name for use in logs. For example, "GPU stats" </param>
-	/// <returns>Full array of the supported features.</returns>
+	/// <returns>Array of all the supported features.</returns>
 	/// <exception cref="FileNotFoundException">The script file was not found or was not executable.</exception>
 	/// <exception cref="FileLoadException">The script file exited with a non-zero exit code after being prompted for supports list.</exception>
 	/// <exception cref="NotSupportedException">One or more of the requested features was not supported.</exception>

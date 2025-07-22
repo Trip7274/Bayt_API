@@ -166,7 +166,7 @@ public static class ShellMethods
 
 
 	/// <summary>
-	/// Check if a script exists, is executable, and supports the required features. If not, this will throw an exception.
+	/// Check if a script exists, is executable, and supports the required features. If any checks fail, this will throw an exception.
 	/// </summary>
 	/// <param name="scriptPath">The path to the script file.</param>
 	/// <param name="requiredSupports">List of features it's expected to support. Leave empty to skip feature checks.</param>
@@ -175,6 +175,8 @@ public static class ShellMethods
 	/// <exception cref="FileNotFoundException">The script file was not found or was not executable.</exception>
 	/// <exception cref="FileLoadException">The script file exited with a non-zero exit code after being prompted for supports list.</exception>
 	/// <exception cref="NotSupportedException">One or more of the requested features was not supported.</exception>
+	/// <remarks>This function will also handle writing the errors to the console.</remarks>
+	/// <seealso cref="CheckScriptSupports(string,System.Collections.Generic.List{string})"/>
 	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
 	public static string[] CheckScriptSupports(string scriptPath, List<string> requiredSupports, string loggingFeatureName)
 	{
@@ -224,5 +226,47 @@ public static class ShellMethods
 		Console.ResetColor();
 
 		throw new NotSupportedException($"The script at '{scriptPath}' does not indicate support for a feature that was required. ('{loggingFeatureName}')");
+	}
+
+	/// <summary>
+	/// Check if a script exists, is executable, and supports the required features. Returns false if any checks fail, otherwise true.
+	/// </summary>
+	/// <param name="scriptPath">The path to the script file.</param>
+	/// <param name="requiredSupports">List of features it's expected to support. Leave empty to skip feature checks.</param>
+	/// <returns>Whether the script passed all the checks.</returns>
+	/// <seealso cref="CheckScriptSupports(string,System.Collections.Generic.List{string},string)"/>
+	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
+	public static bool CheckScriptSupports(string scriptPath, List<string> requiredSupports)
+	{
+		if (!File.Exists(scriptPath) || (File.GetUnixFileMode(scriptPath) & UnixFileMode.UserExecute) == 0)
+		{
+			return false;
+		}
+
+		var supportsShell = RunShell(scriptPath, "testSupports");
+		if (!supportsShell.Success)
+		{
+			return false;
+		}
+
+		if (requiredSupports.Count == 0)
+		{
+			return true;
+		}
+
+		string[] supportsList = supportsShell.StandardOutput.Trim('|').Split('|');
+
+		byte index = 0;
+		foreach (var supportsEntry in supportsList)
+		{
+			if (supportsEntry == requiredSupports[index])
+			{
+				requiredSupports.RemoveAt(index);
+			}
+			index++;
+		}
+
+		return requiredSupports.Count == 0;
+
 	}
 }

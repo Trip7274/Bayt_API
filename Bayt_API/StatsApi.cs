@@ -50,18 +50,24 @@ public static class StatsApi
 			return olCpuData;
 		}
 
-		var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "AllUtil").StandardOutput.Split('|');
-
-		if (rawOutput.Length != 3)
+		var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "AllUtil");
+		if (!rawOutput.Success)
 		{
-			throw new Exception("Invalid output from getCpu.sh");
+			throw new Exception($"Failed to get cpu data from getCpu.sh ({rawOutput.ExitCode})");
+		}
+
+		string[] outputArray = rawOutput.StandardOutput.Split('|');
+
+		if (outputArray.Length != 3)
+		{
+			throw new Exception($"Invalid output from getCpu.sh (Expected 3 entries, got {outputArray.Length}.) ");
 		}
 
 		return new CpuData
 		{
-			UtilizationPerc = (float) Math.Round(float.Parse(rawOutput[0]), 2),
-			PhysicalCoreCount = ushort.Parse(rawOutput[1]),
-			ThreadCount = ushort.Parse(rawOutput[2])
+			UtilizationPerc = (float) Math.Round(float.Parse(outputArray[0]), 2),
+			PhysicalCoreCount = ushort.Parse(outputArray[1]),
+			ThreadCount = ushort.Parse(outputArray[2])
 		};
 	}
 	

@@ -1,6 +1,8 @@
+using System.Text.RegularExpressions;
+
 namespace Bayt_API;
 
-public static class DiskHandling
+public static partial class DiskHandling
 {
 	public class DiskData
 	{
@@ -111,8 +113,9 @@ public static class DiskHandling
 				continue;
 			}
 
-			string devicePath = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh", $"{mountPoint.Key} Device.Path").StandardOutput.TrimEnd('\n');
-			string fileSystem = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh", $"{devicePath} Device.Filesystem").StandardOutput.TrimEnd('\n');
+			var regexMatch = DevicePathAndFileSystemRegex().Match(ShellMethods.RunShell("df", $"{mountPoint.Key} -T").StandardOutput);
+			string devicePath = regexMatch.Groups[1].Value;
+			string fileSystem = regexMatch.Groups[2].Value;
 
 			var newDriveInfo = new DriveInfo(mountPoint.Key);
 
@@ -132,4 +135,7 @@ public static class DiskHandling
 
 		return diskDataList;
 	}
+
+    [GeneratedRegex(@"(/dev/\S+)\s+(\S+)", RegexOptions.IgnoreCase, "en-US")]
+    private static partial Regex DevicePathAndFileSystemRegex();
 }

@@ -166,66 +166,29 @@ public static class ShellMethods
 
 
 	/// <summary>
-	/// Check if a script exists, is executable, and supports the required features. If any checks fail, this will throw an exception.
+	/// Check if a script exists, is executable, and supports the required features. Returns all the supported features of the script.
 	/// </summary>
 	/// <param name="scriptPath">The path to the script file.</param>
-	/// <param name="requiredSupports">List of features it's expected to support. Leave empty to skip feature checks.</param>
-	/// <param name="loggingFeatureName">General feature name for use in logs. For example, "GPU stats" </param>
-	/// <returns>Array of all the supported features.</returns>
-	/// <exception cref="FileNotFoundException">The script file was not found or was not executable.</exception>
-	/// <exception cref="FileLoadException">The script file exited with a non-zero exit code after being prompted for supports list.</exception>
-	/// <exception cref="NotSupportedException">One or more of the requested features was not supported.</exception>
-	/// <remarks>This function will also handle writing the errors to the console.</remarks>
-	/// <seealso cref="CheckScriptSupports(string,System.Collections.Generic.List{string})"/>
+	/// <returns>Array of all announced features. Empty if any check failed.</returns>
+	/// <seealso cref="CheckScriptSupports"/>
 	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
-	public static string[] CheckScriptSupports(string scriptPath, List<string> requiredSupports, string loggingFeatureName)
+	public static string[] GetScriptSupports(string scriptPath)
 	{
 		if (!File.Exists(scriptPath) || (File.GetUnixFileMode(scriptPath) & UnixFileMode.UserExecute) == 0)
 		{
-			Console.ForegroundColor = ConsoleColor.Red;
-			Console.WriteLine(
-				$"[ERROR] No executable script was found at '{scriptPath}' (did you remember to chmod +x it?)");
-			Console.ResetColor();
-			throw new FileNotFoundException($"Could not find an executable script at '{scriptPath}", scriptPath);
+			throw new FileNotFoundException($"The file '{scriptPath}' does not exist or is not executable.");
 		}
 
-		var supportsShell = RunShell(scriptPath, "testSupports");
+		var supportsShell = RunShell(scriptPath, "Meta.Supports");
 		if (!supportsShell.Success)
 		{
-			Console.ForegroundColor = ConsoleColor.Red;
-			Console.WriteLine($"[ERROR] Checking for shell supports failed with code: {supportsShell.ExitCode}. Your scripts may be out of date with your server binary.\n" +
-			                  $"Path: {scriptPath}");
-			Console.ResetColor();
-			throw new FileLoadException($"Shell supports check failed with code: {supportsShell.ExitCode}. ({scriptPath})");
-		}
-
-		if (requiredSupports.Count == 0)
-		{
-			return [];
+			throw new Exception($"The script '{scriptPath}' failed to execute. ({supportsShell.ExitCode})");
 		}
 
 		string[] supportsList = supportsShell.StandardOutput.Trim('|').Split('|');
 
-		byte index = 0;
-		foreach (var supportsEntry in supportsList)
-		{
-			if (supportsEntry == requiredSupports[index])
-			{
-				requiredSupports.RemoveAt(index);
-			}
-			index++;
-		}
+		return supportsList;
 
-		if (requiredSupports.Count == 0)
-		{
-			return supportsList;
-		}
-
-		Console.ForegroundColor = ConsoleColor.Red;
-		Console.WriteLine($"[ERROR] The script at '{scriptPath}' does not indicate support for a feature that was required. ('{loggingFeatureName}')");
-		Console.ResetColor();
-
-		throw new NotSupportedException($"The script at '{scriptPath}' does not indicate support for a feature that was required. ('{loggingFeatureName}')");
 	}
 
 	/// <summary>
@@ -234,7 +197,7 @@ public static class ShellMethods
 	/// <param name="scriptPath">The path to the script file.</param>
 	/// <param name="requiredSupports">List of features it's expected to support. Leave empty to skip feature checks.</param>
 	/// <returns>Whether the script passed all the checks.</returns>
-	/// <seealso cref="CheckScriptSupports(string,System.Collections.Generic.List{string},string)"/>
+	/// <seealso cref="GetScriptSupports"/>
 	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
 	public static bool CheckScriptSupports(string scriptPath, List<string> requiredSupports)
 	{
@@ -243,7 +206,7 @@ public static class ShellMethods
 			return false;
 		}
 
-		var supportsShell = RunShell(scriptPath, "testSupports");
+		var supportsShell = RunShell(scriptPath, "Meta.Supports");
 		if (!supportsShell.Success)
 		{
 			return false;

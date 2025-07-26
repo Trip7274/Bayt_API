@@ -393,6 +393,13 @@ Content-Type: application/json
 				client.assert(currentMount.hasOwnProperty("MountPoint") && typeof currentMount.MountPoint === "string" && currentMount.MountPoint !== "", "Mounts.MountPoint property missing or of the wrong type");
 				client.assert(currentMount.hasOwnProperty("IsMissing") && typeof currentMount.IsMissing === "boolean", "Mounts.IsMissing property missing or of the wrong type");
 
+				if (currentMount.hasOwnProperty("TemperatureLabel") && typeof currentMount.TemperatureLabel === "string") {
+					client.assert(currentMount.hasOwnProperty("TemperatureC") && typeof currentMount.TemperatureC === "number", "Mounts.TemperatureC property missing or of the wrong type");
+					client.assert(currentMount.hasOwnProperty("TemperatureMinC") && typeof currentMount.TemperatureMinC === "number", "Mounts.TemperatureMinC property missing or of the wrong type");
+					client.assert(currentMount.hasOwnProperty("TemperatureMaxC") && typeof currentMount.TemperatureMaxC === "number", "Mounts.TemperatureMaxC property missing or of the wrong type");
+					client.assert(currentMount.hasOwnProperty("TemperatureCritC") && typeof currentMount.TemperatureCritC === "number", "Mounts.TemperatureCritC property missing or of the wrong type");
+                }
+
 				// If the mount is missing, skip the rest of the checks
 				if (currentMount.hasOwnProperty("IsMissing") && !currentMount.IsMissing) {
 					const requiredFields = {
@@ -404,13 +411,7 @@ Content-Type: application/json
 						"TotalSize": "number",
 						"FreeSize": "number",
 						"UsedSize": "number",
-						"UsedSizePercent": "number",
-
-                        "TemperatureLabel": "string",
-                        "TemperatureC": "number",
-                        "TemperatureMinC": "number",
-                        "TemperatureMaxC": "number",
-                        "TemperatureCritC": "number"
+						"UsedSizePercent": "number"
 					}
 
 					for (const field in requiredFields) {

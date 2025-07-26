@@ -6,7 +6,7 @@ public static partial class DiskHandling
 {
 	public class DiskData
 	{
-		public string? DeviceName { get; set; }
+		public string DeviceName { get; set; } = "???";
 
 		public required string MountPoint { get; init; }
 		public required string MountName { get; init; }
@@ -88,6 +88,8 @@ public static partial class DiskHandling
 			return oldDiskDatas;
 		}
 
+		string[] scriptSupports = ShellMethods.GetScriptSupports($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh");
+
 		List<DiskData> diskDataList = [];
 
 		foreach (var mountPoint in mountPoints)
@@ -96,7 +98,7 @@ public static partial class DiskHandling
 			{
 				diskDataList.Add(new DiskData
 				{
-					DeviceName = null,
+					DeviceName = "???",
 					MountPoint = mountPoint.Key,
 					MountName = mountPoint.Value,
 					IsMissing = true,
@@ -113,21 +115,15 @@ public static partial class DiskHandling
 				continue;
 			}
 
-			var regexMatch = DevicePathAndFileSystemRegex().Match(ShellMethods.RunShell("df", $"{mountPoint.Key} -T").StandardOutput);
-			string devicePath = regexMatch.Groups[1].Value;
-			string fileSystem = regexMatch.Groups[2].Value;
-
-			var newDriveInfo = new DriveInfo(mountPoint.Key);
-
 			diskDataList.Add(new DiskData
 			{
 				MountPoint = mountPoint.Key,
 				MountName = mountPoint.Value,
-				DevicePath = devicePath,
-				FileSystem = fileSystem,
+				DevicePath = GetStat("Device.Path", scriptSupports, mountPoint.Key),
+				FileSystem = GetStat("Device.Filesystem", scriptSupports, mountPoint.Key),
 				IsMissing = false,
-				TotalSize = (ulong) newDriveInfo.TotalSize,
-				FreeSize = (ulong) newDriveInfo.AvailableFreeSpace
+				TotalSize = ulong.Parse(GetStat("Partition.TotalSpace", scriptSupports, mountPoint.Key)),
+				FreeSize = ulong.Parse(GetStat("Parition.FreeSpace", scriptSupports, mountPoint.Key))
 			});
 		}
 
@@ -136,6 +132,50 @@ public static partial class DiskHandling
 		return diskDataList;
 	}
 
-    [GeneratedRegex(@"(/dev/\S+)\s+(\S+)", RegexOptions.IgnoreCase, "en-US")]
+	private static string GetStat(string statName, string[] scriptSupports, string devicePath)
+	{
+		if (scriptSupports.Contains(statName))
+		{
+			string scriptPath = $"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh";
+			var shellProcess = ShellMethods.RunShell(scriptPath, $"{statName} {devicePath}");
+			if (!shellProcess.Success)
+			{
+				throw new Exception($"Error while running '{scriptPath} {statName}'! (code: {shellProcess.ExitCode})");
+			}
+			return shellProcess.StandardOutput;
+		}
+
+		return statName switch
+		{
+			"Device.Path" => GetDevicePath(devicePath),
+			"Device.Filesystem" => GetDeviceFileSystem(devicePath),
+			"Partition.TotalSpace" => new DriveInfo(devicePath).TotalSize.ToString(),
+			"Parition.FreeSpace" => new DriveInfo(devicePath).AvailableFreeSpace.ToString(),
+			_ => throw new Exception($"Unsupported stat '{statName}'!")
+		};
+	}
+
+	private static string GetDevicePath(string mountPoint)
+	{
+		var regexMatch = DevicePathAndFileSystemRegex()
+			.Match(ShellMethods.RunShell("df", $"{mountPoint} -T").StandardOutput);
+
+		if (regexMatch.Groups.Count != 3) throw new Exception($"Error while parsing device path for '{mountPoint}'!");
+
+		// A bit of a hack, but the GetDeviceFileSystem() function wouldn't work if its input was "devtmpfs".
+		return regexMatch.Groups[1].Value == "devtmpfs" ? mountPoint : regexMatch.Groups[1].Value;
+	}
+
+	private static string GetDeviceFileSystem(string mountPoint)
+	{
+		var regexMatch = DevicePathAndFileSystemRegex()
+			.Match(ShellMethods.RunShell("df", $"{mountPoint} -T").StandardOutput);
+
+		if (regexMatch.Groups.Count != 3) throw new Exception($"Error while parsing device path for '{mountPoint}'!");
+
+		return regexMatch.Groups[2].Value == "" ? "???" : regexMatch.Groups[2].Value;
+	}
+
+    [GeneratedRegex(@"(/dev/\S+|devtmpfs)\s+(\S+)", RegexOptions.IgnoreCase, "en-US")]
     private static partial Regex DevicePathAndFileSystemRegex();
 }

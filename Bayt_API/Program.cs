@@ -88,7 +88,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 			Debug.WriteLine("Got a request with no body, returning all stats.");
 			requestedStats = ["All"];
 		}
-
+		requestedStats = requestedStats.Distinct().ToList(); // De-duplicate
 
 		if (requestedStats.Count == 0)
 		{
@@ -106,6 +106,42 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		Debug.WriteLine($"Got a request asking for: {string.Join(", ", requestedStats)}");
 
 		Dictionary<string, Dictionary<string, dynamic>[]> responseDictionary = [];
+
+		if (!Caching.IsDataFresh() || cache.CachedCpuStats is null)
+		{
+			// Queue and update all the requested stats up asynchronously
+			List<Task> fetchTasks = [];
+			foreach (var stat in requestedStats)
+			{
+				switch (stat)
+				{
+					case "CPU":
+					{
+						fetchTasks.Add(Task.Run(cache.CheckCpuData));
+						break;
+					}
+
+					case "GPU":
+					{
+						fetchTasks.Add(Task.Run(cache.CheckGpuData));
+						break;
+					}
+
+					case "Memory":
+					{
+						fetchTasks.Add(Task.Run(cache.CheckMemoryData));
+						break;
+					}
+
+					case "Mounts":
+					{
+						fetchTasks.Add(Task.Run(cache.CheckDiskData));
+						break;
+					}
+				}
+			}
+			await Task.WhenAll(fetchTasks);
+		}
 
 		foreach (var requestedStat in requestedStats)
 		{
@@ -128,35 +164,33 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 
 				case "System":
 				{
-					var generalSpecs = cache.GetGeneralSpecs();
 					responseDictionary.Add("System", [
-						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(generalSpecs)) ?? []
+						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(cache.CachedGeneralSpecs)) ?? []
 					]);
 					break;
 				}
 
-				case "CPU":
+				case "CPU" when cache.CachedCpuStats is not null:
 				{
-					var cpuStats = cache.GetCpuData();
 					responseDictionary.Add("CPU", [
-						new Dictionary<string, dynamic>
+						new Dictionary<string, dynamic?>
 						{
-							{ "Name", StatsApi.CpuData.Name.TrimEnd('\n') },
-							{ "UtilPerc", cpuStats.UtilizationPerc },
-							// TODO: Add average CPU temperature
-							{ "CoreCount", cpuStats.PhysicalCoreCount },
-							{ "ThreadCount", cpuStats.ThreadCount }
-						}
+							{ "Name", cache.CachedGeneralSpecs.CpuName },
+							{ "UtilPerc", cache.CachedCpuStats.UtilizationPerc },
+							{ "CoreCount", cache.CachedCpuStats.PhysicalCoreCount },
+							{ "ThreadCount", cache.CachedCpuStats.ThreadCount },
+							{ "TemperatureC", cache.CachedCpuStats.TemperatureC },
+							{ "TemperatureType", cache.CachedCpuStats.TemperatureType }
+						}!
 					]);
 					break;
 				}
 
 				case "GPU":
 				{
-					var gpuStats = cache.GetGpuData();
 					var gpuStatsDict = new List<Dictionary<string, dynamic?>>();
 
-					foreach (var gpuData in gpuStats)
+					foreach (var gpuData in cache.CachedGpuStats ?? [])
 					{
 						if (gpuData.IsMissing)
 						{
@@ -179,10 +213,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 
 				case "Memory":
 				{
-					var memoryStats = cache.GetMemoryData();
-
 					responseDictionary.Add("Memory", [
-						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(memoryStats)) ?? []
+						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(cache.CachedMemoryStats)) ?? []
 					]);
 
 					break;
@@ -190,10 +222,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 
 				case "Mounts":
 				{
-					var watchedDiskData = cache.GetDiskData();
-
 					var disksDictList = new List<Dictionary<string, dynamic?>>();
-					foreach (var watchedDisk in watchedDiskData)
+					foreach (var watchedDisk in cache.CachedWatchedDiskData ?? [])
 					{
 						if (watchedDisk.IsMissing)
 						{
@@ -658,4 +688,13 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/powerOperation", async (HttpContext con
 
 Console.WriteLine("[INFO] Starting API...\n");
 
-app.Run();
+try
+{
+	app.Run();
+}
+catch (IOException)
+{
+	Console.ForegroundColor = ConsoleColor.Red;
+	Console.WriteLine($"[FATAL] Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running.");
+	Console.ResetColor();
+}

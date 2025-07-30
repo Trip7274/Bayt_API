@@ -117,13 +117,8 @@ public static class GpuHandling
 		public ushort? FanSpeedRpm { get; init; } // AMD-only
 	}
 
-	public static List<GpuData> GetGpuDataList(List<GpuData>? oldGpuData = null)
+	public static List<GpuData> GetGpuDataList()
 	{
-		if (oldGpuData is not null && Caching.IsDataFresh())
-		{
-			return oldGpuData;
-		}
-
 		string[] gpuIds = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", "gpu_ids").StandardOutput.TrimEnd('\n').Split('\n');
 
 		if (gpuIds.Length == 0) return [];
@@ -171,25 +166,25 @@ public static class GpuHandling
 				{
 					Brand = arrayOutput[0],
 					Name = arrayOutput[1].Trim('"'),
-					IsDedicated = ParseTypeNullable<bool>(arrayOutput[2]),
+					IsDedicated = ParsingMethods.ParseTypeNullable<bool>(arrayOutput[2]),
 					IsMissing = false,
 
-					GraphicsUtilPerc = ParseTypeNullable<float>(arrayOutput[3]),
-					GraphicsFrequency = ParseTypeNullable<float>(arrayOutput[4]),
+					GraphicsUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[3]),
+					GraphicsFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[4]),
 
-					VramUtilPerc = ParseTypeNullable<float>(arrayOutput[5]),
-					VramTotalBytes = ParseTypeNullable<ulong>(arrayOutput[6]),
-					VramUsedBytes = ParseTypeNullable<ulong>(arrayOutput[7]),
-					VramGttUtilPerc = ParseTypeNullable<sbyte>(arrayOutput[8]),
+					VramUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[5]),
+					VramTotalBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[6]),
+					VramUsedBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[7]),
+					VramGttUtilPerc = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[8]),
 
-					EncoderUtilPerc = ParseTypeNullable<float>(arrayOutput[9]),
-					DecoderUtilPerc = ParseTypeNullable<float>(arrayOutput[10]),
-					VideoEnhanceUtilPerc = ParseTypeNullable<float>(arrayOutput[11]),
-					EncDecFrequency = ParseTypeNullable<float>(arrayOutput[12]),
+					EncoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[9]),
+					DecoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[10]),
+					VideoEnhanceUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[11]),
+					EncDecFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[12]),
 
-					PowerUse = ParseTypeNullable<float>(arrayOutput[13]),
-					TemperatureC = ParseTypeNullable<sbyte>(arrayOutput[14]),
-					FanSpeedRpm = ParseTypeNullable<ushort>(arrayOutput[15])
+					PowerUse = ParsingMethods.ParseTypeNullable<float>(arrayOutput[13]),
+					TemperatureC = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[14]),
+					FanSpeedRpm = ParsingMethods.ParseTypeNullable<ushort>(arrayOutput[15])
 				});
 			}
 			catch (IndexOutOfRangeException e)
@@ -207,21 +202,5 @@ public static class GpuHandling
 		}
 
 		return gpuDataList;
-	}
-
-	private static T? ParseTypeNullable<T>(string value) where T : struct, IParsable<T>
-	{
-		if (value == "null" || !T.TryParse(value, CultureInfo.CurrentCulture, out var result))
-		{
-			return null;
-		}
-
-		if (result is float f)
-		{
-			// This is a bit of a mess
-			result = (T) (object) (float) Math.Round((decimal)f, 3);
-		}
-
-		return result;
 	}
 }

@@ -5,12 +5,14 @@ STAT="$1"
 # The output format varies here, usually being a single number if the $STAT wasn't "AllUtil". Consult the list below for specific types and documentation
 #
 # $STAT can be:
-# "Name" for the CPU's name                                                    [string]
-# "UtilPerc" for the CPU's utilization percentage (over all cores)             [float]
-# "PhysicalCores" for the physical CPU core count                              [ushort]
-# "ThreadCount" for the amount of logical CPU cores (AKA threads)              [ushort]
+# "Name" for the CPU's name                                       												[string]
+# "UtilPerc" for the CPU's utilization percentage (over all cores)												[float]
+# "PhysicalCores" for the physical CPU core count                 												[ushort]
+# "ThreadCount" for the amount of logical CPU cores (AKA threads) 												[ushort]
+# "Temperature" for the average temperature of the CPU, the first element will be a string describing 			[string?|float?]
+# the source of the temperature reading, while the second will be the actual reading.
 #
-# "AllUtil" for a list with the format: "UtilPerc|PhysicalCores|ThreadCount"
+# "AllUtil" for a list with the format: "UtilPerc|PhysicalCores|ThreadCount|TempType|TempValue"
 
 LOGPATH="logs/CPU.log"
 logHelper(){
@@ -76,6 +78,35 @@ getThreads() {
     logHelper "$THREADS" "stdout"
 }
 
+getTemps() {
+	TEMPTYPE="null"
+	TEMPVAL="null"
+
+	for zone in /sys/class/thermal/thermal_zone*; do
+		if [ "$(cat "$zone/type")" = "x86_pkg_temp" ]; then
+		    TEMPVAL="$(cat "$zone/temp")"
+			TEMPTYPE="thermalZone"
+		fi
+	done
+
+	if [ "$TEMPTYPE" = "null" ] && sensors -v > /dev/null; then
+	    sensorsOutput="$(sensors -j)"
+
+	    amdCheck="$(echo "$sensorsOutput" | jq '.["k10temp-pci-00c3"]["Tctl"]["temp1_input"]')"
+	    intelCheck="$(echo "$sensorsOutput" | jq '.["coretemp-isa-0000"]["Package id 0"]["temp1_input"]')"
+	    if [ "$amdCheck" != "null" ]; then
+	        TEMPVAL="$amdCheck"
+	        TEMPTYPE="sensors-lm"
+	    elif [ "$intelCheck" != "null" ]; then
+	        TEMPVAL="$intelCheck"
+	        TEMPTYPE="sensors-lm"
+	    fi
+	fi
+
+	logHelper "Temperatures requested, returned '$TEMPTYPE|$TEMPVAL'"
+	logHelper "$TEMPTYPE|$TEMPVAL" "stdout"
+}
+
 
 case $STAT in
 	"Name")
@@ -98,9 +129,14 @@ case $STAT in
 		getThreads
 	;;
 
+	"Temperature")
+		logHelper "Temperatures requested, choosing that branch."
+		getTemps
+	;;
+
 	"AllUtil")
 		logHelper "All stats requested, returning list"
-		logHelper "$(getUtil)|$(getPhysicalCores)|$(getThreads)" "stdout"
+		logHelper "$(getUtil)|$(getPhysicalCores)|$(getThreads)|$(getTemps)" "stdout"
 	;;
 
 	*)

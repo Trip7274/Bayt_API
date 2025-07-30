@@ -13,6 +13,7 @@ public static class StatsApi
 		public required string KernelName { get; init; }
 		public required string KernelVersion { get; init; }
 		public required string KernelArch { get; init; }
+		public required string CpuName { get; init; }
 	}
 
 	public static GeneralSpecs GetGeneralSpecs(GeneralSpecs? oldGeneralSpecs = null)
@@ -28,28 +29,29 @@ public static class StatsApi
 			DistroName = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", "Distro.Name").StandardOutput,
 			KernelName = ShellMethods.RunShell("uname", "-s").StandardOutput,
 			KernelVersion = ShellMethods.RunShell("uname", "-r").StandardOutput,
-			KernelArch = ShellMethods.RunShell("uname", "-m").StandardOutput
+			KernelArch = ShellMethods.RunShell("uname", "-m").StandardOutput,
+			CpuName = ShellMethods
+				.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "Name").StandardOutput
 		};
 	}
 	
 	
 	public class CpuData
 	{
-		public static readonly string Name = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "Name").StandardOutput;
+		public readonly string Name = ShellMethods
+			.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "Name").StandardOutput;
 
 		public float UtilizationPerc { get; init; }
 
 		public ushort PhysicalCoreCount { get; init; }
 		public ushort ThreadCount { get; init; }
+
+		public float? TemperatureC { get; init; }
+		public string? TemperatureType { get; init; }
 	}
 
-	public static CpuData GetCpuData(CpuData? olCpuData = null)
+	public static CpuData GetCpuData()
 	{
-		if (olCpuData is not null && Caching.IsDataFresh())
-		{
-			return olCpuData;
-		}
-
 		var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "AllUtil");
 		if (!rawOutput.Success)
 		{
@@ -58,16 +60,28 @@ public static class StatsApi
 
 		string[] outputArray = rawOutput.StandardOutput.Split('|');
 
-		if (outputArray.Length != 3)
+		if (outputArray.Length != 5)
 		{
-			throw new Exception($"Invalid output from getCpu.sh (Expected 3 entries, got {outputArray.Length}.) ");
+			throw new Exception($"Invalid output from getCpu.sh (Expected 5 entries, got {outputArray.Length}.) ");
+		}
+
+		var temp = ParsingMethods.ParseTypeNullable<float>(outputArray[4]);
+		if (outputArray[3] == "thermalZone")
+		{
+			temp /= 1000;
+		}
+		if (outputArray[3] != "null")
+		{
+			temp = (float) Math.Round((decimal) (temp ?? 0), 2);
 		}
 
 		return new CpuData
 		{
 			UtilizationPerc = (float) Math.Round(float.Parse(outputArray[0]), 2),
 			PhysicalCoreCount = ushort.Parse(outputArray[1]),
-			ThreadCount = ushort.Parse(outputArray[2])
+			ThreadCount = ushort.Parse(outputArray[2]),
+			TemperatureType = outputArray[3] == "null" ? null : outputArray[3],
+			TemperatureC = temp
 		};
 	}
 	
@@ -81,13 +95,8 @@ public static class StatsApi
 		public byte UsedMemoryPercent => (byte) ((float) UsedMemory / TotalMemory * 100);
 	}
 
-	public static MemoryData GetMemoryData(MemoryData? oldMemoryData = null)
+	public static MemoryData GetMemoryData()
 	{
-		if (oldMemoryData is not null && Caching.IsDataFresh())
-		{
-			return oldMemoryData;
-		}
-
 		var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "All").StandardOutput.Split('|');
 
 		if (rawOutput.Length != 3)

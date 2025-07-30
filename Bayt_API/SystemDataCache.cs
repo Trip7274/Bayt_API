@@ -7,44 +7,32 @@ public class SystemDataCache
         ApiConfig.LastUpdated = DateTime.Now;
     }
 
-    private StatsApi.CpuData? CachedCpuStats { get; set; }
-    private List<GpuHandling.GpuData>? CachedGpuStats { get; set; }
-    private StatsApi.MemoryData? CachedMemoryStats { get; set; }
-    private List<DiskHandling.DiskData>? CachedWatchedDiskData { get; set; }
+    public readonly StatsApi.GeneralSpecs CachedGeneralSpecs = StatsApi.GetGeneralSpecs();
+    public StatsApi.CpuData? CachedCpuStats { get; private set; }
+    public List<GpuHandling.GpuData>? CachedGpuStats { get; private set; }
+    public StatsApi.MemoryData? CachedMemoryStats { get; private set; }
+    public List<DiskHandling.DiskData>? CachedWatchedDiskData { get; private set; }
 
-    // Unchanging Values
 
-    private readonly StatsApi.GeneralSpecs _cachedGeneralSpecs = StatsApi.GetGeneralSpecs();
+    // Methods to update data
 
-    // Methods to get data, encapsulating the caching logic
-    public StatsApi.GeneralSpecs GetGeneralSpecs()
+    public void CheckCpuData()
     {
-        return _cachedGeneralSpecs;
+        CachedCpuStats = StatsApi.GetCpuData();
     }
 
-    public StatsApi.CpuData GetCpuData()
+    public void CheckGpuData()
     {
-        CachedCpuStats = StatsApi.GetCpuData(CachedCpuStats);
-        return CachedCpuStats;
+        CachedGpuStats = GpuHandling.GetGpuDataList();
     }
 
-    public List<GpuHandling.GpuData> GetGpuData()
+    public void CheckMemoryData()
     {
-        CachedGpuStats = GpuHandling.GetGpuDataList(CachedGpuStats);
-        return CachedGpuStats;
+        CachedMemoryStats = StatsApi.GetMemoryData();
     }
 
-    public StatsApi.MemoryData GetMemoryData()
+    public void CheckDiskData()
     {
-        CachedMemoryStats = StatsApi.GetMemoryData(CachedMemoryStats);
-        return CachedMemoryStats;
-    }
-
-    public List<DiskHandling.DiskData> GetDiskData()
-    {
-        // Pass the correct list of disks from the constructor
-        var watchedMounts = ApiConfig.MainConfigs.ConfigProps.WatchedMounts;
-        CachedWatchedDiskData = DiskHandling.GetDiskDatas(watchedMounts, CachedWatchedDiskData);
-        return CachedWatchedDiskData;
+        CachedWatchedDiskData = DiskHandling.GetDiskDatas();
     }
 }

@@ -81,18 +81,14 @@ public static partial class DiskHandling
         }
 	}
 
-	public static List<DiskData> GetDiskDatas(Dictionary<string, string> mountPoints, List<DiskData>? oldDiskDatas = null)
+	public static List<DiskData> GetDiskDatas()
 	{
-		if (oldDiskDatas is not null && Caching.IsDataFresh())
-		{
-			return oldDiskDatas;
-		}
 
 		string[] scriptSupports = ShellMethods.GetScriptSupports($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh");
 
 		List<DiskData> diskDataList = [];
 
-		foreach (var mountPoint in mountPoints)
+		foreach (var mountPoint in ApiConfig.MainConfigs.ConfigProps.WatchedMounts)
 		{
 			if (!Directory.Exists(mountPoint.Key))
 			{

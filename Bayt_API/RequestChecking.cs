@@ -35,7 +35,7 @@ public static class RequestChecking
 
 	public static async Task<T?> ValidateAndDeserializeJsonBody<T>(HttpContext context, bool throwOnEmptyBody = true)
 	{
-		if (context.Request.ContentType != "application/json")
+		if (context.Request.ContentType != "application/json" && throwOnEmptyBody)
 		{
 			throw new BadHttpRequestException($"Content-Type is not 'application/json'. Current Content-Type header: '{context.Request.ContentType}'.");
 		}
@@ -46,9 +46,12 @@ public static class RequestChecking
 			requestBody = await reader.ReadToEndAsync();
 		}
 
-		if (throwOnEmptyBody && string.IsNullOrWhiteSpace(requestBody))
+		switch (throwOnEmptyBody)
 		{
-			throw new BadHttpRequestException("Request body is empty.");
+			case true when string.IsNullOrWhiteSpace(requestBody):
+				throw new BadHttpRequestException("Request body is empty.");
+			case false:
+				throw new EndOfStreamException("The code should handle this."); // This is REALLY janky and kinda contradictory
 		}
 
 		T? deserializedBody;

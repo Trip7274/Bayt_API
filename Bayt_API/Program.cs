@@ -70,7 +70,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		try
 		{
 			requestedStats =
-				(await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context, false) ?? [])
+				(await RequestChecking
+					.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context, false) ?? [])
 				.Values.First();
 		}
 		catch (BadHttpRequestException e)
@@ -80,6 +81,11 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		catch (JsonException)
 		{
 			Debug.WriteLine("Got a request with malformed JSON, returning all stats.");
+			requestedStats = ["All"];
+		}
+		catch (EndOfStreamException)
+		{
+			Debug.WriteLine("Got a request with no body, returning all stats.");
 			requestedStats = ["All"];
 		}
 

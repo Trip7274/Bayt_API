@@ -14,7 +14,7 @@ internal static class ParsingMethods
 		if (result is float f)
 		{
 			// This is a bit of a mess
-			result = (T) (object) (float) Math.Round((decimal)f, 3);
+			result = (T) (object) (float) Math.Round((decimal)f, 2);
 		}
 
 		return result;

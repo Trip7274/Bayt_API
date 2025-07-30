@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace Bayt_API;
 
 public static class GpuHandling

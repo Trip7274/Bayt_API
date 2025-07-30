@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json.Serialization;
 
 namespace Bayt_API;
 
@@ -13,7 +14,8 @@ public static class StatsApi
 		public required string KernelName { get; init; }
 		public required string KernelVersion { get; init; }
 		public required string KernelArch { get; init; }
-		public required string CpuName { get; init; }
+		[JsonIgnore]
+		public string? CpuName { get; init; }
 	}
 
 	public static GeneralSpecs GetGeneralSpecs(GeneralSpecs? oldGeneralSpecs = null)

@@ -21,11 +21,11 @@ SCRIPTSUPPORTS="" # By default, this script file is unused. Example for this var
 #
 # "Device.Filesystem" for the type of filesystem the parititon uses. Example: "/dev/nvme0n1p3" results in "btrfs". [string]
 #
-# "Partition.TotalSpace" for the total size of the partition. (in bytes) This is unimplemented by default. [ulong]
+# "Partition.TotalSpace" for the total size of the partition. In bytes. [ulong]
 #
-# "Parition.FreeSpace" for however many bytes are available on this partition. This is unimplemented by default. [ulong]
+# "Parition.FreeSpace" for however many bytes are available on this partition. [ulong]
 #
-# "Meta.Supports" for all supported features (or $STATS) in this script. Does not expect any $TARGETPATH (Array of strings)
+# "Meta.Supports" for all supported features (or $STATs) in this script. Does not expect any $TARGETPATH (Array of strings)
 
 [ ! -e "$TARGETPATH" ] && [ "$STAT" != "Meta.Supports" ] && echo null && exit 01
 [ "$STAT" = "" ] && echo null && exit 02

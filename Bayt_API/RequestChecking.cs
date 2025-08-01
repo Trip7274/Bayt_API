@@ -50,7 +50,7 @@ public static class RequestChecking
 		{
 			case true when string.IsNullOrWhiteSpace(requestBody):
 				throw new BadHttpRequestException("Request body is empty.");
-			case false:
+			case false when string.IsNullOrWhiteSpace(requestBody):
 				throw new EndOfStreamException("The code should handle this."); // This is REALLY janky and kinda contradictory
 		}
 

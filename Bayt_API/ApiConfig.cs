@@ -6,17 +6,35 @@ using System.Text.Json.Serialization;
 
 namespace Bayt_API;
 
+/// <summary>
+/// Contains everything related to user configuration, versioning, and the filesystem environment.
+/// </summary>
 public static class ApiConfig
 {
+	/// <summary>
+	///
+	/// </summary>
 	public const string Version = "0.9.10";
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public const ushort NetworkPort = 5899;
 	public static DateTime LastUpdated { get; set; }
 
+	/// <summary>
+	/// Abs. path to the Bayt binary's directory
+	/// </summary>
 	public static readonly string BaseExecutablePath = Environment.CurrentDirectory;
+	/// <summary>
+	/// Abs. path to the Bayt SOCK interface. Will be non-existent if the interface is inactive.
+	/// </summary>
 	public static readonly string UnixSocketPath = Path.Combine(BaseExecutablePath, "bayt.sock");
+	/// <summary>
+	/// Abs. path to the configuration directory
+	/// </summary>
 	private static readonly string BaseConfigPath = Path.Combine(BaseExecutablePath, "config");
+	/// <summary>
+	/// Abs. path to the specific configuration loaded currently.
+	/// </summary>
 	private static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
 
 	// Config management
@@ -53,13 +71,55 @@ public static class ApiConfig
 		/// </remarks>
 		public sealed class ConfigProperties
 		{
+			/// <summary>
+			/// The major API version associated with the current config.
+			/// </summary>
+			/// <remarks>
+			///	This is required in the saved config.
+			/// </remarks>
 			public byte ConfigVersion { get; init; }
 
+			/// <summary>
+			/// The user-set name for this instance of Bayt.
+			/// </summary>
+			/// <remarks>
+			///	Defaults to "Bayt API Host"
+			/// </remarks>
 			public required string BackendName { get; init; }
+			/// <summary>
+			/// Lifetime of the cache. Set to 0 to effectively disable it.
+			/// </summary>
+			/// <remarks>
+			///	Defaults to 5 seconds.
+			/// </remarks>
 			public ushort SecondsToUpdate { get; set; }
+			/// <summary>
+			///	Relative (to the Bayt binary) path to the client data folder.
+			/// </summary>
+			/// <remarks>
+			///	Defaults to "clientData"
+			/// </remarks>
 			public string PathToDataFolder { get; set; } = "clientData";
-			public required Dictionary<string, string> WatchedMounts { get; init; } // e.g. "/": "Root Partition"
+			/// <summary>
+			/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
+			/// </summary>
+			/// <remarks>
+			///	Defaults to { "/": "Root Partition" }. This is required in the saved config.
+			/// </remarks>
+			public required Dictionary<string, string> WatchedMounts { get; init; }
+			/// <summary>
+			/// JSON form of the <see cref="WolClientsClass"/> property. It's recommended to use that instead.
+			/// </summary>
+			/// <remarks>
+			///	This is required in the saved config.
+			/// </remarks>
 			public required Dictionary<string, Dictionary<string, string?>> WolClients { get; init; }
+			/// <summary>
+			/// List of <see cref="WolHandling.WolClient"/>s saved by the user.
+			/// </summary>
+			/// <remarks>
+			///	Defaults to empty. Generated from <see cref="WolClients"/> during startup.
+			/// </remarks>
 			[JsonIgnore]
 			public List<WolHandling.WolClient>? WolClientsClass { get; set; }
 		}
@@ -259,6 +319,10 @@ public static class ApiConfig
 
 		// WOL management
 
+		/// <summary>
+		/// "Fills in" the appropriate <see cref="ConfigProperties.WolClientsClass"/> derived from the given parameter's <see cref="ConfigProperties.WolClients"/> property.
+		/// </summary>
+		/// <param name="configProps">A reference to a <see cref="ConfigProperties"/> object to fill its <see cref="ConfigProperties.WolClientsClass"/> property.</param>
 		private static void LoadWolClientsList(ref ConfigProperties configProps)
 		{
 			if (configProps.WolClientsClass is not null)
@@ -297,10 +361,12 @@ public static class ApiConfig
 			configProps.WolClientsClass = wolClientsList;
 		}
 
+		/// <summary>
+		/// Append a WoL client to the configuration. Updates the live and in-disk configuration.
+		/// </summary>
+		/// <param name="clients">Dictionary with the format <c>{ "IPv4 Address": "Label" }</c></param>
 		public void AddWolClient(Dictionary<string, string> clients)
 		{
-			// Input format: { "IPv4 Address": "Label" }
-
 			var newConfig = GetConfig();
 
 			foreach (var clientsToAdd in clients)
@@ -331,6 +397,10 @@ public static class ApiConfig
 			UpdateConfig();
 		}
 
+		/// <summary>
+		/// Remove a specific client or list of clients from the current configuration. Updates the live and in-disk configuration.
+		/// </summary>
+		/// <param name="clients">List of local IP Addresses to remove.</param>
 		public void RemoveWolClient(List<string> clients)
 		{
 			var newConfig = GetConfig();
@@ -344,6 +414,11 @@ public static class ApiConfig
 			UpdateConfig();
 		}
 
+		/// <summary>
+		/// Update or "fill in" the broadcast address of a specific WolClient and reload the live and in-disk configuration.
+		/// </summary>
+		/// <param name="wolClient">WolClient objket</param>
+		/// <param name="newBroadcastAddress"></param>
 		internal void UpdateBroadcastAddress(WolHandling.WolClient wolClient, string newBroadcastAddress)
 		{
 			var newConfig = GetConfig();
@@ -353,10 +428,7 @@ public static class ApiConfig
 			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
 			UpdateConfig();
 		}
-
 	}
-
-
 
 	public static ApiConfiguration MainConfigs { get; } = new();
 }

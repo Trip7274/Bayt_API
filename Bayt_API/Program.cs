@@ -267,11 +267,15 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context)
 		return Results.BadRequest(e.Message);
 	}
 
+	foreach (var mountPoint in mountPoints.Where(mountPoint => !Directory.Exists(mountPoint.Key)))
+	{
+		mountPoints.Remove(mountPoint.Key);
+	}
+
 	if (mountPoints.Count == 0)
 	{
-		return Results.BadRequest("Mountpoints list must contain at least 1 element.");
+		return Results.BadRequest("Mountpoints list must contain at least 1 valid element.");
 	}
-	// TODO: Refuse invalid mounts
 
 	ApiConfig.MainConfigs.AddMountpoint(mountPoints);
 

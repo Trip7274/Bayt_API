@@ -228,7 +228,7 @@ public static class ApiConfig
 		/// Provides edit access to the configuration, both live and in-disk.
 		/// </summary>
 		/// <remarks>
-		///	Please make sure to not use this for adding or removing mountpoints. You *can*, but that doesn't mean you should.
+		///	Changing <c>WatchedMounts</c> or the <c>ConfigVersion</c> properties are blocked from this method. Use the appropriate methods for that.
 		/// </remarks>
 		/// <param name="newProps">
 		///	Has to have more than one element to edit.
@@ -275,13 +275,11 @@ public static class ApiConfig
 		/// </param>
 		public void AddMountpoint(Dictionary<string, string?> mountPoints)
 		{
-			if (mountPoints.Count == 0)
-			{
-				return;
-			}
+			if (mountPoints.Count == 0) return;
 
 			var newConfig = GetConfig();
 
+			bool configChanged = false;
 			foreach (var mountPointToAdd in mountPoints)
 			{
 				if (newConfig.WatchedMounts.ContainsKey(mountPointToAdd.Key))
@@ -290,8 +288,11 @@ public static class ApiConfig
 				}
 
 				newConfig.WatchedMounts.Add(mountPointToAdd.Key, mountPointToAdd.Value ?? "Mount");
+				DiskHandling.FullDisksData.AddMount(mountPointToAdd.Key, mountPointToAdd.Value ?? "Mount");
+				configChanged = true;
 			}
 
+			if (!configChanged) return;
 			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
 			UpdateConfig();
 		}
@@ -313,6 +314,7 @@ public static class ApiConfig
 			foreach (var mountPoint in mountPoints)
 			{
 				newConfig.WatchedMounts.Remove(mountPoint);
+				DiskHandling.FullDisksData.RemoveMount(mountPoint);
 			}
 
 			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);

@@ -199,13 +199,22 @@ public static partial class DiskHandling
 				DiskDataList.Add(new DiskData(mountPoint.Key, mountPoint.Value, ScriptSupports));
 			}
 		}
+
+		public static void AddMount(string mountPoint, string mountName)
+		{
+			DiskDataList.Add(new DiskData(mountPoint, mountName, ScriptSupports));
+		}
+
+		public static void RemoveMount(string mountPoint)
+		{
+			DiskDataList.RemoveAll(diskData => diskData.MountPoint == mountPoint);
+		}
 		public static async Task UpdateData()
 		{
 			List<Task> diskTasks = [];
 			diskTasks.AddRange(DiskDataList.Select(diskData => Task.Run(diskData.UpdateData)));
 			await Task.WhenAll(diskTasks);
 		}
-
 		public static Dictionary<string, dynamic?>[] ToDictionary()
 		{
 			if (DiskDataList.Count == 0) return [];

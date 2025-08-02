@@ -637,7 +637,12 @@ else
 	Console.WriteLine("[INFO] Preparing a few things...");
 
 	// Do a fetch cycle to let the constructors run.
-	Task[] fetchTasks = [Task.Run(StatsApi.CpuData.UpdateData), Task.Run(GpuHandling.FullGpusData.UpdateData), Task.Run(StatsApi.MemoryData.UpdateData), Task.Run(DiskHandling.FullDisksData.UpdateData)];
+	Task[] fetchTasks = [
+		Task.Run(StatsApi.CpuData.UpdateData),
+		Task.Run(GpuHandling.FullGpusData.UpdateData),
+		Task.Run(StatsApi.MemoryData.UpdateData),
+		Task.Run(DiskHandling.FullDisksData.UpdateData)
+	];
 	await Task.WhenAll(fetchTasks);
 
 	Console.ForegroundColor = ConsoleColor.Green;

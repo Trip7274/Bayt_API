@@ -11,6 +11,93 @@ public static partial class DiskHandling
 	/// </summary>
 	public sealed class DiskData
 	{
+		public DiskData(string mountPoint, string mountName, string[] scriptSupports)
+		{
+			MountPoint = mountPoint;
+			MountName = mountName;
+			ScriptSupports = scriptSupports;
+
+			UpdateData();
+		}
+
+		/// <summary>
+		/// Refresh all data inside this object.
+		/// </summary>
+		internal void UpdateData()
+		{
+			if (!Directory.Exists(MountPoint))
+			{
+				IsMissing = true;
+				return;
+			}
+
+			string devicePath = GetStat("Device.Path", MountPoint, ScriptSupports);
+
+			DevicePath = devicePath;
+			FileSystem = GetStat("Device.Filesystem", devicePath, ScriptSupports);
+			IsMissing = false;
+			TotalSize = ulong.Parse(GetStat("Partition.TotalSpace", devicePath, ScriptSupports));
+			FreeSize = ulong.Parse(GetStat("Parition.FreeSpace", devicePath, ScriptSupports));
+
+			GetDiskTemperature();
+		}
+
+		/// <summary>
+		/// "Fill in" the temperature and name data of this DiskData.
+		/// </summary>
+		private void GetDiskTemperature()
+		{
+			if (IsMissing || DevicePath is null) return;
+
+			string? hwmonPath = null;
+			foreach (string hwmonDir in Directory.EnumerateDirectories("/sys/class/hwmon/"))
+			{
+				// Search for the hwmon directory for the same device as what we're targeting.
+				if (Directory.Exists(
+					    Path.Combine(hwmonDir, "device", Path.GetFileNameWithoutExtension(DevicePath).Split('p')[0])))
+				{
+					hwmonPath = hwmonDir;
+				}
+			}
+			if (hwmonPath is null) return; // Failed to find the appropriate hwmon directory
+
+
+			if (File.Exists($"{hwmonPath}/device/model"))
+			{
+				DeviceName = File.ReadAllText($"{hwmonPath}/device/model").TrimEnd('\n').TrimEnd(' ');
+			}
+			else if (File.Exists($"{hwmonPath}/name"))
+			{
+				DeviceName = File.ReadAllText($"{hwmonPath}/name").TrimEnd('\n').TrimEnd(' ');
+			}
+
+			if (File.Exists($"{hwmonPath}/temp1_input"))
+			{
+				TemperatureC = float.Parse(File.ReadAllText($"{hwmonPath}/temp1_input")) / 1000;
+			}
+
+			if (File.Exists($"{hwmonPath}/temp1_min"))
+			{
+				TemperatureMinC = float.Parse(File.ReadAllText($"{hwmonPath}/temp1_min")) / 1000;
+			}
+
+			if (File.Exists($"{hwmonPath}/temp1_max"))
+			{
+				TemperatureMaxC = float.Parse(File.ReadAllText($"{hwmonPath}/temp1_max")) / 1000;
+			}
+
+			if (File.Exists($"{hwmonPath}/temp1_crit"))
+			{
+				TemperatureCritC = float.Parse(File.ReadAllText($"{hwmonPath}/temp1_crit")) / 1000;
+			}
+
+			if (File.Exists($"{hwmonPath}/temp1_label"))
+			{
+				TemperatureLabel = File.ReadAllText($"{hwmonPath}/temp1_label").TrimEnd('\n').TrimEnd(' ');
+			}
+		}
+		private string[] ScriptSupports { get; }
+
 		/// <summary>
 		/// Represents the retail device name (e.g., "Lexar SSD NM790 2TB").
 		/// </summary>
@@ -18,7 +105,7 @@ public static partial class DiskHandling
 		///	Some disks may have incorrect names, but this only fetches what the manufacterer titled it.
 		/// This defaults to null if the name was not found.
 		/// </remarks>
-		public string? DeviceName { get; set; }
+		public string? DeviceName { get; private set; }
 
 		/// <summary>
 		/// The user-provided mountpoint of this mount.
@@ -26,14 +113,14 @@ public static partial class DiskHandling
 		/// <remarks>
 		///	This'll be available even if the device is invalid/unavailable, as it's user-inputted.
 		/// </remarks>
-		public required string MountPoint { get; init; }
+		public string MountPoint { get; }
 		/// <summary>
 		/// The user-provided mount name. Defaults to "Mount" if none was provided.
 		/// </summary>
 		/// <remarks>
 		///	This'll be available even if the device is invalid/unavailable, as it's user-inputted.
 		/// </remarks>
-		public required string MountName { get; init; }
+		public string MountName { get; }
 
 		/// <summary>
 		/// Represents the physical path to the associated device (e.g., "/dev/sda").
@@ -42,14 +129,14 @@ public static partial class DiskHandling
 		/// This can be null if the device is unavailable (unplugged, etc.).
 		/// If the mountpoint is in a virtual filesystem ("/dev", "/sys", etc.), it'll be the same as the <see cref="MountPoint"/> property.
 		/// </remarks>
-		public string? DevicePath { get; init; }
+		public string? DevicePath { get; private set; }
 		/// <summary>
 		/// The filesystem of the associated mount. (e.g., "btrfs", "ext4")
 		/// </summary>
 		/// <remarks>
 		///	Can be null if the mount was missing/invalid.
 		/// </remarks>
-		public string? FileSystem { get; init; }
+		public string? FileSystem { get; private set; }
 
 		/// <summary>
 		/// Whether the mount seems to be missing or invalid.
@@ -57,17 +144,17 @@ public static partial class DiskHandling
 		/// <remarks>
 		///	If this is true, then all the properties other than <see cref="MountPoint"/> and <see cref="MountName"/> will be null.
 		/// </remarks>
-		public bool IsMissing { get; init; }
+		public bool IsMissing { get; private set; }
 
 
 		/// <summary>
 		/// Total size of the mount. In bytes.
 		/// </summary>
-		public ulong? TotalSize { get; init; }
+		public ulong? TotalSize { get; private set; }
 		/// <summary>
 		/// The amount of available/free space in the mount. In bytes.
 		/// </summary>
-		public ulong? FreeSize { get; init; }
+		public ulong? FreeSize { get; private set; }
 		/// <summary>
 		/// Number of bytes used up in the mount.
 		/// </summary>
@@ -84,121 +171,87 @@ public static partial class DiskHandling
 		///	Temperature reporting is not as reliable as other metrics.
 		/// If this is null, then expect the rest of the temperature data to also be null.
 		/// </remarks>
-		public string? TemperatureLabel { get; set; }
+		public string? TemperatureLabel { get; private set; }
 		/// <summary>
 		/// Current temperature as reported by the sensor. In Celsius.
 		/// </summary>
-		public float? TemperatureC { get; set; }
+		public float? TemperatureC { get; private set; }
 		/// <summary>
 		/// The minimum operating temperature as reported by the sensor. In Celsius.
 		/// </summary>
-		public float? TemperatureMinC { get; set; }
+		public float? TemperatureMinC { get; private set; }
 		/// <summary>
 		/// The maximum operating temperature as reported by the sensor. In Celsius.
 		/// </summary>
-		public float? TemperatureMaxC { get; set; }
+		public float? TemperatureMaxC { get; private set; }
 		/// <summary>
 		/// The critical temperature threshold as reported by the sensor. In Celsius.
 		/// </summary>
-		public float? TemperatureCritC { get; set; }
+		public float? TemperatureCritC { get; private set; }
 	}
 
-	/// <summary>
-	/// "Fill in" the temperature and name data of a list of <see cref="DiskData"/> objects.
-	/// </summary>
-	/// <param name="diskDataList">A reference to the list of <see cref="DiskData"/> objects.</param>
-	private static void GetDiskTemperature(ref List<DiskData> diskDataList)
+	public static class FullDisksData
 	{
-        ArgumentNullException.ThrowIfNull(diskDataList);
-
-        foreach (var diskData in diskDataList)
-        {
-	        if (diskData.IsMissing || diskData.DevicePath is null) continue;
-
-	        foreach (string hwmonDir in Directory.EnumerateDirectories("/sys/class/hwmon/"))
-	        {
-		        // Check if the current `hwmon` directory is for the same device as what we're looking for.
-		        if (!Directory.Exists($"{hwmonDir}/device/{Path.GetFileNameWithoutExtension(diskData.DevicePath).Split('p')[0]}"))
-		        {
-					continue;
-		        }
-
-				if (File.Exists($"{hwmonDir}/device/model"))
-		        {
-			        diskData.DeviceName = File.ReadAllText($"{hwmonDir}/device/model").TrimEnd('\n').TrimEnd(' ');
-		        }
-		        else if (File.Exists($"{hwmonDir}/name"))
-		        {
-			        diskData.DeviceName = File.ReadAllText($"{hwmonDir}/name").TrimEnd('\n').TrimEnd(' ');
-		        }
-
-		        if (File.Exists($"{hwmonDir}/temp1_input"))
-		        {
-			        diskData.TemperatureC = float.Parse(File.ReadAllText($"{hwmonDir}/temp1_input")) / 1000;
-		        }
-
-		        if (File.Exists($"{hwmonDir}/temp1_min"))
-		        {
-			        diskData.TemperatureMinC = float.Parse(File.ReadAllText($"{hwmonDir}/temp1_min")) / 1000;
-		        }
-
-		        if (File.Exists($"{hwmonDir}/temp1_max"))
-		        {
-			        diskData.TemperatureMaxC = float.Parse(File.ReadAllText($"{hwmonDir}/temp1_max")) / 1000;
-		        }
-
-		        if (File.Exists($"{hwmonDir}/temp1_crit"))
-		        {
-			        diskData.TemperatureCritC = float.Parse(File.ReadAllText($"{hwmonDir}/temp1_crit")) / 1000;
-		        }
-
-		        if (File.Exists($"{hwmonDir}/temp1_label"))
-		        {
-			        diskData.TemperatureLabel = File.ReadAllText($"{hwmonDir}/temp1_label").TrimEnd('\n').TrimEnd(' ');
-		        }
-	        }
-        }
-	}
-
-	/// <summary>
-	/// Fetch a list of all watched mounts' respective <see cref="DiskData"/>s. Loaded from the user's configuration.
-	/// </summary>
-	/// <returns>The list of watched mounts' <see cref="DiskData"/>s</returns>
-	public static List<DiskData> GetDiskDatas()
-	{
-
-		string[] scriptSupports = ShellMethods.GetScriptSupports($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh");
-
-		List<DiskData> diskDataList = [];
-
-		foreach (var mountPoint in ApiConfig.MainConfigs.ConfigProps.WatchedMounts)
+		static FullDisksData()
 		{
-			if (!Directory.Exists(mountPoint.Key))
+			foreach (var mountPoint in ApiConfig.MainConfigs.ConfigProps.WatchedMounts)
 			{
-				diskDataList.Add(new DiskData
-				{
-					MountPoint = mountPoint.Key,
-					MountName = mountPoint.Value,
-					IsMissing = true
-				});
-				continue;
+				DiskDataList.Add(new DiskData(mountPoint.Key, mountPoint.Value, ScriptSupports));
 			}
-
-			diskDataList.Add(new DiskData
-			{
-				MountPoint = mountPoint.Key,
-				MountName = mountPoint.Value,
-				DevicePath = GetStat("Device.Path", mountPoint.Key, scriptSupports),
-				FileSystem = GetStat("Device.Filesystem", mountPoint.Key, scriptSupports),
-				IsMissing = false,
-				TotalSize = ulong.Parse(GetStat("Partition.TotalSpace", mountPoint.Key, scriptSupports)),
-				FreeSize = ulong.Parse(GetStat("Parition.FreeSpace", mountPoint.Key, scriptSupports))
-			});
+		}
+		public static async Task UpdateData()
+		{
+			List<Task> diskTasks = [];
+			diskTasks.AddRange(DiskDataList.Select(diskData => Task.Run(diskData.UpdateData)));
+			await Task.WhenAll(diskTasks);
 		}
 
-		GetDiskTemperature(ref diskDataList);
+		public static Dictionary<string, dynamic?>[] ToDictionary()
+		{
+			if (DiskDataList.Count == 0) return [];
 
-		return diskDataList;
+			List<Dictionary<string, dynamic?>> diskDataDicts = [];
+
+			foreach (var diskData in DiskDataList)
+			{
+				if (diskData.IsMissing)
+				{
+					diskDataDicts.Add(new()
+					{
+						{ "MountPoint", diskData.MountPoint },
+						{ "MountName", diskData.MountName },
+						{ "IsMissing", diskData.IsMissing }
+					});
+					continue;
+				}
+
+				diskDataDicts.Add(new()
+				{
+					{ "DeviceName", diskData.DeviceName },
+					{ "MountPoint", diskData.MountPoint },
+					{ "MountName", diskData.MountName },
+					{ "DevicePath", diskData.DevicePath },
+					{ "FileSystem", diskData.FileSystem },
+					{ "IsMissing", diskData.IsMissing },
+
+					{ "TotalSize", diskData.TotalSize },
+					{ "FreeSize", diskData.FreeSize },
+					{ "UsedSize", diskData.UsedSize },
+					{ "UsedSizePercent", diskData.UsedSizePercent },
+
+					{ "TemperatureLabel", diskData.TemperatureLabel },
+					{ "TemperatureC", diskData.TemperatureC },
+					{ "TemperatureMinC", diskData.TemperatureMinC },
+					{ "TemperatureMaxC", diskData.TemperatureMaxC },
+					{ "TemperatureCritC", diskData.TemperatureCritC }
+				});
+			}
+
+			return diskDataDicts.ToArray();
+		}
+
+		private static readonly string[] ScriptSupports = ShellMethods.GetScriptSupports($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh");
+		public static List<DiskData> DiskDataList { get; private set; } = [];
 	}
 
 	/// <summary>

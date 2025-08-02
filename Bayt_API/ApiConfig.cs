@@ -37,6 +37,8 @@ public static class ApiConfig
 	/// </summary>
 	private static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
 
+	public static readonly string[] PossibleStats = ["Meta", "System", "CPU", "GPU", "Memory", "Mounts"];
+
 	// Config management
 
 	/// <summary>

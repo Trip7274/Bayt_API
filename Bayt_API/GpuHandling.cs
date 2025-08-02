@@ -2,39 +2,47 @@ namespace Bayt_API;
 
 public static class GpuHandling
 {
-	public class GpuData
+	public sealed class GpuData
 	{
+		public GpuData(string gpuId)
+		{
+			GpuId = gpuId;
+			UpdateData();
+		}
+
+		public string GpuId { get; }
+
 		/// <summary>
 		/// Friendly name of the GPU (e.g. "NVIDIA RTX 5070 Ti" or "AMD Radeon RX 9070 XT")
 		/// </summary>
-		public string? Name { get; init; }
+		public string? Name { get; private set; }
 		/// <summary>
 		/// One of: "NVIDIA", "AMD", "Intel", or "Virtio". Used to differenciate what features should be expected from every brand.
 		/// </summary>
 		/// <remarks>
 		///	"Virtio" is always displayed with minimal, usually generic stats (Brand, Name, Not missing)
 		/// </remarks>
-		public required string Brand { get; init; }
+		public string? Brand { get; private set; }
 		/// <summary>
 		/// Whether the GPU is considered an APU or dGPU. Purely cosmetic
 		/// </summary>
 		/// <remarks>
 		///	Currently AMD-only
 		/// </remarks>
-		public bool? IsDedicated { get; init; }
+		public bool? IsDedicated { get; private set; }
 		/// <summary>
 		/// This is set to true by default if the <c>Name</c> field is (literally) "null". Used to indicate this GPU should be skipped from processing and will not contain other data.
 		/// </summary>
-		public bool IsMissing { get; init; }
+		public bool IsMissing { get; private set; }
 
 		/// <summary>
 		/// Current utilization percentage of the graphics core in the GPU. Preferrably up to 2 decimals in percision
 		/// </summary>
-		public float? GraphicsUtilPerc { get; init; }
+		public float? GraphicsUtilPerc { get; private set; }
 		/// <summary>
 		/// Current operating frequency of the graphics core. Unit is MHz.
 		/// </summary>
-		public float? GraphicsFrequency { get; init; }
+		public float? GraphicsFrequency { get; private set; }
 
 		/// <summary>
 		/// Utilization percentage of VRAM space. Perferrably up to 2 decimals in percision.
@@ -42,28 +50,28 @@ public static class GpuHandling
 		/// <remarks>
 		///	 Currently NVIDIA + AMD only
 		/// </remarks>
-		public float? VramUtilPerc { get; init; }
+		public float? VramUtilPerc { get; private set; }
 		/// <summary>
 		///	Total size of VRAM space. Unit is Bytes.
 		/// </summary>
 		/// <remarks>
 		///	Currently AMD + NVIDIA only
 		/// </remarks>
-		public ulong? VramTotalBytes { get; init; }
+		public ulong? VramTotalBytes { get; private set; }
 		/// <summary>
 		///	Number of bytes used in VRAM space.
 		/// </summary>
 		/// <remarks>
 		///	Currently AMD + NVIDIA only
 		/// </remarks>
-		public ulong? VramUsedBytes { get; init; }
+		public ulong? VramUsedBytes { get; private set; }
 		/// <summary>
 		/// GTT (Graphics Translation Tables) utilization. Different from <c>VramUtilPerc</c>
 		/// </summary>
 		/// <remarks>
 		///	Currently AMD only
 		/// </remarks>
-		public sbyte? VramGttUtilPerc { get; init; }
+		public sbyte? VramGttUtilPerc { get; private set; }
 
 		/// <summary>
 		/// Utilization percentage of the encoder engine.
@@ -71,21 +79,21 @@ public static class GpuHandling
 		/// <remarks>
 		///	On NVIDIA, this is purely encode utilization, on Intel+AMD, it's the average of Encode+Decode. This is due to limitations in the current interface for both.
 		/// </remarks>
-		public float? EncoderUtilPerc { get; init; }
+		public float? EncoderUtilPerc { get; private set; }
 		/// <summary>
 		/// Utilization percentage of the decoding engine.
 		/// </summary>
 		/// <remarks>
 		///	Currently NVIDIA only, where it's purely decode utilization.
 		/// </remarks>
-		public float? DecoderUtilPerc { get; init; }
+		public float? DecoderUtilPerc { get; private set; }
 		/// <summary>
 		/// Utilization of the "VideoEnhance" Engine on Intel GPUs.
 		/// </summary>
 		/// <remarks>
 		///	Currently Intel only, Jellyfin docs describe it as "QSV VPP processor workload".
 		/// </remarks>
-		public float? VideoEnhanceUtilPerc { get; init; }
+		public float? VideoEnhanceUtilPerc { get; private set; }
 
 		/// <summary>
 		/// Frequency of the encoding and decoding engines. Unit is MHz.
@@ -93,112 +101,179 @@ public static class GpuHandling
 		/// <remarks>
 		///	Currently NVIDIA only.
 		/// </remarks>
-		public float? EncDecFrequency { get; init; }
+		public float? EncDecFrequency { get; private set; }
 
 		/// <summary>
 		/// Average power usage of the whole GPU device. Unit is Watts.
 		/// </summary>
-		public float? PowerUse { get; init; }
+		public float? PowerUse { get; private set; }
 		/// <summary>
 		/// Average temperature of the GPU die. Unit is in Celsius.
 		/// </summary>
 		/// <remarks>
 		///	Currently NVIDIA + AMD only
 		/// </remarks>
-		public sbyte? TemperatureC { get; init; }
+		public sbyte? TemperatureC { get; private set; }
 		/// <summary>
 		/// Average fan speed in RPM.
 		/// </summary>
 		/// <remarks>
 		///	AMD only.
 		/// </remarks>
-		public ushort? FanSpeedRpm { get; init; } // AMD-only
-	}
+		public ushort? FanSpeedRpm { get; private set; } // AMD-only
 
-	public static List<GpuData> GetGpuDataList()
-	{
-		string[] gpuIds = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", "gpu_ids").StandardOutput.TrimEnd('\n').Split('\n');
-
-		if (gpuIds.Length == 0) return [];
-
-		var gpuDataList = new List<GpuData>();
-
-		foreach (var gpuId in gpuIds)
+		internal void UpdateData()
 		{
 			// Format should be:
 			// "GPU Brand|GPU Name|IsGpuDedicated?|Graphics Util Perc|Graphics Frequency|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|VRAM GTT Usage Perc?|Encoder Util|Decoder Util?|Video Enhance Util?|Encoder/Decoder Frequency?|Power Usage|TemperatureC?|FanSpeedRPM?"
 
-			var shellScriptProcess = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {gpuId}");
-			string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
+				var shellScriptProcess =
+					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {GpuId}");
+				string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
 
-			if (arrayOutput[1] == "null")
-			{
-				gpuDataList.Add(new GpuData
+				if (arrayOutput[1] == "null")
 				{
-					Brand = arrayOutput[0],
-					IsMissing = true
-				});
-				continue;
-			}
+					Brand = arrayOutput[0];
+					IsMissing = true;
 
-			if (arrayOutput[0] == "Virtio")
-			{
-				gpuDataList.Add(new GpuData
+					return;
+				}
+
+				if (arrayOutput[0] == "Virtio")
 				{
-					Brand = arrayOutput[0],
-					Name = arrayOutput[1].Trim('"'),
-					IsMissing = false
-				});
-				continue;
-			}
+					Brand = arrayOutput[0];
+					Name = arrayOutput[1].Trim('"');
+					IsMissing = false;
 
-			if (arrayOutput[5] == "null" && arrayOutput[6] != "null" && arrayOutput[7] != "null")
-			{
-				// Workaround for the AMD GPU interface not providing a VRAM usage percentage
-				arrayOutput[5] = $"{Math.Round(float.Parse(arrayOutput[7]) / float.Parse(arrayOutput[6]) * 100, 2)}";
-			}
+					return;
+				}
 
-			try
-			{
-				gpuDataList.Add(new GpuData
+				if (arrayOutput[5] == "null" && arrayOutput[6] != "null" && arrayOutput[7] != "null")
 				{
-					Brand = arrayOutput[0],
-					Name = arrayOutput[1].Trim('"'),
-					IsDedicated = ParsingMethods.ParseTypeNullable<bool>(arrayOutput[2]),
-					IsMissing = false,
+					// Workaround for the AMD GPU interface not providing a VRAM usage percentage
+					arrayOutput[5] =
+						$"{Math.Round(float.Parse(arrayOutput[7]) / float.Parse(arrayOutput[6]) * 100, 2)}";
+				}
 
-					GraphicsUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[3]),
-					GraphicsFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[4]),
+				try
+				{
+					Brand = arrayOutput[0];
+					Name = arrayOutput[1].Trim('"');
+					IsDedicated = ParsingMethods.ParseTypeNullable<bool>(arrayOutput[2]);
+					IsMissing = false;
 
-					VramUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[5]),
-					VramTotalBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[6]),
-					VramUsedBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[7]),
-					VramGttUtilPerc = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[8]),
+					GraphicsUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[3]);
+					GraphicsFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[4]);
 
-					EncoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[9]),
-					DecoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[10]),
-					VideoEnhanceUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[11]),
-					EncDecFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[12]),
+					VramUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[5]);
+					VramTotalBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[6]);
+					VramUsedBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[7]);
+					VramGttUtilPerc = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[8]);
 
-					PowerUse = ParsingMethods.ParseTypeNullable<float>(arrayOutput[13]),
-					TemperatureC = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[14]),
-					FanSpeedRpm = ParsingMethods.ParseTypeNullable<ushort>(arrayOutput[15])
-				});
-			}
-			catch (IndexOutOfRangeException e)
+					EncoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[9]);
+					DecoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[10]);
+					VideoEnhanceUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[11]);
+					EncDecFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[12]);
+
+					PowerUse = ParsingMethods.ParseTypeNullable<float>(arrayOutput[13]);
+					TemperatureC = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[14]);
+					FanSpeedRpm = ParsingMethods.ParseTypeNullable<ushort>(arrayOutput[15]);
+				}
+				catch (IndexOutOfRangeException e)
+				{
+					Console.WriteLine($"""
+					                   IndexOutOfRange error while parsing data for GPU '{GpuId}'!
+					                   {e.Message}
+					                   Stack Trace: {e.StackTrace}
+					                   Shell exit code: {shellScriptProcess.ExitCode}
+					                   Full Shell log was saved in "{ApiConfig.BaseExecutablePath}/logs/GPU.log"
+
+					                   For now, skipping this GPU...
+					                   """);
+				}
+		}
+	}
+
+	/// <summary>
+	/// Contains data about all the system's current GPUs. Make sure this is updated using <see cref="FullGpusData.UpdateData"/>
+	/// </summary>
+	public static class FullGpusData
+	{
+		static FullGpusData()
+		{
+			GpuIdList = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", "gpu_ids").StandardOutput.TrimEnd('\n').Split('\n');
+
+			if (GpuIdList.Length == 0) return;
+
+			foreach (var gpuId in GpuIdList)
 			{
-				Console.WriteLine($"""
-				                   IndexOutOfRange error while parsing data for GPU '{gpuId}'!
-				                   {e.Message}
-				                   Stack Trace: {e.StackTrace}
-				                   Shell exit code: {shellScriptProcess.ExitCode}
-				                   Full Shell log was saved in "{ApiConfig.BaseExecutablePath}/logs/GPU.log"
-				                   
-				                   For now, skipping this GPU...
-				                   """);
+				GpuDataList.Add(new GpuData(gpuId));
 			}
 		}
 
-		return gpuDataList;
+		public static List<GpuData> GpuDataList { get; } = [];
+		private static string[] GpuIdList { get; }
+
+		/// <summary>
+		/// Updates the list of cached GPU data stored in the <see cref="GpuDataList"/> property with the latest metrics.
+		/// Make sure to invoke this as to not serve stale data.
+		/// </summary>
+		public static async Task UpdateData()
+		{
+			if (GpuIdList.Length == 0) return;
+
+			List<Task> gpuTasks = [];
+			gpuTasks.AddRange(GpuDataList.Select(gpuData => Task.Run(gpuData.UpdateData)));
+
+			await Task.WhenAll(gpuTasks);
+		}
+
+		public static Dictionary<string, dynamic?>[] ToDictionary()
+		{
+			if (GpuDataList.Count == 0) return [];
+
+			List<Dictionary<string, dynamic?>> gpuDataDicts = [];
+
+			foreach (var gpuData in GpuDataList)
+			{
+				if (gpuData.IsMissing)
+				{
+					gpuDataDicts.Add(new()
+					{
+						{ "Brand", gpuData.Brand },
+						{ "IsMissing", gpuData.IsMissing }
+					});
+					continue;
+				}
+
+
+				gpuDataDicts.Add(new()
+				{
+					{ "Name", gpuData.Name },
+					{ "Brand", gpuData.Brand },
+					{ "IsDedicated", gpuData.IsDedicated },
+					{ "IsMissing", gpuData.IsMissing },
+
+					{ "GraphicsUtilPerc", gpuData.GraphicsUtilPerc },
+					{ "GraphicsFrequency", gpuData.GraphicsFrequency },
+
+					{ "VramUtilPerc", gpuData.VramUtilPerc },
+					{ "VramTotalBytes", gpuData.VramTotalBytes },
+					{ "VramUsedBytes", gpuData.VramUsedBytes },
+					{ "VramGttUtilPerc", gpuData.VramGttUtilPerc },
+
+					{ "EncoderUtilPerc", gpuData.EncoderUtilPerc },
+					{ "DecoderUtilPerc", gpuData.DecoderUtilPerc },
+					{ "VideoEnhanceUtilPerc", gpuData.VideoEnhanceUtilPerc },
+					{ "EncDecFrequency", gpuData.EncDecFrequency },
+
+					{ "PowerUse", gpuData.PowerUse },
+					{ "TemperatureC", gpuData.TemperatureC },
+					{ "FanSpeedRpm", gpuData.FanSpeedRpm }
+				});
+			}
+
+			return gpuDataDicts.ToArray();
+		}
 	}
 }

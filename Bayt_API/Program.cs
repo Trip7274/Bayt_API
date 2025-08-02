@@ -9,8 +9,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.AddSingleton<SystemDataCache>();
-
 Console.WriteLine($"[INFO] Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list");
 builder.WebHost.ConfigureKestrel(opts => opts.Listen(IPAddress.Loopback, ApiConfig.NetworkPort));
 
@@ -42,6 +40,8 @@ if (Environment.GetEnvironmentVariable("BAYT_USE_SOCK") == "1")
 	builder.WebHost.ConfigureKestrel(opts => opts.ListenUnixSocket(ApiConfig.UnixSocketPath));
 }
 
+ApiConfig.LastUpdated = DateTime.Now;
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -62,14 +62,12 @@ if (Environment.OSVersion.Platform != PlatformID.Unix)
 
 
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache, HttpContext context) =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (HttpContext context) =>
 	{
-		string[] possibleStats = ["Meta", "System", "CPU", "GPU", "Memory", "Mounts"];
-
-		List<string> requestedStats;
+		List<string> requestedStatsRaw;
 		try
 		{
-			requestedStats =
+			requestedStatsRaw =
 				(await RequestChecking
 					.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context, false) ?? [])
 				.Values.First();
@@ -78,27 +76,25 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 		{
 			return Results.BadRequest(e.Message);
 		}
-		catch (JsonException)
+		catch (Exception e) when (e is JsonException or EndOfStreamException)
 		{
-			Debug.WriteLine("Got a request with malformed JSON, returning all stats.");
-			requestedStats = ["All"];
-		}
-		catch (EndOfStreamException)
-		{
-			Debug.WriteLine("Got a request with no body, returning all stats.");
-			requestedStats = ["All"];
-		}
-		requestedStats = requestedStats.Distinct().ToList(); // De-duplicate
-
-		if (requestedStats.Count == 0)
-		{
-			Debug.WriteLine($"Got a request asking for '{string.Join(", ", requestedStats)}', but none matched so we're returning a BadRequest.");
-			return Results.BadRequest("Stat list must contain at least 1 element.");
+			Debug.WriteLine("Got a request with malformed or non-existing JSON, returning all stats.");
+			requestedStatsRaw = ["All"];
 		}
 
-		if (requestedStats.Contains("All"))
+		List<string> requestedStats;
+		if (requestedStatsRaw.Count != 0 && requestedStatsRaw.First() == "All")
 		{
-			requestedStats = possibleStats.ToList();
+			requestedStats = ApiConfig.PossibleStats.ToList();
+		}
+		else
+		{
+			requestedStats = requestedStatsRaw.Intersect(ApiConfig.PossibleStats).Distinct().ToList(); // De-duplicate and remove invalid requests
+			if (requestedStats.Count == 0)
+			{
+				Debug.WriteLine($"Got a request asking for '{string.Join(", ", requestedStatsRaw)}', but none matched so we're returning a BadRequest.");
+				return Results.BadRequest("Stat list must contain at least 1 valid element.");
+			}
 		}
 
 		// Request checks done
@@ -107,7 +103,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 
 		Dictionary<string, Dictionary<string, dynamic>[]> responseDictionary = [];
 
-		if (!Caching.IsDataFresh() || cache.CachedCpuStats is null)
+		if (!Caching.IsDataFresh() || StatsApi.CpuData.CpuName is null)
 		{
 			// Queue and update all the requested stats up asynchronously
 			List<Task> fetchTasks = [];
@@ -117,25 +113,25 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 				{
 					case "CPU":
 					{
-						fetchTasks.Add(Task.Run(cache.CheckCpuData));
+						fetchTasks.Add(Task.Run(StatsApi.CpuData.UpdateData));
 						break;
 					}
 
 					case "GPU":
 					{
-						fetchTasks.Add(Task.Run(cache.CheckGpuData));
+						fetchTasks.Add(Task.Run(GpuHandling.FullGpusData.UpdateData));
 						break;
 					}
 
 					case "Memory":
 					{
-						fetchTasks.Add(Task.Run(cache.CheckMemoryData));
+						fetchTasks.Add(Task.Run(StatsApi.MemoryData.UpdateData));
 						break;
 					}
 
 					case "Mounts":
 					{
-						fetchTasks.Add(Task.Run(cache.CheckDiskData));
+						fetchTasks.Add(Task.Run(DiskHandling.FullDisksData.UpdateData));
 						break;
 					}
 				}
@@ -164,90 +160,31 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (SystemDataCache cache,
 
 				case "System":
 				{
-					responseDictionary.Add("System", [
-						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(cache.CachedGeneralSpecs)) ?? []
-					]);
+					responseDictionary.Add("System", [ StatsApi.GeneralSpecs.ToDictionary() ]);
 					break;
 				}
 
-				case "CPU" when cache.CachedCpuStats is not null:
+				case "CPU":
 				{
-					responseDictionary.Add("CPU", [
-						new Dictionary<string, dynamic?>
-						{
-							{ "Name", cache.CachedGeneralSpecs.CpuName },
-							{ "UtilPerc", cache.CachedCpuStats.UtilizationPerc },
-							{ "CoreCount", cache.CachedCpuStats.PhysicalCoreCount },
-							{ "ThreadCount", cache.CachedCpuStats.ThreadCount },
-							{ "TemperatureC", cache.CachedCpuStats.TemperatureC },
-							{ "TemperatureType", cache.CachedCpuStats.TemperatureType }
-						}!
-					]);
+					responseDictionary.Add("CPU", [ StatsApi.CpuData.ToDictionary()! ]);
 					break;
 				}
 
 				case "GPU":
 				{
-					var gpuStatsDict = new List<Dictionary<string, dynamic?>>();
-
-					foreach (var gpuData in cache.CachedGpuStats ?? [])
-					{
-						if (gpuData.IsMissing)
-						{
-							gpuStatsDict.Add(new Dictionary<string, dynamic?>
-							{
-								{ "IsMissing", gpuData.IsMissing },
-								{ "Brand", gpuData.Brand }
-							});
-							continue;
-						}
-
-						gpuStatsDict.Add(
-							JsonSerializer.Deserialize<Dictionary<string, dynamic?>>(JsonSerializer.Serialize(gpuData)) ?? []
-							);
-					}
-					responseDictionary.Add("GPU", gpuStatsDict.ToArray()!);
-
+					responseDictionary.Add("GPU", GpuHandling.FullGpusData.ToDictionary()!);
 					break;
 				}
 
 				case "Memory":
 				{
-					responseDictionary.Add("Memory", [
-						JsonSerializer.Deserialize<Dictionary<string, dynamic>>(JsonSerializer.Serialize(cache.CachedMemoryStats)) ?? []
-					]);
-
+					responseDictionary.Add("Memory", [ StatsApi.MemoryData.ToDictionary() ]);
 					break;
 				}
 
 				case "Mounts":
 				{
-					var disksDictList = new List<Dictionary<string, dynamic?>>();
-					foreach (var watchedDisk in cache.CachedWatchedDiskData ?? [])
-					{
-						if (watchedDisk.IsMissing)
-						{
-							disksDictList.Add(new Dictionary<string, dynamic?>
-							{
-								{ "MountPoint", watchedDisk.MountPoint },
-								{ "MountName", watchedDisk.MountName },
-								{ "IsMissing", watchedDisk.IsMissing }
-							});
-							continue;
-						}
-						disksDictList.Add(
-							JsonSerializer.Deserialize<Dictionary<string, dynamic?>>(JsonSerializer.Serialize(watchedDisk)) ?? []
-							);
-					}
-
-					responseDictionary.Add("Mounts", disksDictList.ToArray()!);
-
-					break;
-				}
-
-				default:
-				{
-					responseDictionary.Add(requestedStat, [[]]);
+					responseDictionary.Add("Mounts", DiskHandling.FullDisksData.ToDictionary()!);
 					break;
 				}
 			}
@@ -334,6 +271,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context)
 	{
 		return Results.BadRequest("Mountpoints list must contain at least 1 element.");
 	}
+	// TODO: Refuse invalid mounts
 
 	ApiConfig.MainConfigs.AddMountpoint(mountPoints);
 
@@ -686,7 +624,22 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/powerOperation", async (HttpContext con
 	.WithName("PowerOperation");
 
 
-Console.WriteLine("[INFO] Starting API...\n");
+if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
+{
+	Console.WriteLine("[INFO] Skipping first fetch cycle. This may cause the first request to be slow.");
+}
+else
+{
+	Console.WriteLine("[INFO] Preparing a few things...");
+
+	// Do a fetch cycle to let the constructors run.
+	Task[] fetchTasks = [Task.Run(StatsApi.CpuData.UpdateData), Task.Run(GpuHandling.FullGpusData.UpdateData), Task.Run(StatsApi.MemoryData.UpdateData), Task.Run(DiskHandling.FullDisksData.UpdateData)];
+	await Task.WhenAll(fetchTasks);
+
+	Console.ForegroundColor = ConsoleColor.Green;
+	Console.WriteLine("[OK] Fetch cycle complete. Starting API...");
+	Console.ResetColor();
+}
 
 try
 {

@@ -402,8 +402,8 @@ Content-Type: application/json
 
 				// If the mount is missing, skip the rest of the checks
 				if (currentMount.hasOwnProperty("IsMissing") && !currentMount.IsMissing) {
+                    client.assert(currentMount.hasOwnProperty("DeviceName"), "Mounts.DeviceName property is missing");
 					const requiredFields = {
-						"DeviceName": "string",
 						"MountName": "string",
 						"DevicePath": "string",
 						"FileSystem": "string",

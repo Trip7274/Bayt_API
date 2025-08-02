@@ -14,7 +14,7 @@ public static class ApiConfig
 	/// <summary>
 	///
 	/// </summary>
-	public const string Version = "0.9.10";
+	public const string Version = "0.10.12";
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public const ushort NetworkPort = 5899;

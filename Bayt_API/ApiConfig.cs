@@ -12,9 +12,12 @@ namespace Bayt_API;
 public static class ApiConfig
 {
 	/// <summary>
-	///
+	/// String containing the semver-aligned version of the current Bayt instance.
 	/// </summary>
 	public const string Version = "0.10.12";
+	/// <summary>
+	/// Represents the current Bayt instance's MAJOR version in semver.
+	/// </summary>
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public const ushort NetworkPort = 5899;
@@ -169,8 +172,7 @@ public static class ApiConfig
 				}
 				File.Move(ConfigFilePath, $"{ConfigFilePath}.old");
 			}
-			Console.WriteLine($"[{Path.GetFileNameWithoutExtension(ConfigFilePath)}] " +
-			                  $"Configuration file seems to be invalid or non-existent, regenerating at {ConfigFilePath}...");
+			Console.WriteLine($"[INFO] Configuration file seems to be invalid or non-existent, regenerating at {Path.GetRelativePath(Environment.CurrentDirectory, ConfigFilePath)}...");
 
 			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(new ConfigProperties
 			{

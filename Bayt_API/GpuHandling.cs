@@ -127,70 +127,76 @@ public static class GpuHandling
 			// Format should be:
 			// "GPU Brand|GPU Name|IsGpuDedicated?|Graphics Util Perc|Graphics Frequency|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|VRAM GTT Usage Perc?|Encoder Util|Decoder Util?|Video Enhance Util?|Encoder/Decoder Frequency?|Power Usage|TemperatureC?|FanSpeedRPM?"
 
-				var shellScriptProcess =
-					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {GpuId}");
-				string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
+			int shellTimeout = 2500;
+			if (Name == null)
+			{
+				shellTimeout *= 10;
+			}
 
-				if (arrayOutput[1] == "null")
-				{
-					Brand = arrayOutput[0];
-					IsMissing = true;
+			var shellScriptProcess =
+					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {GpuId}", shellTimeout);
+			string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
 
-					return;
-				}
+			if (arrayOutput[1] == "null")
+			{
+				Brand = arrayOutput[0];
+				IsMissing = true;
 
-				if (arrayOutput[0] == "Virtio")
-				{
-					Brand = arrayOutput[0];
-					Name = arrayOutput[1].Trim('"');
-					IsMissing = false;
+				return;
+			}
 
-					return;
-				}
+			if (arrayOutput[0] == "Virtio")
+			{
+				Brand = arrayOutput[0];
+				Name = arrayOutput[1].Trim('"');
+				IsMissing = false;
 
-				if (arrayOutput[5] == "null" && arrayOutput[6] != "null" && arrayOutput[7] != "null")
-				{
-					// Workaround for the AMD GPU interface not providing a VRAM usage percentage
-					arrayOutput[5] =
-						$"{Math.Round(float.Parse(arrayOutput[7]) / float.Parse(arrayOutput[6]) * 100, 2)}";
-				}
+				return;
+			}
 
-				try
-				{
-					Brand = arrayOutput[0];
-					Name = arrayOutput[1].Trim('"');
-					IsDedicated = ParsingMethods.ParseTypeNullable<bool>(arrayOutput[2]);
-					IsMissing = false;
+			if (arrayOutput[5] == "null" && arrayOutput[6] != "null" && arrayOutput[7] != "null")
+			{
+				// Workaround for the AMD GPU interface not providing a VRAM usage percentage
+				arrayOutput[5] =
+					$"{Math.Round(float.Parse(arrayOutput[7]) / float.Parse(arrayOutput[6]) * 100, 2)}";
+			}
 
-					GraphicsUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[3]);
-					GraphicsFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[4]);
+			try
+			{
+				Brand = arrayOutput[0];
+				Name = arrayOutput[1].Trim('"');
+				IsDedicated = ParsingMethods.ParseTypeNullable<bool>(arrayOutput[2]);
+				IsMissing = false;
 
-					VramUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[5]);
-					VramTotalBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[6]);
-					VramUsedBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[7]);
-					VramGttUtilPerc = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[8]);
+				GraphicsUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[3]);
+				GraphicsFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[4]);
 
-					EncoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[9]);
-					DecoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[10]);
-					VideoEnhanceUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[11]);
-					EncDecFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[12]);
+				VramUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[5]);
+				VramTotalBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[6]);
+				VramUsedBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[7]);
+				VramGttUtilPerc = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[8]);
 
-					PowerUse = ParsingMethods.ParseTypeNullable<float>(arrayOutput[13]);
-					TemperatureC = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[14]);
-					FanSpeedRpm = ParsingMethods.ParseTypeNullable<ushort>(arrayOutput[15]);
-				}
-				catch (IndexOutOfRangeException e)
-				{
-					Console.WriteLine($"""
-					                   IndexOutOfRange error while parsing data for GPU '{GpuId}'!
-					                   {e.Message}
-					                   Stack Trace: {e.StackTrace}
-					                   Shell exit code: {shellScriptProcess.ExitCode}
-					                   Full Shell log was saved in "{ApiConfig.BaseExecutablePath}/logs/GPU.log"
+				EncoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[9]);
+				DecoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[10]);
+				VideoEnhanceUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[11]);
+				EncDecFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[12]);
 
-					                   For now, skipping this GPU...
-					                   """);
-				}
+				PowerUse = ParsingMethods.ParseTypeNullable<float>(arrayOutput[13]);
+				TemperatureC = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[14]);
+				FanSpeedRpm = ParsingMethods.ParseTypeNullable<ushort>(arrayOutput[15]);
+			}
+			catch (IndexOutOfRangeException e)
+			{
+				Console.WriteLine($"""
+				                   IndexOutOfRange error while parsing data for GPU '{GpuId}'!
+				                   {e.Message}
+				                   Stack Trace: {e.StackTrace}
+				                   Shell exit code: {shellScriptProcess.ExitCode}
+				                   Full Shell log was saved in "{ApiConfig.BaseExecutablePath}/logs/GPU.log"
+				                   
+				                   For now, skipping this GPU...
+				                   """);
+			}
 		}
 	}
 

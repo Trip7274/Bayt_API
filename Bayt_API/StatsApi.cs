@@ -94,7 +94,12 @@ public static class StatsApi
 		/// <exception cref="Exception">Non-zero shell script exit code, or the output was of invalid length.</exception>
 		public static void UpdateData()
 		{
-			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "AllUtil");
+			int shellTimeout = 2500;
+			if (CpuName == null)
+			{
+				shellTimeout *= 10;
+			}
+			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "AllUtil", shellTimeout);
 			if (!rawOutput.Success)
 			{
 				throw new Exception($"Failed to get CPU data from getCpu.sh ({rawOutput.ExitCode}).");
@@ -153,6 +158,7 @@ public static class StatsApi
 		public static ulong AvailableMemory { get; private set; }
 
 		public static byte UsedMemoryPercent => (byte) ((float) UsedMemory / TotalMemory * 100);
+		private static bool _initialized = false;
 
 
 		/// <summary>
@@ -162,7 +168,13 @@ public static class StatsApi
 		/// <exception cref="Exception">Non-zero shell script exit code, or the output was of invalid length.</exception>
 		public static void UpdateData()
 		{
-			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "All");
+			int shellTimeout = 2500;
+			if (!_initialized)
+			{
+				shellTimeout *= 10;
+			}
+
+			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "All", shellTimeout);
 			if (!rawOutput.Success)
 			{
 				throw new Exception($"Failed to get RAM data from getCpu.sh ({rawOutput.ExitCode})");
@@ -177,6 +189,7 @@ public static class StatsApi
 			TotalMemory = ulong.Parse(outputArray[0]);
 			UsedMemory = ulong.Parse(outputArray[1]);
 			AvailableMemory = ulong.Parse(outputArray[2]);
+			_initialized = true;
 		}
 
 		/// <summary>
@@ -197,10 +210,26 @@ public static class StatsApi
 
 	public static IPAddress GetLocalIpAddress()
 	{
+		IPAddress localIp;
+
+		if (Environment.GetEnvironmentVariable("BAYT_LOCALIP") != null)
+		{
+			if (IPAddress.TryParse(Environment.GetEnvironmentVariable("BAYT_LOCALIP"), out var localIpParsed))
+			{
+				localIp = localIpParsed;
+				Console.WriteLine($"[INFO] Using BAYT_LOCALIP environment variable to override detected IP address: '{localIp}'");
+				return localIp;
+			}
+
+			Console.ForegroundColor = ConsoleColor.Yellow;
+			Console.WriteLine($"[WARNING] BAYT_LOCALIP environment variable is set to '{Environment.GetEnvironmentVariable("BAYT_LOCALIP")}', but it doesn't appear to be a valid IP address. Falling back to default selection.");
+			Console.ResetColor();
+		}
+
 		using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
 		socket.Connect("1.1.1.1", 65530);
 		var endPoint = socket.LocalEndPoint as IPEndPoint ?? IPEndPoint.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getNet.sh", "LocalAddress").StandardOutput);
-		var localIp = endPoint.Address;
+		localIp = endPoint.Address;
 
 		return localIp;
 	}

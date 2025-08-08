@@ -15,20 +15,6 @@ builder.WebHost.ConfigureKestrel(opts => opts.Listen(IPAddress.Loopback, ApiConf
 if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 {
 	var localIp = StatsApi.GetLocalIpAddress();
-	if (Environment.GetEnvironmentVariable("BAYT_LOCALIP") != null)
-	{
-		if (IPAddress.TryParse(Environment.GetEnvironmentVariable("BAYT_LOCALIP"), out var localIpParsed))
-		{
-			localIp = localIpParsed;
-			Console.WriteLine($"[INFO] Using BAYT_LOCALIP environment variable to override detected IP address: '{localIp}'");
-		}
-		else
-		{
-			Console.ForegroundColor = ConsoleColor.Yellow;
-			Console.WriteLine($"[WARNING] BAYT_LOCALIP environment variable is set to '{Environment.GetEnvironmentVariable("BAYT_LOCALIP")}', but it doesn't appear to be a valid IP address. Falling back to default selection.");
-			Console.ResetColor();
-		}
-	}
 
 	Console.WriteLine($"[INFO] Adding URL '{localIp}:{ApiConfig.NetworkPort}' to listen list");
 	builder.WebHost.ConfigureKestrel(opts => opts.Listen(localIp, ApiConfig.NetworkPort));

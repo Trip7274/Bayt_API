@@ -44,7 +44,7 @@ public static class ShellMethods
 	/// <returns>A <see cref="ShellResult"/> containing the process output, error, and exit code.</returns>
 	/// <exception cref="InvalidOperationException">Thrown if there is an error starting the process.</exception>
 	/// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
-	public static ShellResult RunShell(string program, string arguments = "", int timeoutMilliseconds = 1500)
+	public static ShellResult RunShell(string program, string arguments = "", int timeoutMilliseconds = 2500)
 	{
 		using var process = new Process();
 		process.StartInfo = new ProcessStartInfo
@@ -106,7 +106,7 @@ public static class ShellMethods
         if (!processExited) timeoutMessage += " Process did not exit.";
         if (!outputStreamClosed) timeoutMessage += " Output stream reading did not complete.";
         if (!errorStreamClosed) timeoutMessage += " Error stream reading did not complete.";
-        timeoutMessage += $" Output captured: '{outputBuilder}'. Error captured: '{errorBuilder}'.";
+        timeoutMessage += $"\nOutput captured: '{outputBuilder}'.\nError captured: '{errorBuilder}'.";
 
         throw new TimeoutException(timeoutMessage);
 

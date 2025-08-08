@@ -636,12 +636,12 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/docker/getContainers", async () =>
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/startContainer", async (string containerId) =>
 {
-	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
 	{
 		await Docker.DockerContainers.UpdateData();
 	}
-	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/start", "POST");
@@ -659,12 +659,12 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/startContainer", async (string c
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/stopContainer", async (string containerId) =>
 {
-	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
 	{
 		await Docker.DockerContainers.UpdateData();
 	}
-	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/stop", "POST");
@@ -682,12 +682,12 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/stopContainer", async (string co
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/restartContainer", async (string containerId) =>
 {
-	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
 	{
 		await Docker.DockerContainers.UpdateData();
 	}
-	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
@@ -705,12 +705,12 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/restartContainer", async (string
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/killContainer", async (string containerId) =>
 {
-	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
 	{
 		await Docker.DockerContainers.UpdateData();
 	}
-	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/kill", "POST");
@@ -729,12 +729,12 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/killContainer", async (string co
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/docker/deleteContainer", async (string containerId) =>
 {
-	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
 	{
 		await Docker.DockerContainers.UpdateData();
 	}
-	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}", "DELETE");

@@ -613,6 +613,27 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/powerOperation", async (HttpContext con
 	.Produces(StatusCodes.Status400BadRequest)
 	.WithName("PowerOperation");
 
+// Docker endpoints
+
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/docker/getContainers", async () =>
+{
+	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+
+	if (!Caching.IsDataFresh())
+	{
+		await Docker.DockerContainers.UpdateData();
+	}
+
+	Dictionary<string, Dictionary<string, dynamic?>[]> containerDict = new()
+	{
+		{ "Containers", Docker.DockerContainers.ToDictionary() }
+	};
+
+
+	return Results.Text(JsonSerializer.Serialize(containerDict), "application/json", statusCode:StatusCodes.Status200OK);
+
+}).WithName("GetDockerContainers");
+
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
@@ -623,12 +644,19 @@ else
 	Console.WriteLine("[INFO] Preparing a few things...");
 
 	// Do a fetch cycle to let the constructors run.
-	Task[] fetchTasks = [
+	List<Task> fetchTasks = [
 		Task.Run(StatsApi.CpuData.UpdateData),
 		Task.Run(GpuHandling.FullGpusData.UpdateData),
 		Task.Run(StatsApi.MemoryData.UpdateData),
 		Task.Run(DiskHandling.FullDisksData.UpdateData)
 	];
+
+	if (Docker.IsDockerAvailable)
+	{
+		Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
+		fetchTasks.Add(Task.Run(Docker.DockerContainers.UpdateData));
+	}
+
 	await Task.WhenAll(fetchTasks);
 
 	Console.ForegroundColor = ConsoleColor.Green;

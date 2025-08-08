@@ -13,7 +13,9 @@ public static class Docker
 	{
 		static DockerContainers()
 		{
-			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(SendRequest("containers/json").Result);
+			var dockerRequest = SendRequest("containers/json").Result;
+			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
+			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);
 
 			foreach (var containerEntries in dockerOutput.EnumerateArray())
 			{
@@ -23,7 +25,9 @@ public static class Docker
 
 		public static async Task UpdateData()
 		{
-			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(await SendRequest("containers/json"));
+			var dockerRequest = await SendRequest("containers/json");
+			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
+			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);
 
 			Containers.Clear();
 			foreach (var containerEntries in dockerOutput.EnumerateArray())
@@ -60,21 +64,27 @@ public static class Docker
 			ImageID = dockerOutput.GetProperty(nameof(ImageID)).GetString() ?? throw new ArgumentException("Docker container image ID is null.");
 			ImageUrl = GetImageUrl(labelsElement);
 
+			if (labelsElement.TryGetProperty("com.docker.compose.project.config_files", out var composePath))
+			{
+				ComposePath = composePath.GetString();
+			}
+			if (labelsElement.TryGetProperty("com.docker.compose.project.working_dir", out var workingPath))
+			{
+				WorkingPath = workingPath.GetString();
+			}
 			Command = dockerOutput.GetProperty(nameof(Command)).GetString() ?? throw new ArgumentException("Docker container command is null.");
 
-			DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds(dockerOutput.GetProperty(nameof(Created)).GetInt64());
-			Created = dateTimeOffset.DateTime.ToUniversalTime();
 			CreatedUnix = dockerOutput.GetProperty(nameof(Created)).GetInt64();
+			DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds(CreatedUnix);
+			Created = dateTimeOffset.DateTime.ToUniversalTime();
 
 			State = dockerOutput.GetProperty(nameof(State)).GetString() ?? throw new ArgumentException("Docker container state is null.");
 			Status = dockerOutput.GetProperty(nameof(Status)).GetString() ?? throw new ArgumentException("Docker container status is null.");
 
 			IconUrl = GetIconUrl(labelsElement);
 
-			IpAddress = GetIp(dockerOutput.GetProperty("NetworkSettings"),
-				dockerOutput.GetProperty("HostConfig").GetProperty("NetworkMode").GetString()!);
-
 			NetworkMode = dockerOutput.GetProperty("HostConfig").GetProperty(nameof(NetworkMode)).GetString() ?? throw new ArgumentException("Docker container network mode is null.");
+			IpAddress = GetIp(dockerOutput.GetProperty("NetworkSettings"), NetworkMode);
 
 			if (dockerOutput.TryGetProperty("Ports", out var portBindingsElement) && portBindingsElement.GetArrayLength() != 0)
 			{
@@ -192,6 +202,8 @@ public static class Docker
 		public string ImageID { get; }
 		public string? ImageUrl { get; }
 
+		public string? ComposePath { get; }
+		public string? WorkingPath { get; }
 		public string Command { get; }
 		public DateTime Created { get; }
 		public long CreatedUnix { get; }
@@ -269,7 +281,14 @@ public static class Docker
 		public string Mode { get; } = mountEntry.GetProperty(nameof(Mode)).GetString() ?? throw new ArgumentException("Docker container's Mount Mode is null.");
 	}
 
-	public static async Task<string> SendRequest(string path, string method = "GET")
+	public sealed record DockerResponse
+	{
+		public ushort Status { get; set; }
+		public bool IsSuccess => Status is >= 200 and < 300;
+		public string Body { get; set; } = "";
+	}
+
+	public static async Task<DockerResponse> SendRequest(string path, string method = "GET")
 	{
 		if (method != "GET" && method != "POST") throw new ArgumentException("Method must be either GET or POST.");
 		if (path.StartsWith('/')) path = path[1..];
@@ -308,7 +327,7 @@ public static class Docker
 		return ProcessHttpRequest(Encoding.UTF8.GetString(fullResponse.ToArray()));
 	}
 
-	private static string ProcessHttpRequest(string responseString)
+	private static DockerResponse ProcessHttpRequest(string responseString)
 	{
 		List<string> responseLines = responseString.Split('\n').ToList();
 		if (!responseLines[0].StartsWith("HTTP/1.0"))
@@ -316,11 +335,18 @@ public static class Docker
 			throw new ArgumentException("Invalid HTTP response text.");
 		}
 
+		DockerResponse dockerResponse = new()
+		{
+			Status = ushort.Parse(responseLines[0].Split(' ')[1])
+		};
+
 		var bodyStartIndex = responseLines.IndexOf("\r");
 		if (bodyStartIndex == -1) throw new ArgumentException("Invalid HTTP response text.");
 
 		responseLines = responseLines.Skip(bodyStartIndex + 1).ToList();
 
-		return string.Join("\n", responseLines);
+		dockerResponse.Body = string.Join("\n", responseLines);
+
+		return dockerResponse;
 	}
 }

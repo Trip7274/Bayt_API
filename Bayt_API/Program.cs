@@ -634,6 +634,124 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/docker/getContainers", async () =>
 
 }).WithName("GetDockerContainers");
 
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/startContainer", async (string containerId) =>
+{
+	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Caching.IsDataFresh())
+	{
+		await Docker.DockerContainers.UpdateData();
+	}
+	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+		return Results.NotFound($"Container with ID '{containerId}' was not found.");
+
+	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/start", "POST");
+
+	return dockerRequest.Status switch
+	{
+		204 or 304 => Results.NoContent(),
+		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		500 => Results.InternalServerError(
+			$"Docker returned an error while starting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+		_ => Results.InternalServerError(
+			$"Docker returned an unknown error while starting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
+	};
+}).WithName("StartDockerContainer");
+
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/stopContainer", async (string containerId) =>
+{
+	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Caching.IsDataFresh())
+	{
+		await Docker.DockerContainers.UpdateData();
+	}
+	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+		return Results.NotFound($"Container with ID '{containerId}' was not found.");
+
+	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/stop", "POST");
+
+	return dockerRequest.Status switch
+	{
+		204 or 304 => Results.NoContent(),
+		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		500 => Results.InternalServerError(
+			$"Docker returned an error while stopping container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+		_ => Results.InternalServerError(
+			$"Docker returned an unknown error while stopping container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
+	};
+}).WithName("StopDockerContainer");
+
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/restartContainer", async (string containerId) =>
+{
+	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Caching.IsDataFresh())
+	{
+		await Docker.DockerContainers.UpdateData();
+	}
+	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+		return Results.NotFound($"Container with ID '{containerId}' was not found.");
+
+	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
+
+	return dockerRequest.Status switch
+	{
+		204 => Results.NoContent(),
+		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		500 => Results.InternalServerError(
+			$"Docker returned an error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+		_ => Results.InternalServerError(
+			$"Docker returned an unknown error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
+	};
+}).WithName("RestartDockerContainer");
+
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/killContainer", async (string containerId) =>
+{
+	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Caching.IsDataFresh())
+	{
+		await Docker.DockerContainers.UpdateData();
+	}
+	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+		return Results.NotFound($"Container with ID '{containerId}' was not found.");
+
+	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/kill", "POST");
+
+	return dockerRequest.Status switch
+	{
+		204 => Results.NoContent(),
+		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		409 => Results.BadRequest($"Container with ID '{containerId}' was not running."),
+		500 => Results.InternalServerError(
+			$"Docker returned an error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+		_ => Results.InternalServerError(
+			$"Docker returned an unknown error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
+	};
+}).WithName("KillDockerContainer");
+
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/docker/deleteContainer", async (string containerId) =>
+{
+	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
+	if (!Caching.IsDataFresh())
+	{
+		await Docker.DockerContainers.UpdateData();
+	}
+	if (Docker.DockerContainers.Containers.All(container => container.Id != containerId))
+		return Results.NotFound($"Container with ID '{containerId}' was not found.");
+
+	var dockerRequest = await Docker.SendRequest($"containers/{containerId}", "DELETE");
+
+	return dockerRequest.Status switch
+	{
+		204 => Results.NoContent(),
+		400 => Results.BadRequest($"Docker returned a bad parameter error while deleting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		409 => Results.NotFound($"There was a conflict deleting container with ID '{containerId}'. Make sure it's off."),
+		500 => Results.InternalServerError(
+			$"Docker returned an error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+		_ => Results.InternalServerError(
+			$"Docker returned an unknown error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
+	};
+}).WithName("DeleteDockerContainer");
+
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {

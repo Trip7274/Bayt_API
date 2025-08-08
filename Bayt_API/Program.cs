@@ -648,9 +648,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/startContainer", async (string c
 
 	return dockerRequest.Status switch
 	{
-		204 or 304 => Results.NoContent(),
-		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		500 => Results.InternalServerError(
+		HttpStatusCode.NoContent or HttpStatusCode.NotModified => Results.NoContent(),
+		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		HttpStatusCode.InternalServerError => Results.InternalServerError(
 			$"Docker returned an error while starting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while starting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
@@ -671,9 +671,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/stopContainer", async (string co
 
 	return dockerRequest.Status switch
 	{
-		204 or 304 => Results.NoContent(),
-		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		500 => Results.InternalServerError(
+		HttpStatusCode.NoContent or HttpStatusCode.NotModified => Results.NoContent(),
+		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		HttpStatusCode.InternalServerError => Results.InternalServerError(
 			$"Docker returned an error while stopping container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while stopping container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
@@ -694,9 +694,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/restartContainer", async (string
 
 	return dockerRequest.Status switch
 	{
-		204 => Results.NoContent(),
-		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		500 => Results.InternalServerError(
+		HttpStatusCode.NoContent => Results.NoContent(),
+		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		HttpStatusCode.InternalServerError => Results.InternalServerError(
 			$"Docker returned an error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
@@ -717,10 +717,10 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/killContainer", async (string co
 
 	return dockerRequest.Status switch
 	{
-		204 => Results.NoContent(),
-		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		409 => Results.BadRequest($"Container with ID '{containerId}' was not running."),
-		500 => Results.InternalServerError(
+		HttpStatusCode.NoContent => Results.NoContent(),
+		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		HttpStatusCode.Conflict => Results.Conflict($"Container with ID '{containerId}' was not running."),
+		HttpStatusCode.InternalServerError => Results.InternalServerError(
 			$"Docker returned an error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
@@ -741,16 +741,18 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/docker/deleteContainer", async (strin
 
 	return dockerRequest.Status switch
 	{
-		204 => Results.NoContent(),
-		400 => Results.BadRequest($"Docker returned a bad parameter error while deleting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
-		404 => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		409 => Results.NotFound($"There was a conflict deleting container with ID '{containerId}'. Make sure it's off."),
-		500 => Results.InternalServerError(
+		HttpStatusCode.NoContent => Results.NoContent(),
+		HttpStatusCode.BadRequest => Results.BadRequest($"Docker returned a bad parameter error while deleting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
+		HttpStatusCode.Conflict => Results.Conflict($"There was a conflict deleting container with ID '{containerId}'. Make sure it's off."),
+		HttpStatusCode.InternalServerError => Results.InternalServerError(
 			$"Docker returned an error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
 	};
 }).WithName("DeleteDockerContainer");
+
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/docker/getContainerLogs", Docker.StreamDockerLogs).WithName("GetDockerContainerLogs");
 
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")

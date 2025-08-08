@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -283,70 +284,112 @@ public static class Docker
 
 	public sealed record DockerResponse
 	{
-		public ushort Status { get; set; }
-		public bool IsSuccess => Status is >= 200 and < 300;
-		public string Body { get; set; } = "";
+		public HttpStatusCode Status { get; init; }
+		public bool IsSuccess { get; init; }
+		public string Body { get; init; } = "";
 	}
 
-	public static async Task<DockerResponse> SendRequest(string path, string method = "GET")
+	private static HttpClient GetDockerClient()
 	{
-		if (method != "GET" && method != "POST") throw new ArgumentException("Method must be either GET or POST.");
+		var handler = new SocketsHttpHandler
+		{
+			ConnectCallback = async (context, cancellationToken) =>
+			{
+				var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
+				await socket.ConnectAsync(new UnixDomainSocketEndPoint("/var/run/docker.sock"), cancellationToken);
+				return new NetworkStream(socket, true);
+			}
+		};
+
+		return new HttpClient(handler);
+	}
+
+	public static async Task StreamDockerLogs(string containerId, bool? stdout, bool? stderr, bool? timestamps, HttpContext context)
+	{
+		var response = context.Response;
+		if (!IsDockerAvailable)
+		{
+			response.StatusCode = 500;
+			return;
+		}
+		if (!Caching.IsDataFresh())
+		{
+			await DockerContainers.UpdateData();
+		}
+
+		if (DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
+		{
+			response.StatusCode = 404;
+			return;
+		}
+		if (stdout is null && stderr is null && timestamps is null)
+		{
+			stdout = true;
+			stderr = true;
+			timestamps = false;
+		}
+
+		response.ContentType = "text/event-stream";
+		response.Headers.Append("Cache-Control", "no-cache");
+		response.Headers.Append("Connection", "keep-alive");
+
+		var client = GetDockerClient();
+		client.BaseAddress = new Uri("http://localhost");
+
+		await using var stream = await client.GetStreamAsync($"/containers/{containerId}/logs?stdout={stdout}&stderr={stderr}&timestamps={timestamps}&follow=true");
+		if (!stream.CanRead) throw new Exception("Docker UNIX socket is not readable.");
+
+		byte[] logHeader = new byte[8];
+
+		while (!context.RequestAborted.IsCancellationRequested)
+		{
+			var bytesRead = await stream.ReadAtLeastAsync(logHeader, 8, false, context.RequestAborted);
+			if (bytesRead < 8)
+			{
+				break;
+			}
+			var payloadSize = (int) BinaryPrimitives.ReadUInt32BigEndian(logHeader.AsSpan(4));
+
+			var payloadBuffer = new byte[payloadSize];
+			await stream.ReadExactlyAsync(payloadBuffer, 0, payloadSize);
+
+			await response.WriteAsync($"data: {Encoding.UTF8.GetString(payloadBuffer)}\n\n", context.RequestAborted);
+			await response.Body.FlushAsync(context.RequestAborted);
+		}
+	}
+
+	public static async Task<DockerResponse> SendRequest(string path, string content = "", string method = "GET")
+	{
 		if (path.StartsWith('/')) path = path[1..];
 		if (!IsDockerAvailable) throw new FileNotFoundException("Docker socket not found. " +
 		                                                         "Double check that the Docker daemon is running and that the socket is accessible.");
 
-		string requestString = $"{method} /{path} HTTP/1.0\r\n" +
-		                       "Host: localhost\r\n" +
-		                       "User-Agent: Bayt_API\r\n" +
-		                       "Accept: */*\r\n" +
-		                       "\r\n";
-
-		byte[] request = Encoding.UTF8.GetBytes(requestString);
-
-		List<byte> fullResponse = new List<byte>();
-		int bytesRead = 0;
-
-		var dockerSocket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-		await dockerSocket.ConnectAsync(new UnixDomainSocketEndPoint("/var/run/docker.sock"));
-
-		await using (var stream = new NetworkStream(dockerSocket, false))
+		var client = GetDockerClient();
+		var clientResponse = method switch
 		{
-			if (!stream.CanWrite || !stream.CanRead) throw new Exception("Docker UNIX socket is not writable or not readable.");
-
-			await stream.WriteAsync(request);
-			while (stream.DataAvailable || bytesRead == 0)
-			{
-				byte[] responseCache = new byte[1024];
-				bytesRead = await stream.ReadAsync(responseCache);
-				fullResponse.AddRange(responseCache[..bytesRead]);
-			}
-		}
-		await dockerSocket.DisconnectAsync(false);
-		dockerSocket.Dispose();
-
-		return ProcessHttpRequest(Encoding.UTF8.GetString(fullResponse.ToArray()));
-	}
-
-	private static DockerResponse ProcessHttpRequest(string responseString)
-	{
-		List<string> responseLines = responseString.Split('\n').ToList();
-		if (!responseLines[0].StartsWith("HTTP/1.0"))
-		{
-			throw new ArgumentException("Invalid HTTP response text.");
-		}
-
-		DockerResponse dockerResponse = new()
-		{
-			Status = ushort.Parse(responseLines[0].Split(' ')[1])
+			"GET" => await client.GetAsync($"http://localhost/{path}"),
+			"POST" => await client.PostAsync($"http://localhost/{path}", new StringContent(content)),
+			"DELETE" => await client.DeleteAsync($"http://localhost/{path}"),
+			_ => throw new ArgumentException("Method must be either GET, POST, or DELETE.")
 		};
+		clientResponse.EnsureSuccessStatusCode();
 
-		var bodyStartIndex = responseLines.IndexOf("\r");
-		if (bodyStartIndex == -1) throw new ArgumentException("Invalid HTTP response text.");
+		byte[] fullResponse;
+		await using (var stream = await clientResponse.Content.ReadAsStreamAsync())
+		{
+			if (!stream.CanRead) throw new Exception("Docker UNIX socket is not writable or not readable.");
 
-		responseLines = responseLines.Skip(bodyStartIndex + 1).ToList();
+			using var memoryStream = new MemoryStream();
+			await stream.CopyToAsync(memoryStream);
 
-		dockerResponse.Body = string.Join("\n", responseLines);
+			fullResponse = memoryStream.ToArray();
+		}
 
-		return dockerResponse;
+		return new()
+		{
+			Status = clientResponse.StatusCode,
+			IsSuccess = clientResponse.IsSuccessStatusCode,
+			Body = Encoding.UTF8.GetString(fullResponse)
+		};
 	}
 }

@@ -333,8 +333,9 @@ public static partial class DiskHandling
 
 		if (regexMatch.Groups.Count != 3) throw new Exception($"Error while parsing device path for '{mountPoint}'!");
 
-		// A bit of a hack, but the GetDeviceFileSystem() function wouldn't work if its input was "devtmpfs".
-		return regexMatch.Groups[1].Value == "devtmpfs" ? mountPoint : regexMatch.Groups[1].Value;
+		// A bit of a hack, but the GetDeviceFileSystem() function wouldn't work if its input was "devtmpfs" or "tmpfs".
+		var devicePathMatch = regexMatch.Groups[1].Value;
+		return devicePathMatch is "devtmpfs" or "tmpfs" ? mountPoint : devicePathMatch;
 	}
 
 	/// <summary>
@@ -353,6 +354,6 @@ public static partial class DiskHandling
 		return regexMatch.Groups[2].Value == "" ? "???" : regexMatch.Groups[2].Value;
 	}
 
-    [GeneratedRegex(@"(/dev/\S+|devtmpfs)\s+(\S+)", RegexOptions.IgnoreCase, "en-US")]
+    [GeneratedRegex(@"(/dev/\S+|devtmpfs|tmpfs)\s+(\S+)", RegexOptions.IgnoreCase, "en-US")]
     private static partial Regex DevicePathAndFileSystemRegex();
 }

@@ -615,7 +615,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/powerOperation", async (HttpContext con
 
 // Docker endpoints
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/docker/getContainers", async () =>
+string baseDockerUrl = $"{ApiConfig.BaseApiUrlPath}/docker";
+
+app.MapGet($"{baseDockerUrl}/getContainers", async () =>
 {
 	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
 
@@ -634,7 +636,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/docker/getContainers", async () =>
 
 }).WithName("GetDockerContainers");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/startContainer", async (string containerId) =>
+app.MapPost($"{baseDockerUrl}/startContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
@@ -657,7 +659,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/startContainer", async (string c
 	};
 }).WithName("StartDockerContainer");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/stopContainer", async (string containerId) =>
+app.MapPost($"{baseDockerUrl}/stopContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
@@ -680,7 +682,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/stopContainer", async (string co
 	};
 }).WithName("StopDockerContainer");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/restartContainer", async (string containerId) =>
+app.MapPost($"{baseDockerUrl}/restartContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
@@ -703,7 +705,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/restartContainer", async (string
 	};
 }).WithName("RestartDockerContainer");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/killContainer", async (string containerId) =>
+app.MapPost($"{baseDockerUrl}/killContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
@@ -727,7 +729,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/docker/killContainer", async (string co
 	};
 }).WithName("KillDockerContainer");
 
-app.MapDelete($"{ApiConfig.BaseApiUrlPath}/docker/deleteContainer", async (string containerId) =>
+app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
@@ -752,7 +754,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/docker/deleteContainer", async (strin
 	};
 }).WithName("DeleteDockerContainer");
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/docker/getContainerLogs", Docker.StreamDockerLogs).WithName("GetDockerContainerLogs");
+app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs).WithName("GetDockerContainerLogs");
 
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")

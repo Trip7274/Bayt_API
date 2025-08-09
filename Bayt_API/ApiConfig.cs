@@ -106,6 +106,13 @@ public static class ApiConfig
 			/// </remarks>
 			public string PathToDataFolder { get; set; } = "clientData";
 			/// <summary>
+			/// Relative (to the Bayt binary) path to the folder containing all the docker compose folders.
+			/// </summary>
+			/// <remarks>
+			///	Defaults to "containers". Each container will be inside a folder named with the slug of its name
+			/// </remarks>
+			public string PathToComposeFolder { get; set; } = "containers";
+			/// <summary>
 			/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
 			/// </summary>
 			/// <remarks>
@@ -180,6 +187,7 @@ public static class ApiConfig
 				BackendName = "Bayt API Host",
 				SecondsToUpdate = 5,
 				PathToDataFolder = "clientData",
+				PathToComposeFolder = "containers",
 				WatchedMounts = new() { {"/", "Root Partition"} },
 				WolClients = []
 			}), Encoding.UTF8);

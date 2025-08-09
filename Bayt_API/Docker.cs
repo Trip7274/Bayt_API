@@ -81,6 +81,11 @@ public static class Docker
 
 			State = dockerOutput.GetProperty(nameof(State)).GetString() ?? throw new ArgumentException("Docker container state is null.");
 			Status = dockerOutput.GetProperty(nameof(Status)).GetString() ?? throw new ArgumentException("Docker container status is null.");
+			if (ComposePath is not null && File.Exists(ComposePath))
+			{
+				IsManaged = ComposePath.StartsWith(
+					Path.GetFullPath(ApiConfig.MainConfigs.ConfigProps.PathToComposeFolder));
+			}
 
 			IconUrl = GetIconUrl(labelsElement);
 
@@ -128,6 +133,7 @@ public static class Docker
 
 				{ "State", State },
 				{ "Status", Status },
+				{ "IsManaged", IsManaged },
 
 				{ "IconUrl", IconUrl },
 
@@ -211,6 +217,7 @@ public static class Docker
 
 		public string State { get; }
 		public string Status { get; }
+		public bool IsManaged { get; } = false;
 
 		public string? IconUrl { get; }
 

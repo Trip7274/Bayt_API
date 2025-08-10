@@ -756,6 +756,29 @@ app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string containerId) =>
 
 app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs).WithName("GetDockerContainerLogs");
 
+// Docker Compose endpoints
+
+app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string containerId) =>
+{
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
+	if (!Caching.IsDataFresh())
+	{
+		await Docker.DockerContainers.UpdateData();
+	}
+	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
+		return Results.NotFound($"Container with ID '{containerId}' was not found.");
+
+	var targetContainer = Docker.DockerContainers.Containers.First(container => container.Id.StartsWith(containerId));
+	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
+		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
+
+	var stream = new FileStream(targetContainer.ComposePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+	return Results.File(stream, "application/ocetet-stream", Path.GetFileName(targetContainer.ComposePath),
+		File.GetLastWriteTime(targetContainer.ComposePath));
+
+}).WithName("GetDockerContainerCompose");
+
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {

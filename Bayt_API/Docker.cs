@@ -76,13 +76,14 @@ public static class Docker
 			Command = dockerOutput.GetProperty(nameof(Command)).GetString() ?? throw new ArgumentException("Docker container command is null.");
 
 			CreatedUnix = dockerOutput.GetProperty(nameof(Created)).GetInt64();
-			DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds(CreatedUnix);
+			var dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds(CreatedUnix);
 			Created = dateTimeOffset.DateTime.ToUniversalTime();
 
 			State = dockerOutput.GetProperty(nameof(State)).GetString() ?? throw new ArgumentException("Docker container state is null.");
 			Status = dockerOutput.GetProperty(nameof(Status)).GetString() ?? throw new ArgumentException("Docker container status is null.");
 			if (ComposePath is not null && File.Exists(ComposePath))
 			{
+				IsCompose = true;
 				var composeDirectory = Path.GetDirectoryName(ComposePath);
 				IsManaged = composeDirectory is not null && File.Exists(Path.Combine(composeDirectory, ".BaytManaged"));
 			}
@@ -133,6 +134,8 @@ public static class Docker
 
 				{ "State", State },
 				{ "Status", Status },
+
+				{ "IsCompose", IsCompose },
 				{ "IsManaged", IsManaged },
 
 				{ "IconUrl", IconUrl },
@@ -217,7 +220,9 @@ public static class Docker
 
 		public string State { get; }
 		public string Status { get; }
-		public bool IsManaged { get; } = false;
+
+		public bool IsCompose { get; }
+		public bool IsManaged { get; }
 
 		public string? IconUrl { get; }
 

@@ -83,8 +83,8 @@ public static class Docker
 			Status = dockerOutput.GetProperty(nameof(Status)).GetString() ?? throw new ArgumentException("Docker container status is null.");
 			if (ComposePath is not null && File.Exists(ComposePath))
 			{
-				IsManaged = ComposePath.StartsWith(
-					Path.GetFullPath(ApiConfig.MainConfigs.ConfigProps.PathToComposeFolder));
+				var composeDirectory = Path.GetDirectoryName(ComposePath);
+				IsManaged = composeDirectory is not null && File.Exists(Path.Combine(composeDirectory, ".BaytManaged"));
 			}
 
 			IconUrl = GetIconUrl(labelsElement);

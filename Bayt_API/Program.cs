@@ -412,7 +412,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (HttpContext context) =>
 
 	try
 	{
-		return Results.Text(DataEndpointManagement.GetDataFile(dataFile.Key, dataFile.Value), dataFile.Value.EndsWith(".json") ? "application/json" : "text/plain");
+		return Results.File(DataEndpointManagement.GetDataFile(dataFile.Key, dataFile.Value), "application/ocetet-stream", dataFile.Key);
 	}
 	catch (FileNotFoundException e)
 	{
@@ -759,12 +759,11 @@ app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs).WithNam
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
+	if (Docker.IsDockerAvailable) Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
 	Console.WriteLine("[INFO] Skipping first fetch cycle. This may cause the first request to be slow.");
 }
 else
 {
-	Console.WriteLine("[INFO] Preparing a few things...");
-
 	// Do a fetch cycle to let the constructors run.
 	List<Task> fetchTasks = [
 		Task.Run(StatsApi.CpuData.UpdateData),
@@ -779,6 +778,7 @@ else
 		fetchTasks.Add(Task.Run(Docker.DockerContainers.UpdateData));
 	}
 
+	Console.WriteLine("[INFO] Preparing a few things...");
 	await Task.WhenAll(fetchTasks);
 
 	Console.ForegroundColor = ConsoleColor.Green;

@@ -54,7 +54,8 @@ public static class DataEndpointManagement
 		folder = folder.Trim('/'); // E.g. "/Test/"
 		if (folder.Contains('/'))
 		{
-			folder = folder[..folder.IndexOf('/')]; // E.g. "Test/subFolder". Bayt API does not support subfolders at this stage. Proper endpoints for this will be implemented later.
+			folder = folder[..folder.IndexOf('/')]; // E.g. "Test/subFolder". Bayt API does not support subfolders at this stage.
+                                           // Proper endpoints for this will be implemented later.
 		}
 
 		if (fileName.Length == 0) return;
@@ -62,7 +63,7 @@ public static class DataEndpointManagement
 		fileName = fileName.Trim('/'); // E.g. "config.json/"
 	}
 
-	public static string GetDataFile(string folder, string fileName)
+	public static Stream GetDataFile(string folder, string fileName)
 	{
 		SanitizeFileMetadata(ref folder, ref fileName);
 
@@ -85,9 +86,7 @@ public static class DataEndpointManagement
 			throw new FileNotFoundException($"File '{fileName}' was not found in the folder '{folder}'");
 		}
 
-		// We can't be sure that non-json files won't have data types that could be hard to serialize and deserialize,
-		// so converting to and from Base64 would guarantee the same treatment for all non-json files.
-		return fileName.EndsWith(".json") ? File.ReadAllText(foundFile) : Convert.ToBase64String(File.ReadAllBytes(foundFile));
+		return new FileStream(foundFile, FileMode.Open, FileAccess.Read, FileShare.Read);
 	}
 
 

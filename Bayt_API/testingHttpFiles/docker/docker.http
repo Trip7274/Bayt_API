@@ -1,4 +1,4 @@
-### Fetch system stats
+### Fetch current Docker containers
 @Version = 0
 @Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}/docker
 

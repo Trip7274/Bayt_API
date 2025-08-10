@@ -1,12 +1,21 @@
 using System.Text;
-using System.Text.Json;
 
 namespace Bayt_API;
 
+/// <summary>
+/// Contains all the methods and classes to retrieve or set client data. Primarily used by the clientData endpoints.
+/// </summary>
 public static class DataEndpointManagement
 {
+	/// <summary>
+	/// Relative path from the base executable to the client data folder
+	/// </summary>
 	private static string ClientDataFolder => Path.GetRelativePath(ApiConfig.BaseExecutablePath, ApiConfig.MainConfigs.ConfigProps.PathToDataFolder);
 
+	/// <summary>
+	/// Default content written to the "README.txt" file within the client data folder.
+	/// Provides an overview of the folder's purpose and guidelines for modification.
+	/// </summary>
 	private const string DefaultReadmeContent = """
 	                                     This folder contains all server-wide data for each client, separated by client.
 	                                     
@@ -14,84 +23,97 @@ public static class DataEndpointManagement
 	                                     Make sure the server is shut down before modifying these files.
 	                                     """;
 
-	// TODO: Rework this to not use base64
+	/// <summary>
+	/// Represents metadata for a data file, including its folder location, file name, and file data.
+	/// Provides utilities for accessing the file's absolute path, last modification time, and file stream.
+	/// </summary>
 	public sealed class DataFileMetadata
 	{
-		public DataFileMetadata(string format, string folder, string fileName, string? fileDataBase64 = null, JsonDocument? fileDataJson = null)
+		/// <summary>
+		/// Constructor for <see cref="DataFileMetadata"/>
+		/// </summary>
+		/// <param name="folder">The name of the folder inside the root clientData folder. Subfolders will be trimmed off.</param>
+		/// <param name="fileName">The name of the file itself. Extension included.</param>
+		/// <param name="fileData">The contents of the file. The <see cref="FileStreamRead"/> property will fall back to creating a new stream if this is null.</param>
+		public DataFileMetadata(string folder, string fileName, byte[]? fileData = null)
 		{
-			if (fileDataJson is null && fileDataBase64 is null)
+			Folder = folder.Trim('/');
+			if (Folder.Contains('/'))
 			{
-				throw new ArgumentException("Either fileDataBase64 or fileDataJson must be provided.");
+				Folder = Folder[..Folder.IndexOf('/')]; // E.g. "Test/subFolder" => "Test".
+                                            // Bayt API does not support subfolders at this stage.
+                                            // Proper endpoints for this will be implemented later.
 			}
-
-			fileDataBase64 ??= Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(fileDataJson));
-
-			Format = format;
-			Folder = folder;
-			FileName = fileName;
-			FileDataBase64 = fileDataBase64;
-			FileDataJson = fileDataJson;
+			FileName = fileName.Trim('/');
+			FileData = fileData;
 		}
-
-		public string Format { init; get; }
+		/// <summary>
+		/// Relative path from <see cref="DataEndpointManagement.ClientDataFolder"/> to the folder containing this file.
+		/// </summary>
 		public string Folder { set; get; }
+		/// <summary>
+		/// Full file name, including the extension.
+		/// </summary>
 		public string FileName { set; get; }
-		public string FileDataBase64 { init; get; }
-		public JsonDocument? FileDataJson { init; get; }
+		/// <summary>
+		/// Raw contents of the file. If left null, <see cref="FileStreamRead"/> will create a new <see cref="FileStream"/> based off the file on-disk
+		/// </summary>
+		public byte[]? FileData { get; }
+
+		/// <summary>
+		/// Gets the absolute path to the file.
+		/// </summary>
+		public string AbsolutePath => Path.Combine(ClientDataFolder, Folder, FileName);
+
+		/// <summary>
+		/// Gets the date and time, in local time, that the file was last accessed at.
+		/// </summary>
+		public DateTime LastWriteTime => File.GetLastWriteTime(AbsolutePath);
+		/// <summary>
+		/// Gets the <see cref="Stream"/> for the file's data. Backed by RAM if <see cref="FileData"/> is set, or backed by physical storage otherwise.
+		/// </summary>
+		public Stream FileStreamRead => FileData is null ? new FileStream(AbsolutePath, FileMode.Open, FileAccess.Read, FileShare.Read) : new MemoryStream(FileData);
 	}
 
-	private static void SanitizeFileMetadata(ref DataFileMetadata metadata)
+	/// <summary>
+	/// Remove trailing and leading slashes, truncate subfolders from folders, and ensure a valid name for both the strings.
+	/// </summary>
+	/// <param name="folder">Reference to a string of the folder name. Will be edited in-place</param>
+	/// <param name="fileName">Reference to a string of the file name. Will be edited in-place</param>
+	/// <exception cref="ArgumentException">The provided folder or file is not valid.</exception>
+	private static void SanitizeFileFolderNames(ref string folder, ref string fileName)
 	{
-		metadata.Folder = metadata.Folder.Trim('/'); // E.g. "/Test/"
-		metadata.FileName = metadata.FileName.Trim('/'); // E.g. "config.json/"
-		if (metadata.Folder.Contains('/'))
+		folder = folder.Trim(Path.DirectorySeparatorChar); // E.g. "/Test/" => "Test"
+		fileName = fileName.Trim(Path.DirectorySeparatorChar); // E.g. "config.json/" => "config.json
+
+		if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains)
+		       || string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
 		{
-			metadata.Folder = metadata.Folder[..metadata.Folder.IndexOf('/')]; // E.g. "Test/subFolder". Bayt API does not support subfolders at this stage. Proper endpoints for this will be implemented later.
+			throw new ArgumentException("Folder and file name must not be empty or invalid.");
 		}
-	}
 
-	private static void SanitizeFileMetadata(ref string folder, ref string fileName)
-	{
-		folder = folder.Trim('/'); // E.g. "/Test/"
-		if (folder.Contains('/'))
+
+		if (folder.Contains(Path.DirectorySeparatorChar))
 		{
-			folder = folder[..folder.IndexOf('/')]; // E.g. "Test/subFolder". Bayt API does not support subfolders at this stage.
+			folder = folder[..folder.IndexOf(Path.DirectorySeparatorChar)]; // E.g. "Test/subFolder" => "Test".
+                                           // Bayt API does not support subfolders at this stage.
                                            // Proper endpoints for this will be implemented later.
 		}
-
-		if (fileName.Length == 0) return;
-
-		fileName = fileName.Trim('/'); // E.g. "config.json/"
 	}
 
-	public sealed record FileMetadata
+	/// <summary>
+	/// Fetch a <see cref="DataFileMetadata"/> object of a specific data file.
+	/// </summary>
+	/// <param name="folder">The folder under which the file resides. Relative to the <see cref="ClientDataFolder"/> root.</param>
+	/// <param name="fileName">The file's name, extension included.</param>
+	/// <returns><see cref="DataFileMetadata"/> of the requested file.</returns>
+	/// <exception cref="FileNotFoundException">The specified file was not found under the folder provided.</exception>
+	public static DataFileMetadata GetDataFile(string folder, string fileName)
 	{
-		public FileMetadata(string filePath)
-		{
-			FileName = Path.GetFileName(filePath);
-			AbsolutePath = Path.GetFullPath(filePath);
-			LastWriteTime = File.GetLastWriteTime(filePath);
-			FileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-		}
-
-		public string FileName { get; }
-		public string AbsolutePath { get; }
-		public DateTime LastWriteTime { get; }
-		public Stream FileStream { get; }
-	}
-
-	public static FileMetadata GetDataFile(string folder, string fileName)
-	{
-		SanitizeFileMetadata(ref folder, ref fileName);
-
+		SanitizeFileFolderNames(ref folder, ref fileName);
 
 		SetupDataFolder(folder, true);
 		string folderPath = Path.Combine(ClientDataFolder, folder);
-		if (fileName[0] == '.')
-		{
-			// Make sure the file wouldn't be hidden
-			fileName = fileName[1..];
-		}
 
 		string foundFile;
 		try
@@ -103,73 +125,66 @@ public static class DataEndpointManagement
 			throw new FileNotFoundException($"File '{fileName}' was not found in the folder '{folder}'");
 		}
 
-		return new FileMetadata(foundFile);
+		return new DataFileMetadata(folder, fileName, File.ReadAllBytes(foundFile));
 	}
 
-
-
+	/// <summary>
+	/// Flush the <see cref="DataFileMetadata.FileData"/> contents to the file represented by the object.
+	/// </summary>
+	/// <param name="dataObject">The <see cref="DataFileMetadata"/> object to flush to disk</param>
+	/// <exception cref="ArgumentNullException">Thrown if the <see cref="DataFileMetadata.FileData"/> property is null.</exception>
 	public static async Task SetDataFile(DataFileMetadata dataObject)
 	{
-		SanitizeFileMetadata(ref dataObject);
-
+		ArgumentNullException.ThrowIfNull(dataObject.FileData);
 		SetupDataFolder(dataObject.Folder);
-		if (dataObject.FileName[0] == '.')
-		{
-			// Make sure the file wouldn't be hidden
-			dataObject.FileName = dataObject.FileName[1..];
-		}
 
-		string filePath = Path.Combine(ClientDataFolder, dataObject.Folder, dataObject.FileName);
+		string filePath = dataObject.AbsolutePath;
 
-		await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-
-		if (dataObject.FileDataJson is not null)
-		{
-			await fileStream.WriteAsync(JsonSerializer.SerializeToUtf8Bytes(dataObject.FileDataJson));
-		}
-		else
-		{
-			await fileStream.WriteAsync(Convert.FromBase64String(dataObject.FileDataBase64));
-		}
+		await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+		await fileStream.WriteAsync(dataObject.FileData);
 	}
 
-	public static void DeleteDataFiles(Dictionary<string, string> dataFiles)
+	/// <summary>
+	/// Delete the data file at the specified folder path and filename.
+	/// </summary>
+	/// <param name="folderName">Folder path relative to the <see cref="ClientDataFolder"/> root.</param>
+	/// <param name="fileName">Name of the file to delete.</param>
+	/// <exception cref="DirectoryNotFoundException">The parent folder doesn't exist.</exception>
+	public static void DeleteDataFile(string folderName, string fileName)
 	{
+		SanitizeFileFolderNames(ref folderName, ref fileName);
 
-		foreach (var dataFile in dataFiles)
+		SetupDataFolder(folderName,true);
+
+		string filePath = Path.Combine(ClientDataFolder, folderName, fileName);
+		if (File.Exists(filePath))
 		{
-			string folder = dataFile.Key;
-			string fileName = dataFile.Value;
-			SanitizeFileMetadata(ref folder, ref fileName);
-
-			try
-			{
-				SetupDataFolder(folder, true);
-			}
-			catch (FileNotFoundException)
-			{
-				continue;
-			}
-
-			string filePath = Path.Combine(ClientDataFolder, folder, fileName);
-			if (File.Exists(filePath))
-			{
-				File.Delete(filePath);
-			}
+			File.Delete(filePath);
 		}
 	}
 
+	/// <summary>
+	/// Deletes an entire data folder.
+	/// </summary>
+	/// <param name="folder">Folder to delete. Relative to the <see cref="ClientDataFolder"/> root.</param>
+	/// <exception cref="DirectoryNotFoundException">The specified directory was not found.</exception>
 	public static void DeleteDataFolder(string folder)
 	{
-		var emptyString = "";
-		SanitizeFileMetadata(ref folder, ref emptyString);
+		var emptyString = "this is just to satisfy the method. It is not used.";
+		SanitizeFileFolderNames(ref folder, ref emptyString);
 
 		SetupDataFolder(folder, true);
 
 		Directory.Delete(Path.Combine(ClientDataFolder, folder), true);
 	}
 
-	private static void SetupDataFolder(string? specificConfigFolderName = null, bool throwIfSpecificFolderDoesNotExist = false)
+	/// <summary>
+	/// Ensure the root <see cref="ClientDataFolder"/> and the specified data folder both exist. Optionally throw an exception if the latter check failed.
+	/// </summary>
+	/// <param name="dataFolderName">The specific data folder's name. If left null, the second check will be skipped.</param>
+	/// <param name="throwIfSpecificFolderDoesNotExist">Whether to throw an exception if the specific folder didn't already exist or create it.</param>
+	/// <exception cref="DirectoryNotFoundException">Only thrown if <see cref="throwIfSpecificFolderDoesNotExist"/> was set to true. Prevents the creation of the folder.</exception>
+	private static void SetupDataFolder(string? dataFolderName = null, bool throwIfSpecificFolderDoesNotExist = false)
 	{
 		if (!Directory.Exists(ClientDataFolder))
 		{
@@ -178,16 +193,14 @@ public static class DataEndpointManagement
 			File.WriteAllText(Path.Combine(ClientDataFolder, "README.txt"), DefaultReadmeContent, Encoding.UTF8);
 		}
 
-		if (specificConfigFolderName == null) return;
+		if (dataFolderName == null) return;
 
-		string folderPath = Path.Combine(ClientDataFolder, specificConfigFolderName);
+		string folderPath = Path.Combine(ClientDataFolder, dataFolderName);
 		if (throwIfSpecificFolderDoesNotExist && !Directory.Exists(folderPath))
 		{
-			throw new FileNotFoundException($"The folder '{specificConfigFolderName}' does not exist.");
+			throw new DirectoryNotFoundException($"The folder '{dataFolderName}' does not exist.");
 		}
 
 		Directory.CreateDirectory(folderPath);
 	}
-
-
 }

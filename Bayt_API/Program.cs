@@ -389,32 +389,17 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string ipAddress) =>
 // Client Data endpoints
 // I'd like to note that I feel like the names for these can still use some work.
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (HttpContext context) =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (string? folderName, string? fileName) =>
 {
-	/* Format:
-	 *
-	 * {
-	 *		"clientName": "jsonFileNameWithExtension"
-	 * }
-	 *
-	 * Sorta like "clientData/{key}/{value}"
-	 * Must authenticate the clientName to be under the jurisdiction of the requesting client in the future.
-	 */
-
-	KeyValuePair<string, string> dataFile;
-	try
+	if (folderName is null || fileName is null)
 	{
-		dataFile = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? throw new BadHttpRequestException("Request body must be a JSON object.")).First();
-	}
-	catch (BadHttpRequestException e)
-	{
-		return Results.BadRequest(e.Message);
+		return Results.BadRequest("Both the folder and file name must be specified.");
 	}
 
-	DataEndpointManagement.FileMetadata fileRecord;
+	DataEndpointManagement.DataFileMetadata fileRecord;
 	try
 	{
-		fileRecord = DataEndpointManagement.GetDataFile(dataFile.Key, dataFile.Value);
+		fileRecord = DataEndpointManagement.GetDataFile(folderName, fileName);
 	}
 	catch (FileNotFoundException e)
 	{
@@ -423,140 +408,60 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (HttpContext context) =>
 
 	if (!fileRecord.FileName.EndsWith(".json"))
 	{
-		return Results.File(fileRecord.FileStream, "application/ocetet-stream",
+		return Results.File(fileRecord.FileStreamRead, "application/ocetet-stream",
 			fileRecord.FileName, fileRecord.LastWriteTime);
 	}
 
-	await fileRecord.FileStream.DisposeAsync();
-	return Results.Text(File.ReadAllText(fileRecord.AbsolutePath), "application/json", Encoding.UTF8, StatusCodes.Status200OK);
+	await fileRecord.FileStreamRead.DisposeAsync();
+	return Results.Text(Encoding.UTF8.GetString(fileRecord.FileData ?? []), "application/json", Encoding.UTF8, StatusCodes.Status200OK);
 
 }).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
 	.WithName("GetClientData");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context, string? folderName, string? fileName) =>
 {
-	/*
-	 * The syntax of the request should be:
-	 *	{
-	 * 		"format": "json",
-	 * 		"folder": "Test",
-	 * 		"fileName": "configs.json",
-	 * 		"data": {
-	 * 			"Version": 1,
-	 *  		"Working": true
-	 * 		}
-	 *	}
-	 *
-	 * The value of "data" can be a string containing Base64-encoded data if "format" is not "json"
-	 */
-
-	List<Dictionary<string, dynamic>> piecesOfData;
-	try
+	if (folderName is null || fileName is null)
 	{
-		piecesOfData = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<Dictionary<string, dynamic>>>>(context) ?? throw new BadHttpRequestException("Request body must be a JSON object.")).Values.First();
-	}
-	catch (BadHttpRequestException e)
-	{
-		return Results.BadRequest(e.Message);
+		return Results.BadRequest("Both the folder and file name must be specified.");
 	}
 
-	if (piecesOfData.Count == 0)
-	{
-		return Results.BadRequest("Request body must contain at least 1 element.");
-	}
+	var memoryStream = new MemoryStream();
+	await context.Request.Body.CopyToAsync(memoryStream);
 
-	foreach (var pieceOfData in piecesOfData)
-	{
-		if (pieceOfData.Count != 4)
-		{
-			throw new BadHttpRequestException("Invalid format of data object.");
-		}
-
-		DataEndpointManagement.DataFileMetadata metadataObject;
-		if (pieceOfData["format"].ToString() == "json")
-		{
-			metadataObject = new DataEndpointManagement.DataFileMetadata(
-				pieceOfData["format"].ToString(),
-				pieceOfData["folder"].ToString(),
-				pieceOfData["fileName"].ToString(),
-				null,
-				JsonDocument.Parse(JsonSerializer.Serialize(pieceOfData["data"]))
-			);
-		}
-		else
-		{
-			metadataObject = new DataEndpointManagement.DataFileMetadata(
-				pieceOfData["format"].ToString(),
-				pieceOfData["folder"].ToString(),
-				pieceOfData["fileName"].ToString(),
-				pieceOfData["data"].ToString(),
-				null
-
-			);
-		}
-
-		await DataEndpointManagement.SetDataFile(metadataObject);
-	}
+	DataEndpointManagement.DataFileMetadata metadataObject = new(folderName, fileName, memoryStream.ToArray());
+	await DataEndpointManagement.SetDataFile(metadataObject);
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.WithName("SetClientData");
 
-app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", async (HttpContext context) =>
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", (string? folderName, string? fileName) =>
 {
-	/*
-	 * {
-	 *		"folder": "file"
-	 * }
-	 */
+	if (folderName is null || fileName is null)
+	{
+		return Results.BadRequest("Both folder and file name must be specified.");
+	}
 
-	Dictionary<string, string> dataFiles;
 	try
 	{
-		dataFiles = await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? throw new BadHttpRequestException("Request body must be a JSON object.");
+		DataEndpointManagement.DeleteDataFile(folderName, fileName);
 	}
-	catch (BadHttpRequestException e)
+	catch (FileNotFoundException)
 	{
-		return Results.BadRequest(e.Message);
+		return Results.NotFound($"File '{fileName}' was not found.");
 	}
-
-	if (dataFiles.Count == 0)
-	{
-		return Results.BadRequest("Request body must contain at least 1 element.");
-	}
-
-	DataEndpointManagement.DeleteDataFiles(dataFiles);
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.WithName("DeleteClientData");
 
-app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", async (HttpContext context) =>
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =>
 {
-	/*
-	 * {
-	 *		"folderName": "folder1"
-	 * }
-	 */
-
-	string folderName;
-	try
-	{
-		folderName = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? throw new BadHttpRequestException("Request body must be a JSON object."))["folderName"] ;
-	}
-	catch (BadHttpRequestException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-
-	if (folderName.Length == 0)
-	{
-		return Results.BadRequest("Requested folder name must not be empty.");
-	}
+	if (folderName is null) return Results.BadRequest("Folder name must be specified.");
 
 	try
 	{

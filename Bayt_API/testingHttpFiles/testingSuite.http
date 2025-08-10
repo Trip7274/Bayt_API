@@ -137,24 +137,15 @@ Content-Type: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-POST {{Bayt_API_HostAddress}}/setData/
-Accept: application/json
-Content-Type: application/json
-
 # The folder *should* be trimmed to just "Testing". That's why the getData test looks for subfolder2 and not 1.
+POST {{Bayt_API_HostAddress}}/setData?folderName=Testing/subfolder1&fileName=testFile.json
+Accept: application/json
+
 {
-    "Request": [
-        {
-            "format": "json",
-            "folder": "Testing/subfolder1",
-            "fileName": "testFile.json",
-            "data": {
-                "Version": 1,
-                "Working": true
-            }
-        }
-    ]
+    "Version": 1,
+    "Working": true
 }
+
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -174,14 +165,8 @@ Content-Type: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-GET {{Bayt_API_HostAddress}}/getData/
+GET {{Bayt_API_HostAddress}}/getData?folderName=Testing/subfolder2&fileName=testFile.json
 Accept: application/json
-Content-Type: application/json
-
-
-{
-    "Testing/subfolder2": "testFile.json"
-}
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -204,13 +189,8 @@ Content-Type: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_HostAddress}}/deleteData/
+DELETE {{Bayt_API_HostAddress}}/deleteData?folderName=Testing/subfolder3&fileName=testFile.json
 Accept: application/json
-Content-Type: application/json
-
-{
-    "Testing/subfolder3": "testFile.json"
-}
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -230,13 +210,8 @@ Content-Type: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_HostAddress}}/deletefolder/
+DELETE {{Bayt_API_HostAddress}}/deletefolder?folderName=Testing/subfolder44
 Accept: application/json
-Content-Type: application/json
-
-{
-    "folderName": "Testing/subfolder44"
-}
 
 > {%
 	client.test("Request executed successfully", function () {

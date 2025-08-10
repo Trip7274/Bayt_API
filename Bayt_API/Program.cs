@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using Bayt_API;
 
@@ -410,14 +411,25 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (HttpContext context) =>
 		return Results.BadRequest(e.Message);
 	}
 
+	DataEndpointManagement.FileMetadata fileRecord;
 	try
 	{
-		return Results.File(DataEndpointManagement.GetDataFile(dataFile.Key, dataFile.Value), "application/ocetet-stream", dataFile.Key);
+		fileRecord = DataEndpointManagement.GetDataFile(dataFile.Key, dataFile.Value);
 	}
 	catch (FileNotFoundException e)
 	{
 		return Results.NotFound(e.Message);
 	}
+
+	if (!fileRecord.FileName.EndsWith(".json"))
+	{
+		return Results.File(fileRecord.FileStream, "application/ocetet-stream",
+			fileRecord.FileName, fileRecord.LastWriteTime);
+	}
+
+	await fileRecord.FileStream.DisposeAsync();
+	return Results.Text(File.ReadAllText(fileRecord.AbsolutePath), "application/json", Encoding.UTF8, StatusCodes.Status200OK);
+
 }).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)

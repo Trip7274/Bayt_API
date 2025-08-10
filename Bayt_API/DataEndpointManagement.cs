@@ -14,6 +14,7 @@ public static class DataEndpointManagement
 	                                     Make sure the server is shut down before modifying these files.
 	                                     """;
 
+	// TODO: Rework this to not use base64
 	public sealed class DataFileMetadata
 	{
 		public DataFileMetadata(string format, string folder, string fileName, string? fileDataBase64 = null, JsonDocument? fileDataJson = null)
@@ -63,7 +64,23 @@ public static class DataEndpointManagement
 		fileName = fileName.Trim('/'); // E.g. "config.json/"
 	}
 
-	public static Stream GetDataFile(string folder, string fileName)
+	public sealed record FileMetadata
+	{
+		public FileMetadata(string filePath)
+		{
+			FileName = Path.GetFileName(filePath);
+			AbsolutePath = Path.GetFullPath(filePath);
+			LastWriteTime = File.GetLastWriteTime(filePath);
+			FileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+		}
+
+		public string FileName { get; }
+		public string AbsolutePath { get; }
+		public DateTime LastWriteTime { get; }
+		public Stream FileStream { get; }
+	}
+
+	public static FileMetadata GetDataFile(string folder, string fileName)
 	{
 		SanitizeFileMetadata(ref folder, ref fileName);
 
@@ -86,7 +103,7 @@ public static class DataEndpointManagement
 			throw new FileNotFoundException($"File '{fileName}' was not found in the folder '{folder}'");
 		}
 
-		return new FileStream(foundFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+		return new FileMetadata(foundFile);
 	}
 
 

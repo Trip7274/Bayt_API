@@ -66,10 +66,10 @@ GET {{Bayt_API_HostAddress}}/getApiConfigs/
 		client.assert(response.status === 200, "Response status is not 200");
 		client.assert(response.body !== "", "Response json is empty");
 
-		client.assert(response.body.hasOwnProperty("ConfigVersion"), "ConfigVersion property missing");
-		client.assert(response.body.hasOwnProperty("BackendName"), "BackendName property missing");
-		client.assert(response.body.hasOwnProperty("SecondsToUpdate"), "SecondsToUpdate property missing");
-		client.assert(response.body.hasOwnProperty("WatchedMounts"), "WatchedMounts property missing");
+		client.assert(response.body.hasOwnProperty("configVersion"), "ConfigVersion property missing");
+		client.assert(response.body.hasOwnProperty("backendName"), "BackendName property missing");
+		client.assert(response.body.hasOwnProperty("secondsToUpdate"), "SecondsToUpdate property missing");
+		client.assert(response.body.hasOwnProperty("watchedMounts"), "WatchedMounts property missing");
 
 		client.assert(response.body["WatchedMounts"] !== "", "WatchedMounts doesn't have any children");
 
@@ -141,6 +141,7 @@ POST {{Bayt_API_HostAddress}}/setData/
 Accept: application/json
 Content-Type: application/json
 
+# The folder *should* be trimmed to just "Testing". That's why the getData test looks for subfolder2 and not 1.
 {
     "Request": [
         {
@@ -189,7 +190,8 @@ Content-Type: application/json
 		const bodyField = response.body;
 
 		client.assert(response.status === 200, "Response status is not 200");
-		client.assert(bodyField !== "" && bodyField !== null, "Response json is empty");
+        client.assert(response.contentType.mimeType === "application/json", "Response content type is not application/json");
+		client.assert(bodyField !== "" && bodyField !== null, "Response json is empty, got: " + bodyField);
 		client.assert((bodyField.hasOwnProperty("Version") && bodyField["Version"] === 1) && (bodyField.hasOwnProperty("Working") && bodyField["Working"] === true), `Response json is not as expected (got '${bodyField["Version"]}' and '${bodyField["Working"]}')`)
 
 		if (timeToRespond > 100) {

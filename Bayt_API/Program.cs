@@ -643,8 +643,6 @@ app.MapPost($"{baseDockerUrl}/startContainer", async (string containerId) =>
 	{
 		await Docker.DockerContainers.UpdateData();
 	}
-	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
-		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/start", "POST");
 
@@ -666,8 +664,6 @@ app.MapPost($"{baseDockerUrl}/stopContainer", async (string containerId) =>
 	{
 		await Docker.DockerContainers.UpdateData();
 	}
-	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
-		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/stop", "POST");
 

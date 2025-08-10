@@ -370,7 +370,7 @@ public static class Docker
 		}
 	}
 
-	public static async Task<DockerResponse> SendRequest(string path, string content = "", string method = "GET")
+	public static async Task<DockerResponse> SendRequest(string path, string method = "GET", string content = "")
 	{
 		if (path.StartsWith('/')) path = path[1..];
 		if (!IsDockerAvailable) throw new FileNotFoundException("Docker socket not found. " +

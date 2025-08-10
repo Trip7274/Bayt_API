@@ -181,7 +181,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (HttpContext context) =
 		{
 			ApiConfig.LastUpdated = DateTime.Now;
 		}
-		return Results.Text(JsonSerializer.Serialize(responseDictionary), "application/json", statusCode:StatusCodes.Status200OK);
+		return Results.Json(responseDictionary);
 	})
 	.Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
@@ -216,7 +216,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
 {
-	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.ConfigProps), "application/json", statusCode:StatusCodes.Status200OK);
+	return Results.Json(ApiConfig.MainConfigs.ConfigProps);
 }).Produces(StatusCodes.Status200OK)
 	.WithName("GetActiveApiConfigs");
 
@@ -236,7 +236,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 {
-	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.ConfigProps.WatchedMounts), "application/json", statusCode:StatusCodes.Status200OK);
+	return Results.Json(ApiConfig.MainConfigs.ConfigProps.WatchedMounts);
 }).Produces(StatusCodes.Status200OK)
 	.WithName("GetMountsList");
 
@@ -359,7 +359,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/GetWolClients", () =>
 {
-	return Results.Text(JsonSerializer.Serialize(ApiConfig.MainConfigs.ConfigProps.WolClients), "application/json", statusCode:StatusCodes.Status200OK);
+	return Results.Json(ApiConfig.MainConfigs.ConfigProps.WolClients);
 }).Produces(StatusCodes.Status200OK)
 	.WithName("GetWolClients");
 
@@ -617,10 +617,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/powerOperation", async (HttpContext con
 
 string baseDockerUrl = $"{ApiConfig.BaseApiUrlPath}/docker";
 
-app.MapGet($"{baseDockerUrl}/getContainers", async () =>
+app.MapGet($"{baseDockerUrl}/getActiveContainers", async () =>
 {
 	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
-
 	if (!Caching.IsDataFresh())
 	{
 		await Docker.DockerContainers.UpdateData();
@@ -632,7 +631,7 @@ app.MapGet($"{baseDockerUrl}/getContainers", async () =>
 	};
 
 
-	return Results.Text(JsonSerializer.Serialize(containerDict), "application/json", statusCode:StatusCodes.Status200OK);
+	return Results.Json(containerDict);
 
 }).WithName("GetDockerContainers");
 

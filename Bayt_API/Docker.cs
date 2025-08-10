@@ -384,7 +384,6 @@ public static class Docker
 			"DELETE" => await client.DeleteAsync($"http://localhost/{path}"),
 			_ => throw new ArgumentException("Method must be either GET, POST, or DELETE.")
 		};
-		clientResponse.EnsureSuccessStatusCode();
 
 		byte[] fullResponse;
 		await using (var stream = await clientResponse.Content.ReadAsStreamAsync())

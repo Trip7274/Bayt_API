@@ -64,6 +64,14 @@ public static class Docker
 			Image = dockerOutput.GetProperty(nameof(Image)).GetString() ?? throw new ArgumentException("Docker container image is null.");
 			ImageID = dockerOutput.GetProperty(nameof(ImageID)).GetString() ?? throw new ArgumentException("Docker container image ID is null.");
 			ImageUrl = GetImageUrl(labelsElement);
+			if (labelsElement.TryGetProperty("org.opencontainers.image.version", out var versionLabel))
+			{
+				ImageVersion = versionLabel.GetString();
+			}
+			if (labelsElement.TryGetProperty("org.opencontainers.image.description", out var descriptionLabel))
+			{
+				ImageDescription = descriptionLabel.GetString();
+			}
 
 			if (labelsElement.TryGetProperty("com.docker.compose.project.config_files", out var composePath))
 			{
@@ -127,6 +135,8 @@ public static class Docker
 				{ "Image", Image },
 				{ "ImageID", ImageID },
 				{ "ImageUrl", ImageUrl },
+				{ "ImageVersion", ImageVersion },
+				{ "ImageDescription", ImageDescription },
 
 				{ "Command", Command },
 				{ "Created", Created },
@@ -211,6 +221,8 @@ public static class Docker
 		// ReSharper disable once InconsistentNaming
 		public string ImageID { get; }
 		public string? ImageUrl { get; }
+		public string? ImageVersion { get;  }
+		public string? ImageDescription { get; }
 
 		public string? ComposePath { get; }
 		public string? WorkingPath { get; }

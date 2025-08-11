@@ -2,11 +2,6 @@
 @Version = 0
 @Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}
 
-GET {{Bayt_API_HostAddress}}/getStats/
+# Possible query params: "meta", "system", "cpu", "gpu", "memory", "mounts", or none for all of them.
+GET {{Bayt_API_HostAddress}}/getStats
 Accept: application/json
-Content-Type: application/json
-
-
-{
-    "Stats": ["All"]
-}

@@ -138,7 +138,7 @@ Content-Type: application/json
 	client.global.set("startTime", Date.now());
 %}
 # The folder *should* be trimmed to just "Testing". That's why the getData test looks for subfolder2 and not 1.
-POST {{Bayt_API_HostAddress}}/setData?folderName=Testing/subfolder1&fileName=testFile.json
+PUT {{Bayt_API_HostAddress}}/setData?folderName=Testing/subfolder1&fileName=testFile.json
 Accept: application/json
 
 {
@@ -231,14 +231,8 @@ Accept: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-GET {{Bayt_API_HostAddress}}/getStats/
+GET {{Bayt_API_HostAddress}}/getStats
 Accept: application/json
-Content-Type: application/json
-
-
-{
-    "Stats": ["All"]
-}
 
 > {%
 	client.test("Request executed successfully", function () {

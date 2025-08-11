@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using Bayt_API;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,39 +48,29 @@ if (Environment.OSVersion.Platform != PlatformID.Unix)
 
 
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (HttpContext context) =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts) =>
 	{
-		List<string> requestedStatsRaw;
-		try
-		{
-			requestedStatsRaw =
-				(await RequestChecking
-					.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context, false) ?? [])
-				.Values.First();
-		}
-		catch (BadHttpRequestException e)
-		{
-			return Results.BadRequest(e.Message);
-		}
-		catch (Exception e) when (e is JsonException or EndOfStreamException)
-		{
-			Debug.WriteLine("Got a request with malformed or non-existing JSON, returning all stats.");
-			requestedStatsRaw = ["All"];
-		}
-
-		List<string> requestedStats;
-		if (requestedStatsRaw.Count != 0 && requestedStatsRaw.First() == "All")
+		Dictionary<string, bool?> requestedStatsRaw = new() {
+			{ "Meta", meta },
+			{ "System", system },
+			{ "CPU", cpu },
+			{ "GPU", gpu },
+			{ "Memory", memory },
+			{ "Mounts", mounts }
+		};
+		List<string> requestedStats = [];
+		if (requestedStatsRaw.All(stat => !stat.Value.HasValue))
 		{
 			requestedStats = ApiConfig.PossibleStats.ToList();
 		}
 		else
 		{
-			requestedStats = requestedStatsRaw.Intersect(ApiConfig.PossibleStats).Distinct().ToList(); // De-duplicate and remove invalid requests
-			if (requestedStats.Count == 0)
-			{
-				Debug.WriteLine($"Got a request asking for '{string.Join(", ", requestedStatsRaw)}', but none matched so we're returning a BadRequest.");
-				return Results.BadRequest("Stat list must contain at least 1 valid element.");
-			}
+			requestedStats.AddRange(from statKvp in requestedStatsRaw where statKvp.Value.HasValue && statKvp.Value.Value select statKvp.Key);
+		}
+
+		if (requestedStats.Count == 0)
+		{
+			return Results.BadRequest("No stats were requested.");
 		}
 
 		// Request checks done
@@ -420,7 +409,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (string? folderName, str
 	.Produces(StatusCodes.Status404NotFound)
 	.WithName("GetClientData");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context, string? folderName, string? fileName) =>
+app.MapPut($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context, string? folderName, string? fileName) =>
 {
 	if (folderName is null || fileName is null)
 	{

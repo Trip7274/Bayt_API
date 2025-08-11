@@ -1,5 +1,18 @@
-### Fetch current Docker containers
 @Version = 0
 @Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}/docker
+@containerId = d4684c9c58c51e7c52f815bcd8413fb46264df0f59b56c6df076f46854906000
 
-GET {{Bayt_API_HostAddress}}/getContainers/
+### Fetch current Docker containers
+GET {{Bayt_API_HostAddress}}/getActiveContainers/
+
+### Start a docker container
+POST {{Bayt_API_HostAddress}}/startContainer?containerId={{containerId}}
+
+### Stop a docker container
+POST {{Bayt_API_HostAddress}}/stopContainer?containerId={{containerId}}
+
+### Kill a docker container
+POST {{Bayt_API_HostAddress}}/killContainer?containerId={{containerId}}
+
+### Fetch a specific container's compose file
+GET {{Bayt_API_HostAddress}}/getContainerCompose?containerId={{containerId}}

@@ -7,7 +7,7 @@ Accept: application/json
 
 
 ### Set data file and folder
-POST {{Bayt_API_HostAddress}}/setData?folderName=Test/subfolder&fileName=.configs.json
+PUT {{Bayt_API_HostAddress}}/setData?folderName=Test/subfolder&fileName=configs.json
 Accept: application/json
 
 {

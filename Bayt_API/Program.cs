@@ -646,10 +646,16 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 	{
 		await Docker.DockerContainers.UpdateData();
 	}
-	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
-		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
-	var targetContainer = Docker.DockerContainers.Containers.First(container => container.Id.StartsWith(containerId));
+	Docker.DockerContainer targetContainer;
+	try
+	{
+		targetContainer = Docker.DockerContainers.Containers.First(container => container.Id.StartsWith(containerId));
+	}
+	catch (InvalidOperationException)
+	{
+		return Results.NotFound($"Container with ID '{containerId}' was not found.");
+	}
 	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
 		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
 
@@ -659,6 +665,44 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 		File.GetLastWriteTime(targetContainer.ComposePath));
 
 }).WithName("GetDockerContainerCompose");
+
+app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId) =>
+	{
+		// Request validation
+		if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+		if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
+		if (context.Request.ContentLength is null or 0) return Results.BadRequest("The request body must be specified and not empty.");
+		if (!Caching.IsDataFresh())
+		{
+			await Docker.DockerContainers.UpdateData();
+		}
+
+		// Container validation
+		Docker.DockerContainer targetContainer;
+		try
+		{
+			targetContainer = Docker.DockerContainers.Containers.First(container => container.Id.StartsWith(containerId));
+		}
+		catch (InvalidOperationException)
+		{
+			return Results.NotFound($"Container with ID '{containerId}' was not found.");
+		}
+		if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
+			return Results.NotFound("This container does not have a compose file.");
+		if (!targetContainer.IsManaged) return Results.BadRequest("This container is not managed by Bayt.");
+
+		// Actual logic
+		await using (var fileStream = new FileStream(targetContainer.ComposePath, FileMode.Truncate, FileAccess.Write,
+			             FileShare.None))
+		{
+			await context.Request.Body.CopyToAsync(fileStream);
+		}
+		return Results.NoContent();
+	}).Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.WithName("SetDockerContainerCompose");
 
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")

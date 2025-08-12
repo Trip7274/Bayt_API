@@ -31,13 +31,12 @@ public static partial class DiskHandling
 				return;
 			}
 
-			string devicePath = GetStat("Device.Path", MountPoint, ScriptSupports);
 
-			DevicePath = devicePath;
-			FileSystem = GetStat("Device.Filesystem", devicePath, ScriptSupports);
+			DevicePath = GetStat("Device.Path", MountPoint, ScriptSupports);
+			FileSystem = GetStat("Device.Filesystem", DevicePath, ScriptSupports);
 			IsMissing = false;
-			TotalSize = ulong.Parse(GetStat("Partition.TotalSpace", devicePath, ScriptSupports));
-			FreeSize = ulong.Parse(GetStat("Parition.FreeSpace", devicePath, ScriptSupports));
+			TotalSize = ulong.Parse(GetStat("Partition.TotalSpace", MountPoint, ScriptSupports));
+			FreeSize = ulong.Parse(GetStat("Parition.FreeSpace", MountPoint, ScriptSupports));
 
 			GetDiskTemperature();
 		}

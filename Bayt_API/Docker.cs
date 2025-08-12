@@ -328,9 +328,16 @@ public static class Docker
 		return new HttpClient(handler);
 	}
 
-	public static async Task StreamDockerLogs(string containerId, bool? stdout, bool? stderr, bool? timestamps, HttpContext context)
+	public static async Task StreamDockerLogs(string? containerId, bool? stdout, bool? stderr, bool? timestamps, HttpContext context)
 	{
 		var response = context.Response;
+		if (containerId is null)
+		{
+			response.StatusCode = 400;
+			response.ContentType = "text/plain";
+			await response.WriteAsync("The container ID must be specified.", context.RequestAborted);
+			return;
+		}
 		if (!IsDockerAvailable)
 		{
 			response.StatusCode = 500;

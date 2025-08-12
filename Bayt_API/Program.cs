@@ -541,8 +541,9 @@ app.MapGet($"{baseDockerUrl}/getActiveContainers", async () =>
 
 }).WithName("GetDockerContainers");
 
-app.MapPost($"{baseDockerUrl}/startContainer", async (string containerId) =>
+app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 {
+	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/start", "POST");
@@ -558,8 +559,9 @@ app.MapPost($"{baseDockerUrl}/startContainer", async (string containerId) =>
 	};
 }).WithName("StartDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/stopContainer", async (string containerId) =>
+app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 {
+	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/stop", "POST");
@@ -575,8 +577,9 @@ app.MapPost($"{baseDockerUrl}/stopContainer", async (string containerId) =>
 	};
 }).WithName("StopDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/restartContainer", async (string containerId) =>
+app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
 {
+	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
@@ -592,8 +595,9 @@ app.MapPost($"{baseDockerUrl}/restartContainer", async (string containerId) =>
 	};
 }).WithName("RestartDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/killContainer", async (string containerId) =>
+app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
 {
+	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/kill", "POST");
@@ -610,8 +614,9 @@ app.MapPost($"{baseDockerUrl}/killContainer", async (string containerId) =>
 	};
 }).WithName("KillDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string containerId) =>
+app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string? containerId) =>
 {
+	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}", "DELETE");
@@ -633,8 +638,9 @@ app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs).WithNam
 
 // Docker Compose endpoints
 
-app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string containerId) =>
+app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =>
 {
+	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	if (!Caching.IsDataFresh())
 	{

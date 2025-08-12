@@ -253,9 +253,7 @@ Accept: application/json
 			const requiredFields = {
 				"Version": "string",
 				"ApiVersion": "number",
-				"LastUpdate": "string",
-				"NextUpdate": "string",
-				"DelaySec": "number"
+				"SecondsToUpdate": "number"
 			}
 
 			for (const field in requiredFields) {
@@ -291,9 +289,10 @@ Accept: application/json
 			const cpuField = response.body.CPU[0];
 			const requiredFields = {
 				"Name": "string",
-				"UtilPerc": "number",
-				"CoreCount": "number",
-				"ThreadCount": "number"
+				"UtilizationPerc": "number",
+				"PhysicalCoreCount": "number",
+				"ThreadCount": "number",
+                "LastUpdate": "string"
 			}
 
 			for (const field in requiredFields) {
@@ -329,7 +328,8 @@ Accept: application/json
                         "EncDecFrequency": "number",
                         "PowerUse": "number",
                         "TemperatureC": "number",
-                        "FanSpeedRpm": "number"
+                        "FanSpeedRpm": "number",
+                        "LastUpdate": "string"
                     }
 
 					for (const field in requiredFields) {
@@ -346,8 +346,9 @@ Accept: application/json
 				"TotalMemory": "number",
 				"UsedMemory": "number",
 				"AvailableMemory": "number",
-				"UsedMemoryPercent": "number"
-			}
+				"UsedMemoryPercent": "number",
+                "LastUpdate": "string"
+            }
 
 			for (const field in requiredFields) {
 				client.assert(memoryField.hasOwnProperty(field) && (typeof memoryField[field] === requiredFields[field]), `Memory.${field} property missing or of the wrong type`);
@@ -382,8 +383,9 @@ Accept: application/json
 						"TotalSize": "number",
 						"FreeSize": "number",
 						"UsedSize": "number",
-						"UsedSizePercent": "number"
-					}
+						"UsedSizePercent": "number",
+                        "LastUpdate": "string"
+                    }
 
 					for (const field in requiredFields) {
 						client.assert(currentMount.hasOwnProperty(field) && typeof currentMount[field] === requiredFields[field], `Mount.${mount}.${field} property missing or of the wrong type`);

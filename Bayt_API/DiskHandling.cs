@@ -149,19 +149,19 @@ public static partial class DiskHandling
 		/// <summary>
 		/// Total size of the mount. In bytes.
 		/// </summary>
-		public ulong? TotalSize { get; private set; }
+		public ulong TotalSize { get; private set; }
 		/// <summary>
 		/// The amount of available/free space in the mount. In bytes.
 		/// </summary>
-		public ulong? FreeSize { get; private set; }
+		public ulong FreeSize { get; private set; }
 		/// <summary>
 		/// Number of bytes used up in the mount.
 		/// </summary>
-		public ulong? UsedSize => TotalSize - FreeSize;
+		public ulong UsedSize => TotalSize - FreeSize;
 		/// <summary>
 		/// Percentage of used space in the mount.
 		/// </summary>
-		public byte? UsedSizePercent => (byte?) ((float?) UsedSize / TotalSize * 100);
+		public byte UsedSizePercent => (byte) ((float) UsedSize / TotalSize * 100);
 
 		/// <summary>
 		/// Represents the label set on the specific temperature sensor by the manufacterer.
@@ -213,7 +213,26 @@ public static partial class DiskHandling
 			List<Task> diskTasks = [];
 			diskTasks.AddRange(DiskDataList.Select(diskData => Task.Run(diskData.UpdateData)));
 			await Task.WhenAll(diskTasks);
+			LastUpdate = DateTime.Now;
 		}
+
+		/// <summary>
+		/// The last time this was updated.
+		/// </summary>
+		public static DateTime LastUpdate { get; private set; } = DateTime.MinValue;
+		/// <summary>
+		/// Returns whether the current data is too stale and should be updated.
+		/// </summary>
+		public static bool ShouldUpdate =>
+			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
+		/// <summary>
+		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
+		/// </summary>
+		public static async Task UpdateDataIfNecessary()
+		{
+			if (ShouldUpdate) await UpdateData();
+		}
+
 		public static Dictionary<string, dynamic?>[] ToDictionary()
 		{
 			if (DiskDataList.Count == 0) return [];
@@ -226,32 +245,36 @@ public static partial class DiskHandling
 				{
 					diskDataDicts.Add(new()
 					{
-						{ "MountPoint", diskData.MountPoint },
-						{ "MountName", diskData.MountName },
-						{ "IsMissing", diskData.IsMissing }
+						{ nameof(diskData.MountPoint), diskData.MountPoint },
+						{ nameof(diskData.MountName), diskData.MountName },
+						{ nameof(diskData.IsMissing), diskData.IsMissing },
+
+						{ nameof(LastUpdate), LastUpdate.ToUniversalTime() }
 					});
 					continue;
 				}
 
 				diskDataDicts.Add(new()
 				{
-					{ "DeviceName", diskData.DeviceName },
-					{ "MountPoint", diskData.MountPoint },
-					{ "MountName", diskData.MountName },
-					{ "DevicePath", diskData.DevicePath },
-					{ "FileSystem", diskData.FileSystem },
-					{ "IsMissing", diskData.IsMissing },
+					{ nameof(diskData.DeviceName), diskData.DeviceName },
+					{ nameof(diskData.MountPoint), diskData.MountPoint },
+					{ nameof(diskData.MountName), diskData.MountName },
+					{ nameof(diskData.DevicePath), diskData.DevicePath },
+					{ nameof(diskData.FileSystem), diskData.FileSystem },
+					{ nameof(diskData.IsMissing), diskData.IsMissing },
 
-					{ "TotalSize", diskData.TotalSize },
-					{ "FreeSize", diskData.FreeSize },
-					{ "UsedSize", diskData.UsedSize },
-					{ "UsedSizePercent", diskData.UsedSizePercent },
+					{ nameof(diskData.TotalSize), diskData.TotalSize },
+					{ nameof(diskData.FreeSize), diskData.FreeSize },
+					{ nameof(diskData.UsedSize), diskData.UsedSize },
+					{ nameof(diskData.UsedSizePercent), diskData.UsedSizePercent },
 
-					{ "TemperatureLabel", diskData.TemperatureLabel },
-					{ "TemperatureC", diskData.TemperatureC },
-					{ "TemperatureMinC", diskData.TemperatureMinC },
-					{ "TemperatureMaxC", diskData.TemperatureMaxC },
-					{ "TemperatureCritC", diskData.TemperatureCritC }
+					{ nameof(diskData.TemperatureLabel), diskData.TemperatureLabel },
+					{ nameof(diskData.TemperatureC), diskData.TemperatureC },
+					{ nameof(diskData.TemperatureMinC), diskData.TemperatureMinC },
+					{ nameof(diskData.TemperatureMaxC), diskData.TemperatureMaxC },
+					{ nameof(diskData.TemperatureCritC), diskData.TemperatureCritC },
+
+					{ nameof(LastUpdate), LastUpdate.ToUniversalTime() }
 				});
 			}
 

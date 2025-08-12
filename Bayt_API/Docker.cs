@@ -28,6 +28,7 @@ public static class Docker
 		{
 			var dockerRequest = await SendRequest("containers/json");
 			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
+
 			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);
 
 			Containers.Clear();
@@ -35,6 +36,13 @@ public static class Docker
 			{
 				Containers.Add(new DockerContainer(containerEntries));
 			}
+		}
+
+		public static async Task UpdateDataIfNecessary()
+		{
+			if (Containers.All(container => !container.ShouldUpdate)) return;
+
+			await UpdateData();
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()
@@ -117,43 +125,47 @@ public static class Docker
 					MountBindings.Add(new MountBinding(mountEntry));
 				}
 			}
+
+			LastUpdate = DateTime.Now;
 		}
 		public Dictionary<string, dynamic?> ToDictionary()
 		{
-			List<Dictionary<string, dynamic?>> portBindingsList = [];
-			portBindingsList.AddRange(PortBindings.Select(portBinding => portBinding.ToDictionary()));
+			List<Dictionary<string, dynamic?>> portBindings = [];
+			portBindings.AddRange(PortBindings.Select(portBinding => portBinding.ToDictionary()));
 
-			List<Dictionary<string, string>> mountBindingsList = [];
-			mountBindingsList.AddRange(MountBindings.Select(mountBinding => mountBinding.ToDictionary()));
+			List<Dictionary<string, string>> mountBindings = [];
+			mountBindings.AddRange(MountBindings.Select(mountBinding => mountBinding.ToDictionary()));
 
 			return new()
 			{
-				{ "Id", Id },
-				{ "Names", Names },
-				{ "Title", Title },
+				{ nameof(Id), Id },
+				{ nameof(Names), Names },
+				{ nameof(Title), Title },
 
-				{ "Image", Image },
-				{ "ImageID", ImageID },
-				{ "ImageUrl", ImageUrl },
-				{ "ImageVersion", ImageVersion },
-				{ "ImageDescription", ImageDescription },
+				{ nameof(Image), Image },
+				{ nameof(ImageID), ImageID },
+				{ nameof(ImageUrl), ImageUrl },
+				{ nameof(ImageVersion), ImageVersion },
+				{ nameof(ImageDescription), ImageDescription },
 
-				{ "Command", Command },
-				{ "Created", Created },
-				{ "CreatedUnix", CreatedUnix },
+				{ nameof(Command), Command },
+				{ nameof(Created), Created },
+				{ nameof(CreatedUnix), CreatedUnix },
 
-				{ "State", State },
-				{ "Status", Status },
+				{ nameof(State), State },
+				{ nameof(Status), Status },
 
-				{ "IsCompose", IsCompose },
-				{ "IsManaged", IsManaged },
+				{ nameof(IsCompose), IsCompose },
+				{ nameof(IsManaged), IsManaged },
 
-				{ "IconUrl", IconUrl },
+				{ nameof(IconUrl), IconUrl },
 
-				{ "IpAddress", IpAddress.ToString() },
-				{ "NetworkMode", NetworkMode },
-				{ "PortBindings", portBindingsList },
-				{ "MountBindings", mountBindingsList },
+				{ nameof(IpAddress), IpAddress.ToString() },
+				{ nameof(NetworkMode), NetworkMode },
+				{ nameof(portBindings), portBindings },
+				{ nameof(mountBindings), mountBindings },
+
+				{ nameof(LastUpdate), LastUpdate.ToUniversalTime() }
 			};
 		}
 
@@ -243,6 +255,17 @@ public static class Docker
 		public string NetworkMode { get; }
 		public List<PortBinding> PortBindings { get; } = [];
 		public List<MountBinding> MountBindings { get; } = [];
+
+		/// <summary>
+		/// The last time this was updated. Used internally.
+		/// </summary>
+		internal DateTime LastUpdate;
+
+		/// <summary>
+		/// Returns whether the current data is too stale and should be updated.
+		/// </summary>
+		internal bool ShouldUpdate =>
+			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
 	}
 
 	public sealed class PortBinding
@@ -343,10 +366,7 @@ public static class Docker
 			response.StatusCode = 500;
 			return;
 		}
-		if (!Caching.IsDataFresh())
-		{
-			await DockerContainers.UpdateData();
-		}
+		await DockerContainers.UpdateDataIfNecessary();
 
 		if (DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
 		{

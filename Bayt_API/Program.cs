@@ -26,7 +26,6 @@ if (Environment.GetEnvironmentVariable("BAYT_USE_SOCK") == "1")
 	builder.WebHost.ConfigureKestrel(opts => opts.ListenUnixSocket(ApiConfig.UnixSocketPath));
 }
 
-ApiConfig.LastUpdated = DateTime.Now;
 
 var app = builder.Build();
 
@@ -79,41 +78,38 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 
 		Dictionary<string, Dictionary<string, dynamic>[]> responseDictionary = [];
 
-		if (!Caching.IsDataFresh() || StatsApi.CpuData.CpuName is null)
+		// Queue and update all the requested stats up asynchronously
+		List<Task> fetchTasks = [];
+		foreach (var stat in requestedStats)
 		{
-			// Queue and update all the requested stats up asynchronously
-			List<Task> fetchTasks = [];
-			foreach (var stat in requestedStats)
+			switch (stat)
 			{
-				switch (stat)
+				case "CPU":
 				{
-					case "CPU":
-					{
-						fetchTasks.Add(Task.Run(StatsApi.CpuData.UpdateData));
-						break;
-					}
+					fetchTasks.Add(Task.Run(StatsApi.CpuData.UpdateDataIfNecessary));
+					break;
+				}
 
-					case "GPU":
-					{
-						fetchTasks.Add(Task.Run(GpuHandling.FullGpusData.UpdateData));
-						break;
-					}
+				case "GPU":
+				{
+					fetchTasks.Add(Task.Run(GpuHandling.FullGpusData.UpdateDataIfNecessary));
+					break;
+				}
 
-					case "Memory":
-					{
-						fetchTasks.Add(Task.Run(StatsApi.MemoryData.UpdateData));
-						break;
-					}
+				case "Memory":
+				{
+					fetchTasks.Add(Task.Run(StatsApi.MemoryData.UpdateDataIfNecessary));
+					break;
+				}
 
-					case "Mounts":
-					{
-						fetchTasks.Add(Task.Run(DiskHandling.FullDisksData.UpdateData));
-						break;
-					}
+				case "Mounts":
+				{
+					fetchTasks.Add(Task.Run(DiskHandling.FullDisksData.UpdateDataIfNecessary));
+					break;
 				}
 			}
-			await Task.WhenAll(fetchTasks);
 		}
+		await Task.WhenAll(fetchTasks);
 
 		foreach (var requestedStat in requestedStats)
 		{
@@ -124,11 +120,10 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 					responseDictionary.Add("Meta", [
 						new Dictionary<string, dynamic>
 						{
-							{ "Version", ApiConfig.Version },
-							{ "ApiVersion", ApiConfig.ApiVersion },
-							{ "LastUpdate", ApiConfig.LastUpdated.ToUniversalTime() },
-							{ "NextUpdate", ApiConfig.LastUpdated.ToUniversalTime().AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) },
-							{ "DelaySec", ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate }
+							{ nameof(ApiConfig.Version), ApiConfig.Version },
+							{ nameof(ApiConfig.ApiVersion), ApiConfig.ApiVersion },
+							{ nameof(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate),
+								ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate }
 						}
 					]);
 					break;
@@ -164,12 +159,6 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 					break;
 				}
 			}
-		}
-
-
-		if (!Caching.IsDataFresh())
-		{
-			ApiConfig.LastUpdated = DateTime.Now;
 		}
 		return Results.Json(responseDictionary);
 	})
@@ -525,11 +514,8 @@ string baseDockerUrl = $"{ApiConfig.BaseApiUrlPath}/docker";
 
 app.MapGet($"{baseDockerUrl}/getActiveContainers", async () =>
 {
-	if (!Docker.IsDockerAvailable) { return Results.InternalServerError("Docker is not available on this system."); }
-	if (!Caching.IsDataFresh())
-	{
-		await Docker.DockerContainers.UpdateData();
-	}
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
+	await Docker.DockerContainers.UpdateDataIfNecessary();
 
 	Dictionary<string, Dictionary<string, dynamic?>[]> containerDict = new()
 	{
@@ -642,10 +628,7 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 {
 	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
-	if (!Caching.IsDataFresh())
-	{
-		await Docker.DockerContainers.UpdateData();
-	}
+	await Docker.DockerContainers.UpdateDataIfNecessary();
 
 	Docker.DockerContainer targetContainer;
 	try
@@ -672,10 +655,7 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 		if (containerId is null) return Results.BadRequest("The container ID must be specified.");
 		if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 		if (context.Request.ContentLength is null or 0) return Results.BadRequest("The request body must be specified and not empty.");
-		if (!Caching.IsDataFresh())
-		{
-			await Docker.DockerContainers.UpdateData();
-		}
+		await Docker.DockerContainers.UpdateDataIfNecessary();
 
 		// Container validation
 		Docker.DockerContainer targetContainer;

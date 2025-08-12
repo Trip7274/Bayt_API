@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Text.Json.Serialization;
 
 namespace Bayt_API;
 
@@ -51,11 +50,11 @@ public static class StatsApi
 		{
 			return new Dictionary<string, dynamic>
 			{
-				{ "HostName", HostName },
-				{ "DistroName", DistroName },
-				{ "KernelName", KernelName },
-				{ "KernelVersion", KernelVersion },
-				{ "KernelArch", KernelArch }
+				{ nameof(HostName), HostName },
+				{ nameof(DistroName), DistroName },
+				{ nameof(KernelName), KernelName },
+				{ nameof(KernelVersion), KernelVersion },
+				{ nameof(KernelArch), KernelArch }
 			};
 		}
 	}
@@ -72,20 +71,54 @@ public static class StatsApi
 			{
 				throw new Exception($"Failed to get CPU name from getCpu.sh ({rawOutput.ExitCode}).");
 			}
-			CpuName = rawOutput.StandardOutput;
+			Name = rawOutput.StandardOutput;
 
 			UpdateData();
 		}
 
-		public static string? CpuName { get; }
+		/// <summary>
+		/// The CPU's friendly name. E.g., "AMD Ryzen 5 7600X 6-Core Processor"
+		/// </summary>
+		public static string? Name { get; }
+		/// <summary>
+		/// The average percentage of CPU utilization across all cores.
+		/// </summary>
 		public static float UtilizationPerc { get; private set; }
 
+		/// <summary>
+		/// The number of *physical* cores on the CPU
+		/// </summary>
 		public static ushort PhysicalCoreCount { get; private set; }
+		/// <summary>
+		/// The number of logical cores on the CPU. AKA, CPU threads
+		/// </summary>
 		public static ushort ThreadCount { get; private set; }
 
+		/// <summary>
+		/// The average CPU's temperature. Either the "Package id 0" on Intel or "Tctl" on AMD.
+		/// </summary>
 		public static float? TemperatureC { get; private set; }
-		public static string? TemperatureType { get; private set; }
+		/// <summary>
+		/// The source of the temperature reading. Used only internally to set <see cref="TemperatureC"/> more percisely.
+		/// </summary>
+		private static string? TemperatureType { get; set; }
 
+		/// <summary>
+		/// The last time this object was updated.
+		/// </summary>
+		public static DateTime LastUpdate { get; private set; } = DateTime.MinValue;
+		/// <summary>
+		/// Returns whether the current data is too stale and should be updated.
+		/// </summary>
+		public static bool ShouldUpdate =>
+			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
+		/// <summary>
+		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
+		/// </summary>
+		public static void UpdateDataIfNecessary()
+		{
+			if (ShouldUpdate) UpdateData();
+		}
 
 		/// <summary>
 		/// Updates the cached CPU data stored in this CpuData class with the latest metrics.
@@ -94,8 +127,9 @@ public static class StatsApi
 		/// <exception cref="Exception">Non-zero shell script exit code, or the output was of invalid length.</exception>
 		public static void UpdateData()
 		{
+			Console.WriteLine("Update!");
 			int shellTimeout = 2500;
-			if (CpuName == null)
+			if (LastUpdate == DateTime.MinValue)
 			{
 				shellTimeout *= 10;
 			}
@@ -127,18 +161,23 @@ public static class StatsApi
 			ThreadCount = ushort.Parse(outputArray[2]);
 			TemperatureType = outputArray[3] == "null" ? null : outputArray[3];
 			TemperatureC = temp;
+			LastUpdate = DateTime.Now;
 		}
 
+		/// <summary>
+		/// Get this object in the form of a Dictionary. Used for forming responses.
+		/// </summary>
+		/// <returns>This object represented as a Dictionary.</returns>
 		public static Dictionary<string, dynamic?> ToDictionary()
 		{
 			return new Dictionary<string, dynamic?>
 			{
-				{ "Name", CpuName },
-				{ "UtilPerc", UtilizationPerc },
-				{ "CoreCount", PhysicalCoreCount },
-				{ "ThreadCount", ThreadCount },
-				{ "TemperatureC", TemperatureC },
-				{ "TemperatureType", TemperatureType }
+				{ nameof(Name), Name },
+				{ nameof(UtilizationPerc), UtilizationPerc },
+				{ nameof(PhysicalCoreCount), PhysicalCoreCount },
+				{ nameof(ThreadCount), ThreadCount },
+				{ nameof(TemperatureC), TemperatureC },
+				{ nameof(LastUpdate), LastUpdate.ToUniversalTime() }
 			};
 		}
 	}
@@ -153,13 +192,40 @@ public static class StatsApi
 			UpdateData();
 		}
 
+		/// <summary>
+		/// Total system memory (RAM) in bytes.
+		/// </summary>
 		public static ulong TotalMemory { get; private set; }
+		/// <summary>
+		/// Used system memory (RAM) in bytes.
+		/// </summary>
 		public static ulong UsedMemory { get; private set; }
+		/// <summary>
+		/// Available system memory (RAM) in bytes.
+		/// </summary>
 		public static ulong AvailableMemory { get; private set; }
 
+		/// <summary>
+		/// Gets the percentage of used system memory (RAM).
+		/// </summary>
 		public static byte UsedMemoryPercent => (byte) ((float) UsedMemory / TotalMemory * 100);
-		private static bool _initialized = false;
 
+		/// <summary>
+		/// The last time this object was updated.
+		/// </summary>
+		public static DateTime LastUpdate { get; private set; } = DateTime.MinValue;
+		/// <summary>
+		/// Returns whether the current data is too stale and should be updated.
+		/// </summary>
+		public static bool ShouldUpdate =>
+			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
+		/// <summary>
+		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
+		/// </summary>
+		public static void UpdateDataIfNecessary()
+		{
+			if (ShouldUpdate) UpdateData();
+		}
 
 		/// <summary>
 		/// Updates the RAM data stored in this MemoryData class with the latest metrics.
@@ -169,7 +235,7 @@ public static class StatsApi
 		public static void UpdateData()
 		{
 			int shellTimeout = 2500;
-			if (!_initialized)
+			if (LastUpdate == DateTime.MinValue)
 			{
 				shellTimeout *= 10;
 			}
@@ -189,7 +255,7 @@ public static class StatsApi
 			TotalMemory = ulong.Parse(outputArray[0]);
 			UsedMemory = ulong.Parse(outputArray[1]);
 			AvailableMemory = ulong.Parse(outputArray[2]);
-			_initialized = true;
+			LastUpdate = DateTime.Now;
 		}
 
 		/// <summary>
@@ -200,10 +266,11 @@ public static class StatsApi
 		{
 			return new Dictionary<string, dynamic>
 			{
-				{ "TotalMemory", TotalMemory },
-				{ "UsedMemory", UsedMemory },
-				{ "AvailableMemory", AvailableMemory },
-				{ "UsedMemoryPercent", UsedMemoryPercent }
+				{ nameof(TotalMemory), TotalMemory },
+				{ nameof(UsedMemory), UsedMemory },
+				{ nameof(AvailableMemory), AvailableMemory },
+				{ nameof(UsedMemoryPercent), UsedMemoryPercent },
+				{ nameof(LastUpdate), LastUpdate.ToUniversalTime() }
 			};
 		}
 	}

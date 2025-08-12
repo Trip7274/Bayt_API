@@ -120,7 +120,7 @@ public static class GpuHandling
 		/// <remarks>
 		///	AMD only.
 		/// </remarks>
-		public ushort? FanSpeedRpm { get; private set; } // AMD-only
+		public ushort? FanSpeedRpm { get; private set; }
 
 		internal void UpdateData()
 		{
@@ -219,11 +219,22 @@ public static class GpuHandling
 
 		public static List<GpuData> GpuDataList { get; } = [];
 		private static string[] GpuIdList { get; }
+		/// <summary>
+		/// The last time this object was updated.
+		/// </summary>
+		public static DateTime LastUpdate { get; private set; } = DateTime.MinValue;
+		/// <summary>
+		/// Returns whether the current data is too stale and should be updated.
+		/// </summary>
+		public static bool ShouldUpdate =>
+			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
 
 		/// <summary>
-		/// Updates the list of cached GPU data stored in the <see cref="GpuDataList"/> property with the latest metrics.
-		/// Make sure to invoke this as to not serve stale data.
+		/// Force-updates each entry in the <see cref="GpuDataList"/> property with the respective GPU's latest metrics.
 		/// </summary>
+		/// <remarks>
+		///	It's recommended to use <see cref="UpdateDataIfNecessary"/> instead, to honor the user's cache preferences.
+		/// </remarks>
 		public static async Task UpdateData()
 		{
 			if (GpuIdList.Length == 0) return;
@@ -232,6 +243,16 @@ public static class GpuHandling
 			gpuTasks.AddRange(GpuDataList.Select(gpuData => Task.Run(gpuData.UpdateData)));
 
 			await Task.WhenAll(gpuTasks);
+			LastUpdate = DateTime.Now;
+		}
+
+		/// <summary>
+		/// Checks if all the <see cref="GpuData"/> objects are fresh, and if not, updates them with the latest metrics.
+		/// Make sure to invoke this as to not serve stale data.
+		/// </summary>
+		public static async Task UpdateDataIfNecessary()
+		{
+			if (ShouldUpdate) await UpdateData();
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()
@@ -246,8 +267,10 @@ public static class GpuHandling
 				{
 					gpuDataDicts.Add(new()
 					{
-						{ "Brand", gpuData.Brand },
-						{ "IsMissing", gpuData.IsMissing }
+						{ nameof(gpuData.Brand), gpuData.Brand },
+						{ nameof(gpuData.IsMissing), gpuData.IsMissing },
+
+						{ nameof(LastUpdate), LastUpdate.ToUniversalTime() }
 					});
 					continue;
 				}
@@ -255,27 +278,29 @@ public static class GpuHandling
 
 				gpuDataDicts.Add(new()
 				{
-					{ "Name", gpuData.Name },
-					{ "Brand", gpuData.Brand },
-					{ "IsDedicated", gpuData.IsDedicated },
-					{ "IsMissing", gpuData.IsMissing },
+					{ nameof(gpuData.Name), gpuData.Name },
+					{ nameof(gpuData.Brand), gpuData.Brand },
+					{ nameof(gpuData.IsDedicated), gpuData.IsDedicated },
+					{ nameof(gpuData.IsMissing), gpuData.IsMissing },
 
-					{ "GraphicsUtilPerc", gpuData.GraphicsUtilPerc },
-					{ "GraphicsFrequency", gpuData.GraphicsFrequency },
+					{ nameof(gpuData.GraphicsUtilPerc), gpuData.GraphicsUtilPerc },
+					{ nameof(gpuData.GraphicsFrequency), gpuData.GraphicsFrequency },
 
-					{ "VramUtilPerc", gpuData.VramUtilPerc },
-					{ "VramTotalBytes", gpuData.VramTotalBytes },
-					{ "VramUsedBytes", gpuData.VramUsedBytes },
-					{ "VramGttUtilPerc", gpuData.VramGttUtilPerc },
+					{ nameof(gpuData.VramUtilPerc), gpuData.VramUtilPerc },
+					{ nameof(gpuData.VramTotalBytes), gpuData.VramTotalBytes },
+					{ nameof(gpuData.VramUsedBytes), gpuData.VramUsedBytes },
+					{ nameof(gpuData.VramGttUtilPerc), gpuData.VramGttUtilPerc },
 
-					{ "EncoderUtilPerc", gpuData.EncoderUtilPerc },
-					{ "DecoderUtilPerc", gpuData.DecoderUtilPerc },
-					{ "VideoEnhanceUtilPerc", gpuData.VideoEnhanceUtilPerc },
-					{ "EncDecFrequency", gpuData.EncDecFrequency },
+					{ nameof(gpuData.EncoderUtilPerc), gpuData.EncoderUtilPerc },
+					{ nameof(gpuData.DecoderUtilPerc), gpuData.DecoderUtilPerc },
+					{ nameof(gpuData.VideoEnhanceUtilPerc), gpuData.VideoEnhanceUtilPerc },
+					{ nameof(gpuData.EncDecFrequency), gpuData.EncDecFrequency },
 
-					{ "PowerUse", gpuData.PowerUse },
-					{ "TemperatureC", gpuData.TemperatureC },
-					{ "FanSpeedRpm", gpuData.FanSpeedRpm }
+					{ nameof(gpuData.PowerUse), gpuData.PowerUse },
+					{ nameof(gpuData.TemperatureC), gpuData.TemperatureC },
+					{ nameof(gpuData.FanSpeedRpm), gpuData.FanSpeedRpm },
+
+					{ nameof(LastUpdate), LastUpdate.ToUniversalTime() }
 				});
 			}
 

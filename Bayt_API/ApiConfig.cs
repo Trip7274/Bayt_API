@@ -21,7 +21,6 @@ public static class ApiConfig
 	public const byte ApiVersion = 0;
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	public const ushort NetworkPort = 5899;
-	public static DateTime LastUpdated { get; set; }
 
 	/// <summary>
 	/// Abs. path to the Bayt binary's directory

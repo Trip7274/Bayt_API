@@ -22,6 +22,7 @@ public static class Docker
 			{
 				Containers.Add(new DockerContainer(containerEntries));
 			}
+			LastUpdate = DateTime.Now;
 		}
 
 		public static async Task UpdateData()
@@ -36,11 +37,12 @@ public static class Docker
 			{
 				Containers.Add(new DockerContainer(containerEntries));
 			}
+			LastUpdate = DateTime.Now;
 		}
 
 		public static async Task UpdateDataIfNecessary()
 		{
-			if (Containers.All(container => !container.ShouldUpdate)) return;
+			if (!ShouldUpdate) return;
 
 			await UpdateData();
 		}
@@ -54,6 +56,17 @@ public static class Docker
 		}
 
 		public static List<DockerContainer> Containers { get; } = [];
+
+		/// <summary>
+		/// The last time this was updated. Used internally.
+		/// </summary>
+		public static DateTime LastUpdate { get; private set; }
+
+		/// <summary>
+		/// Returns whether the current data is too stale and should be updated.
+		/// </summary>
+		public static bool ShouldUpdate =>
+			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
 	}
 
 	public sealed class DockerContainer
@@ -125,8 +138,6 @@ public static class Docker
 					MountBindings.Add(new MountBinding(mountEntry));
 				}
 			}
-
-			LastUpdate = DateTime.Now;
 		}
 		public Dictionary<string, dynamic?> ToDictionary()
 		{
@@ -162,10 +173,10 @@ public static class Docker
 
 				{ nameof(IpAddress), IpAddress.ToString() },
 				{ nameof(NetworkMode), NetworkMode },
-				{ nameof(portBindings), portBindings },
-				{ nameof(mountBindings), mountBindings },
+				{ nameof(PortBindings), portBindings },
+				{ nameof(MountBindings), mountBindings },
 
-				{ nameof(LastUpdate), LastUpdate.ToUniversalTime() }
+				{ nameof(DockerContainers.LastUpdate), DockerContainers.LastUpdate.ToUniversalTime() }
 			};
 		}
 
@@ -255,17 +266,6 @@ public static class Docker
 		public string NetworkMode { get; }
 		public List<PortBinding> PortBindings { get; } = [];
 		public List<MountBinding> MountBindings { get; } = [];
-
-		/// <summary>
-		/// The last time this was updated. Used internally.
-		/// </summary>
-		internal DateTime LastUpdate;
-
-		/// <summary>
-		/// Returns whether the current data is too stale and should be updated.
-		/// </summary>
-		internal bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
 	}
 
 	public sealed class PortBinding

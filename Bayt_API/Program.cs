@@ -379,7 +379,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (string? folderName, str
 	{
 		fileRecord = DataEndpointManagement.GetDataFile(folderName, fileName);
 	}
-	catch (FileNotFoundException e)
+	catch (Exception e) when(e is FileNotFoundException or DirectoryNotFoundException)
 	{
 		return Results.NotFound(e.Message);
 	}

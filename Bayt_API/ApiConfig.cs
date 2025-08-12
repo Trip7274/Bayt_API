@@ -219,14 +219,18 @@ public static class ApiConfig
 
 				if (jsonDocument.TryGetProperty("ConfigVersion", out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() > ApiVersion)
 				{
+					Console.ForegroundColor = ConsoleColor.Yellow;
 					Console.WriteLine($"[WARNING] Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons.");
+					Console.ResetColor();
 				}
 
 				return requiredProperties.Count == 0;
 			}
 			catch (JsonException exception)
 			{
+				Console.ForegroundColor = ConsoleColor.Red;
 				Console.WriteLine($"[ERROR] Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}.\nWill regenerate.");
+				Console.ResetColor();
 				return false;
 			}
 		}
@@ -367,7 +371,9 @@ public static class ApiConfig
 				catch (Exception e)
 				{
 					wolClientDict.Value.TryGetValue("Name", out var name);
+					Console.ForegroundColor = ConsoleColor.Red;
 					Console.WriteLine($"[ERROR] Failed to load a WoL client from the configuration file. Detected name: '{name ?? "(unable to fetch name)"}' Skipping.\nError: {e.Message}\nStack trace: {e.StackTrace}");
+					Console.ResetColor();
 				}
 			}
 
@@ -393,7 +399,9 @@ public static class ApiConfig
 				}
 				catch (FormatException)
 				{
+					Console.ForegroundColor = ConsoleColor.Yellow;
 					Console.WriteLine($"[WARNING] Failed to get physical address for {clientsToAdd.Key} ('{clientsToAdd.Value}'), skipping.");
+					Console.ResetColor();
 					continue;
 				}
 

@@ -544,10 +544,6 @@ app.MapGet($"{baseDockerUrl}/getActiveContainers", async () =>
 app.MapPost($"{baseDockerUrl}/startContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
-	if (!Caching.IsDataFresh())
-	{
-		await Docker.DockerContainers.UpdateData();
-	}
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/start", "POST");
 
@@ -565,10 +561,6 @@ app.MapPost($"{baseDockerUrl}/startContainer", async (string containerId) =>
 app.MapPost($"{baseDockerUrl}/stopContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
-	if (!Caching.IsDataFresh())
-	{
-		await Docker.DockerContainers.UpdateData();
-	}
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/stop", "POST");
 
@@ -586,12 +578,6 @@ app.MapPost($"{baseDockerUrl}/stopContainer", async (string containerId) =>
 app.MapPost($"{baseDockerUrl}/restartContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
-	if (!Caching.IsDataFresh())
-	{
-		await Docker.DockerContainers.UpdateData();
-	}
-	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
-		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
 
@@ -609,12 +595,6 @@ app.MapPost($"{baseDockerUrl}/restartContainer", async (string containerId) =>
 app.MapPost($"{baseDockerUrl}/killContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
-	if (!Caching.IsDataFresh())
-	{
-		await Docker.DockerContainers.UpdateData();
-	}
-	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
-		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/kill", "POST");
 
@@ -633,12 +613,6 @@ app.MapPost($"{baseDockerUrl}/killContainer", async (string containerId) =>
 app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string containerId) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
-	if (!Caching.IsDataFresh())
-	{
-		await Docker.DockerContainers.UpdateData();
-	}
-	if (Docker.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
-		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}", "DELETE");
 

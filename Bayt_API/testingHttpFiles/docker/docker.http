@@ -16,3 +16,9 @@ POST {{Bayt_API_HostAddress}}/killContainer?containerId={{containerId}}
 
 ### Fetch a specific container's compose file
 GET {{Bayt_API_HostAddress}}/getContainerCompose?containerId={{containerId}}
+
+### Disown a container
+DELETE {{Bayt_API_HostAddress}}/disownContainer?containerId={{containerId}}
+
+### Own a container
+POST {{Bayt_API_HostAddress}}/ownContainer?containerId={{containerId}}

@@ -22,3 +22,6 @@ DELETE {{Bayt_API_HostAddress}}/disownContainer?containerId={{containerId}}
 
 ### Own a container
 POST {{Bayt_API_HostAddress}}/ownContainer?containerId={{containerId}}
+
+### Prune containers
+DELETE {{Bayt_API_HostAddress}}/pruneContainers

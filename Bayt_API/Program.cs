@@ -763,6 +763,26 @@ app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 	.Produces(StatusCodes.Status500InternalServerError)
 	.WithName("DisownDockerContainer");
 
+app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
+{
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
+
+	var dockerRequest = await Docker.SendRequest("containers/prune", "POST");
+
+	Console.WriteLine(dockerRequest.Body);
+
+	return dockerRequest.Status switch
+	{
+		HttpStatusCode.OK => Results.Text(dockerRequest.Body, "application/json", Encoding.UTF8, StatusCodes.Status200OK),
+		HttpStatusCode.InternalServerError => Results.InternalServerError(
+			$"Docker returned an error while pruning containers. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+		_ => Results.InternalServerError(
+			$"Docker returned an unknown error while pruning containers. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
+	};
+}).Produces(StatusCodes.Status200OK)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.WithName("PruneDockerContainers");
+
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {

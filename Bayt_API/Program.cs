@@ -123,7 +123,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 							{ nameof(ApiConfig.Version), ApiConfig.Version },
 							{ nameof(ApiConfig.ApiVersion), ApiConfig.ApiVersion },
 							{ nameof(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate),
-								ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate }
+								ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate },
+							{ nameof(Docker.IsDockerAvailable), Docker.IsDockerAvailable }
 						}
 					]);
 					break;

@@ -650,7 +650,7 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 
 }).WithName("GetDockerContainerCompose");
 
-app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId) =>
+app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId, bool? restartContainer) =>
 	{
 		// Request validation
 		if (containerId is null) return Results.BadRequest("The container ID must be specified.");
@@ -678,7 +678,20 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 		{
 			await context.Request.Body.CopyToAsync(fileStream);
 		}
-		return Results.NoContent();
+
+		if (!(restartContainer ?? false)) return Results.NoContent();
+
+
+		var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
+		return dockerRequest.Status switch
+		{
+			HttpStatusCode.NoContent => Results.NoContent(),
+			HttpStatusCode.NotFound => Results.NotFound($"[Reboot] Container with ID '{containerId}' was not found."),
+			HttpStatusCode.InternalServerError => Results.InternalServerError(
+				$"[Reboot] Docker returned an error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+			_ => Results.InternalServerError(
+				$"[Reboot] Docker returned an unknown error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
+		};
 	}).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)

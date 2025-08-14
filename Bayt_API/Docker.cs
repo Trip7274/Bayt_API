@@ -266,6 +266,66 @@ public static class Docker
 		public string NetworkMode { get; }
 		public List<PortBinding> PortBindings { get; } = [];
 		public List<MountBinding> MountBindings { get; } = [];
+		public ContainerStats Stats => new(Id);
+	}
+
+	public sealed class ContainerStats
+	{
+		public ContainerStats(string containerId)
+		{
+			var dockerRequest = SendRequest($"/containers/{containerId}/stats?stream=false").Result;
+			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request for stats failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
+
+			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);
+
+			// These are required to calculate the CPU usage.
+			// https://docs.docker.com/reference/api/engine/version/v1.51/#tag/Container/operation/ContainerStats
+			//	- cpu_delta = cpu_stats.cpu_usage.total_usage - precpu_stats.cpu_usage.total_usage
+			//	- system_cpu_delta = cpu_stats.system_cpu_usage - precpu_stats.system_cpu_usage
+			//	- number_cpus = length(cpu_stats.cpu_usage.percpu_usage) or cpu_stats.online_cpus
+			//	- CPU usage % = (cpu_delta / system_cpu_delta) * number_cpus * 100.0
+
+			var cpuProperty = dockerOutput.GetProperty("cpu_stats");
+			var cpuDelta = cpuProperty.GetProperty("cpu_usage").GetProperty("total_usage").GetUInt64()
+			               - dockerOutput.GetProperty("precpu_stats").GetProperty("cpu_usage").GetProperty("total_usage").GetUInt64();
+			var systemCpuDelta = cpuProperty.GetProperty("system_cpu_usage").GetUInt64()
+			                     - dockerOutput.GetProperty("precpu_stats").GetProperty("system_cpu_usage").GetUInt64();
+			var cpuCount = cpuProperty.GetProperty("online_cpus").GetUInt32();
+
+			CpuUtilizationPerc = (float) Math.Round((float) cpuDelta / systemCpuDelta * cpuCount * 100, 2);
+
+			var memoryProperty = dockerOutput.GetProperty("memory_stats");
+			UsedMemory = memoryProperty.GetProperty("usage").GetUInt64();
+			TotalMemory = memoryProperty.GetProperty("limit").GetUInt64();
+
+			var networkEntry = dockerOutput.GetProperty("networks").EnumerateObject().First().Value;
+
+			RecievedNetworkBytes = networkEntry.GetProperty("rx_bytes").GetUInt64();
+			SentNetworkBytes = networkEntry.GetProperty("tx_bytes").GetUInt64();
+		}
+
+		public Dictionary<string, dynamic> ToDictionary()
+		{
+			return new()
+			{
+				{ nameof(CpuUtilizationPerc), CpuUtilizationPerc },
+				{ nameof(UsedMemory), UsedMemory },
+				{ nameof(TotalMemory), TotalMemory },
+				{ nameof(AvailableMemory), AvailableMemory },
+				{ nameof(UsedMemoryPercent), UsedMemoryPercent },
+				{ nameof(RecievedNetworkBytes), RecievedNetworkBytes },
+				{ nameof(SentNetworkBytes), SentNetworkBytes }
+			};
+		}
+
+		public float CpuUtilizationPerc { get; }
+		public ulong UsedMemory { get; }
+		public ulong TotalMemory { get; }
+		public ulong AvailableMemory => TotalMemory - UsedMemory;
+		public float UsedMemoryPercent => TotalMemory == 0 ? 0 : (float) Math.Round((float) UsedMemory / TotalMemory * 100, 2);
+
+		public ulong RecievedNetworkBytes { get; }
+		public ulong SentNetworkBytes { get; }
 	}
 
 	public sealed class PortBinding

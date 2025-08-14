@@ -25,3 +25,6 @@ POST {{Bayt_API_HostAddress}}/ownContainer?containerId={{containerId}}
 
 ### Prune containers
 DELETE {{Bayt_API_HostAddress}}/pruneContainers
+
+### Get a container's stats
+GET {{Bayt_API_HostAddress}}/getContainerStats?containerId={{containerId}}

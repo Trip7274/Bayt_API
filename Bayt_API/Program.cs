@@ -784,6 +784,27 @@ app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
 	.Produces(StatusCodes.Status500InternalServerError)
 	.WithName("PruneDockerContainers");
 
+app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
+{
+	if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
+	await Docker.DockerContainers.UpdateDataIfNecessary();
+
+	Docker.DockerContainer targetContainer;
+	try
+	{
+		targetContainer = Docker.DockerContainers.Containers.First(container => container.Id.StartsWith(containerId));
+	}
+	catch (InvalidOperationException)
+	{
+		return Results.NotFound($"Container with ID '{containerId}' was not found.");
+	}
+	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
+		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
+
+	return Results.Json(targetContainer.Stats.ToDictionary());
+});
+
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {

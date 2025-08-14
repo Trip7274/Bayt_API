@@ -5,31 +5,6 @@ namespace Bayt_API.Testing;
 public class RequestCheckTests
 {
 	[Fact]
-	public async Task TestLegacyRequestChecking()
-    {
-		var goodContext = new DefaultHttpContext
-		{
-			Request =
-			{
-				ContentType = "application/json",
-				ContentLength = 100
-			}
-		};
-
-		var badContext = new DefaultHttpContext
-		{
-			Request =
-			{
-				ContentType = "",
-				ContentLength = 0
-			}
-		};
-
-		Assert.Null((await RequestChecking.CheckContType(goodContext)).ErrorMessage);
-		Assert.NotNull((await RequestChecking.CheckContType(badContext)).ErrorMessage);
-	}
-
-	[Fact]
 	public async Task TestJsonRequestCheckingAndProcessing()
 	{
 		MemoryStream goodBody = new("{ \"This should\": \"work!\" }"u8.ToArray());
@@ -108,5 +83,20 @@ public class RequestCheckTests
 		Assert.True(contentTypeThrew);
 		Assert.True(invalidBodyThrew);
 		Assert.True(emptyBodyThrew);
+	}
+
+	[Fact]
+	public async Task TestDockerRequestValidation()
+	{
+		await Assert.ThrowsAsync<ArgumentException>(() => RequestChecking.ValidateDockerRequest(null, false));
+		await Assert.ThrowsAsync<ArgumentException>(() => RequestChecking.ValidateDockerRequest("tooshort", false));
+		try
+		{
+			await RequestChecking.ValidateDockerRequest("iamastringmuchmuchlongerthan12characters", false);
+		}
+		catch (Exception e) when(e is not FileNotFoundException)
+		{
+			Assert.Fail($"ValidateDockerRequest threw an exception even when a valid string was given. ({e.Message})");
+		}
 	}
 }

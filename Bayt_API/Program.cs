@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using Bayt_API;
 
@@ -817,9 +818,24 @@ try
 {
 	app.Run();
 }
-catch (IOException)
+catch (SocketException e) when (e.Message == "Cannot assign requested address")
 {
 	Console.ForegroundColor = ConsoleColor.Red;
-	Console.WriteLine($"[FATAL] Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running.");
+	Console.WriteLine(
+		"[FATAL] Something went wrong while binding to one of the targetted IP addresses. " +
+		"Make sure the targetted IP address is valid.");
+	Console.ResetColor();
+}
+catch (SocketException e) when (e.Message == "Permission denied")
+{
+	Console.ForegroundColor = ConsoleColor.Red;
+	Console.WriteLine("[FATAL] The current user does not have permission to bind to one of the IP addresses or ports.");
+	Console.ResetColor();
+}
+catch (IOException e) when (e.InnerException is not null && e.InnerException.Message == "Address already in use")
+{
+	Console.ForegroundColor = ConsoleColor.Red;
+	Console.WriteLine(
+		$"[FATAL] Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running.");
 	Console.ResetColor();
 }

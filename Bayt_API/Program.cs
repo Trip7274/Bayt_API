@@ -711,56 +711,56 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 }).WithName("GetDockerContainerCompose");
 
 app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId, bool? restartContainer) =>
+{
+	// Request validation
+	try
 	{
-		// Request validation
-		try
-		{
-			await RequestChecking.ValidateDockerRequest(containerId);
-		}
-		catch (ArgumentException e)
-		{
-			return Results.BadRequest(e.Message);
-		}
-		catch (FileNotFoundException e)
-		{
-			return Results.InternalServerError(e.Message);
-		}
-		if (context.Request.ContentLength is null or 0) return Results.BadRequest("The request body must be specified and not empty.");
+		await RequestChecking.ValidateDockerRequest(containerId);
+	}
+	catch (ArgumentException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
+	catch (FileNotFoundException e)
+	{
+		return Results.InternalServerError(e.Message);
+	}
+	if (context.Request.ContentLength is null or 0) return Results.BadRequest("The request body must be specified and not empty.");
 
-		// Container validation
-		Docker.DockerContainer targetContainer;
-		try
-		{
-			targetContainer = Docker.DockerContainers.Containers.First(container => container.Id.StartsWith(containerId));
-		}
-		catch (InvalidOperationException)
-		{
-			return Results.NotFound($"Container with ID '{containerId}' was not found.");
-		}
-		if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
-			return Results.NotFound("This container does not have a compose file.");
-		if (!targetContainer.IsManaged) return Results.BadRequest("This container is not managed by Bayt.");
+	// Container validation
+	Docker.DockerContainer targetContainer;
+	try
+	{
+		targetContainer = Docker.DockerContainers.Containers.First(container => container.Id.StartsWith(containerId));
+	}
+	catch (InvalidOperationException)
+	{
+		return Results.NotFound($"Container with ID '{containerId}' was not found.");
+	}
+	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
+		return Results.NotFound("This container does not have a compose file.");
+	if (!targetContainer.IsManaged) return Results.BadRequest("This container is not managed by Bayt.");
 
-		// Actual logic
-		await using (var fileStream = new FileStream(targetContainer.ComposePath, FileMode.Truncate, FileAccess.Write,
-			             FileShare.None))
-		{
-			await context.Request.Body.CopyToAsync(fileStream);
-		}
+	// Actual logic
+	await using (var fileStream = new FileStream(targetContainer.ComposePath, FileMode.Truncate, FileAccess.Write,
+		             FileShare.None))
+	{
+		await context.Request.Body.CopyToAsync(fileStream);
+	}
 
-		if (!(restartContainer ?? false)) return Results.NoContent();
+	if (!(restartContainer ?? false)) return Results.NoContent();
 
 
-		var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
-		return dockerRequest.Status switch
-		{
-			HttpStatusCode.NoContent => Results.NoContent(),
-			HttpStatusCode.NotFound => Results.NotFound($"[Reboot] Container with ID '{containerId}' was not found."),
-			HttpStatusCode.InternalServerError => Results.InternalServerError(
-				$"[Reboot] Docker returned an error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
-			_ => Results.InternalServerError(
-				$"[Reboot] Docker returned an unknown error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
-		};
+	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
+	return dockerRequest.Status switch
+	{
+		HttpStatusCode.NoContent => Results.NoContent(),
+		HttpStatusCode.NotFound => Results.NotFound($"[Reboot] Container with ID '{containerId}' was not found."),
+		HttpStatusCode.InternalServerError => Results.InternalServerError(
+			$"[Reboot] Docker returned an error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+		_ => Results.InternalServerError(
+			$"[Reboot] Docker returned an unknown error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
+	};
 	}).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)

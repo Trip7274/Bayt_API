@@ -803,7 +803,11 @@ app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
 
 	return Results.Json(targetContainer.Stats.ToDictionary());
-});
+}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status200OK)
+	.WithName("GetDockerContainerStats");
 
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")

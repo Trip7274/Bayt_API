@@ -548,7 +548,8 @@ app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 
 	return dockerRequest.Status switch
 	{
-		HttpStatusCode.NoContent or HttpStatusCode.NotModified => Results.NoContent(),
+		HttpStatusCode.NoContent => Results.NoContent(),
+		HttpStatusCode.NotModified => Results.StatusCode(StatusCodes.Status304NotModified),
 		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
 		HttpStatusCode.InternalServerError => Results.InternalServerError(
 			$"Docker returned an error while starting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
@@ -576,7 +577,8 @@ app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 
 	return dockerRequest.Status switch
 	{
-		HttpStatusCode.NoContent or HttpStatusCode.NotModified => Results.NoContent(),
+		HttpStatusCode.NoContent => Results.NoContent(),
+		HttpStatusCode.NotModified => Results.StatusCode(StatusCodes.Status304NotModified),
 		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
 		HttpStatusCode.InternalServerError => Results.InternalServerError(
 			$"Docker returned an error while stopping container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
@@ -796,8 +798,7 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 	}
 	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
 		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
-	if (targetContainer.IsManaged) return Results.Text("This container is already managed by Bayt.",
-		"text/plain", Encoding.UTF8, StatusCodes.Status304NotModified);
+	if (targetContainer.IsManaged) return Results.StatusCode(StatusCodes.Status304NotModified);
 
 	var composeDir = Path.GetDirectoryName(targetContainer.ComposePath) ?? "/";
 	File.WriteAllText(Path.Combine(composeDir, ".BaytManaged"), defaultFlagContents);
@@ -836,8 +837,7 @@ app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 	}
 	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
 		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
-	if (!targetContainer.IsManaged) return Results.Text("This container is already not managed by Bayt.",
-		"text/plain", Encoding.UTF8, StatusCodes.Status304NotModified);
+	if (!targetContainer.IsManaged) return Results.StatusCode(StatusCodes.Status304NotModified);
 
 	var composeDir = Path.GetDirectoryName(targetContainer.ComposePath) ?? "/";
 	File.Delete(Path.Combine(composeDir, ".BaytManaged"));

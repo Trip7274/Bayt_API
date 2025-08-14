@@ -1,7 +1,4 @@
 ### Fetch data file
-@Version = 0
-@Bayt_API_HostAddress = http://localhost:5899/api/v{{Version}}
-
 GET {{Bayt_API_HostAddress}}/getData?folderName=Test&fileName=configs.json
 Accept: application/json
 

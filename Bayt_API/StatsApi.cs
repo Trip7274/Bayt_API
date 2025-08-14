@@ -207,7 +207,7 @@ public static class StatsApi
 		/// <summary>
 		/// Gets the percentage of used system memory (RAM).
 		/// </summary>
-		public static byte UsedMemoryPercent => (byte) ((float) UsedMemory / TotalMemory * 100);
+		public static float UsedMemoryPercent => TotalMemory == 0 ? 0 : (float) Math.Round((float) UsedMemory / TotalMemory * 100, 2);
 
 		/// <summary>
 		/// The last time this object was updated.

@@ -18,7 +18,7 @@ public static class DataEndpointManagement
 	/// </summary>
 	private const string DefaultReadmeContent = """
 	                                     This folder contains all server-wide data for each client, separated by client.
-	                                     
+
 	                                     Please refer to the specific client's documentation for info on the file types, along with usage details.
 	                                     Make sure the server is shut down before modifying these files.
 	                                     """;

@@ -193,7 +193,7 @@ public static class GpuHandling
 				                   Stack Trace: {e.StackTrace}
 				                   Shell exit code: {shellScriptProcess.ExitCode}
 				                   Full Shell log was saved in "{ApiConfig.BaseExecutablePath}/logs/GPU.log"
-				                   
+
 				                   For now, skipping this GPU...
 				                   """);
 			}

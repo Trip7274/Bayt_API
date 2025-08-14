@@ -414,11 +414,11 @@ public static class Docker
 	public static async Task StreamDockerLogs(string? containerId, bool? stdout, bool? stderr, bool? timestamps, HttpContext context)
 	{
 		var response = context.Response;
-		if (containerId is null)
+		if (containerId is null || containerId.Length < 12)
 		{
 			response.StatusCode = 400;
 			response.ContentType = "text/plain";
-			await response.WriteAsync("The container ID must be specified.", context.RequestAborted);
+			await response.WriteAsync("At least the first 12 characters of he container ID must be specified.", context.RequestAborted);
 			return;
 		}
 		if (!IsDockerAvailable)

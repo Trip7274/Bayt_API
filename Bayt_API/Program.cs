@@ -531,7 +531,7 @@ app.MapGet($"{baseDockerUrl}/getActiveContainers", async () =>
 
 app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 {
-	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+	if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/start", "POST");
@@ -549,7 +549,7 @@ app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 
 app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 {
-	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+	if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/stop", "POST");
@@ -567,7 +567,7 @@ app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 
 app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
 {
-	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+	if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
@@ -585,7 +585,7 @@ app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
 
 app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
 {
-	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+	if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/kill", "POST");
@@ -604,7 +604,7 @@ app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
 
 app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string? containerId) =>
 {
-	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+	if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}", "DELETE");
@@ -628,7 +628,7 @@ app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs).WithNam
 
 app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =>
 {
-	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+	if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	await Docker.DockerContainers.UpdateDataIfNecessary();
 
@@ -654,7 +654,7 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId, bool? restartContainer) =>
 	{
 		// Request validation
-		if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+		if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
 		if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 		if (context.Request.ContentLength is null or 0) return Results.BadRequest("The request body must be specified and not empty.");
 		await Docker.DockerContainers.UpdateDataIfNecessary();
@@ -704,7 +704,7 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 	const string defaultFlagContents = "This file indicates that this container is managed by Bayt. " +
 	                                   "It is safe to delete it to manually un-manage this container.";
 
-	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+	if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	await Docker.DockerContainers.UpdateDataIfNecessary();
 
@@ -735,7 +735,7 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 
 app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 {
-	if (containerId is null) return Results.BadRequest("The container ID must be specified.");
+	if (containerId is null || containerId.Length < 12) return Results.BadRequest("At least the first 12 characters of he container ID must be specified.");
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	await Docker.DockerContainers.UpdateDataIfNecessary();
 

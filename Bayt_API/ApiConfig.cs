@@ -23,21 +23,36 @@ public static class ApiConfig
 	public const ushort NetworkPort = 5899;
 
 	/// <summary>
+	/// Contains the contents of the "XDG_CONFIG_HOME" env var if it exists. Used to set <see cref="BaseConfigPath"/>
+	/// </summary>
+	private static readonly string? XdgConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+	/// <summary>
+	/// Contains the contents of the "XDG_DATA_HOME" env var if it exists. Used to set the default clientData folder.
+	/// </summary>
+	private static readonly string? XdgDataHome = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+	/// <summary>
+	/// Contains the contents of the "XDG_STATE_HOME" env var if it exists. Used to set <see cref="UnixSocketPath"/>
+	/// </summary>
+	private static readonly string? XdgStateHome = Environment.GetEnvironmentVariable("XDG_STATE_HOME");
+
+	/// <summary>
 	/// Abs. path to the Bayt binary's directory
 	/// </summary>
-	public static readonly string BaseExecutablePath = Environment.CurrentDirectory;
+	public static readonly string BaseExecutablePath = Path.GetDirectoryName(Environment.ProcessPath) ?? Environment.CurrentDirectory;
 	/// <summary>
 	/// Abs. path to the Bayt SOCK interface. Will be non-existent if the interface is inactive.
 	/// </summary>
-	public static readonly string UnixSocketPath = Path.Combine(BaseExecutablePath, "bayt.sock");
+	public static readonly string UnixSocketPath = XdgStateHome is not null && XdgStateHome.Length != 0 ?
+		Path.Combine(XdgStateHome, "BaytApi.sock") : Path.Combine(BaseExecutablePath, "BaytApi.sock");
 	/// <summary>
 	/// Abs. path to the configuration directory
 	/// </summary>
-	private static readonly string BaseConfigPath = Path.Combine(BaseExecutablePath, "config");
+	private static readonly string BaseConfigPath = XdgConfigHome is not null && XdgConfigHome.Length != 0 ?
+		Path.Combine(XdgConfigHome, "Bayt") : Path.Combine(BaseExecutablePath, "config");
 	/// <summary>
 	/// Abs. path to the specific configuration loaded currently.
 	/// </summary>
-	private static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
+	public static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
 
 	public static readonly string[] PossibleStats = ["Meta", "System", "CPU", "GPU", "Memory", "Mounts"];
 
@@ -53,6 +68,8 @@ public static class ApiConfig
 			if (!Directory.Exists(BaseConfigPath))
 			{
 				Directory.CreateDirectory(BaseConfigPath);
+				File.WriteAllText(Path.Combine(BaseConfigPath, "README"), "This folder is for the Bayt API project.\n" +
+				                                                          "More info: https://github.com/Trip7274/Bayt_API");
 			}
 
 			ConfigProps = GetConfig();
@@ -81,7 +98,7 @@ public static class ApiConfig
 			/// <remarks>
 			///	This is required in the saved config.
 			/// </remarks>
-			public byte ConfigVersion { get; init; }
+			public byte ConfigVersion { get; init; } = ApiVersion;
 
 			/// <summary>
 			/// The user-set name for this instance of Bayt.
@@ -89,42 +106,47 @@ public static class ApiConfig
 			/// <remarks>
 			///	Defaults to "Bayt API Host"
 			/// </remarks>
-			public required string BackendName { get; init; }
+			public string BackendName { get; init; } = "Bayt API Host";
+
 			/// <summary>
 			/// Lifetime of the cache. Set to 0 to effectively disable it.
 			/// </summary>
 			/// <remarks>
 			///	Defaults to 5 seconds.
 			/// </remarks>
-			public ushort SecondsToUpdate { get; set; }
+			public ushort SecondsToUpdate { get; init; } = 5;
 			/// <summary>
-			///	Relative (to the Bayt binary) path to the client data folder.
+			///	Abs. path to the client data folder.
 			/// </summary>
 			/// <remarks>
-			///	Defaults to "clientData"
+			///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/clientData</c>, or <c>BaytExecutablePath/clientData</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
 			/// </remarks>
-			public string PathToDataFolder { get; set; } = "clientData";
+			public string PathToDataFolder { get; init; } = XdgDataHome is not null && XdgDataHome.Length != 0 ?
+				Path.Combine(XdgDataHome, "Bayt", "clientData") : Path.Combine(BaseExecutablePath, "clientData");
 			/// <summary>
 			/// Relative (to the Bayt binary) path to the folder containing all the docker compose folders.
 			/// </summary>
 			/// <remarks>
-			///	Defaults to "containers". Each container will be inside a folder named with the slug of its name
+			///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/containers</c>, or <c>BaytExecutablePath/containers</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
+			/// Each container will be inside a folder named with the slug of its name
 			/// </remarks>
-			public string PathToComposeFolder { get; set; } = "containers";
+			public string PathToComposeFolder { get; init; } = XdgDataHome is not null && XdgDataHome.Length != 0 ?
+				Path.Combine(XdgDataHome, "Bayt", "containers") : Path.Combine(BaseExecutablePath, "containers");
 			/// <summary>
 			/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
 			/// </summary>
 			/// <remarks>
 			///	Defaults to { "/": "Root Partition" }. This is required in the saved config.
 			/// </remarks>
-			public required Dictionary<string, string> WatchedMounts { get; init; }
+			public Dictionary<string, string> WatchedMounts { get; init; } = new() { { "/", "Root Partition" } };
+
 			/// <summary>
 			/// JSON form of the <see cref="WolClientsClass"/> property. It's recommended to use that instead.
 			/// </summary>
 			/// <remarks>
 			///	This is required in the saved config.
 			/// </remarks>
-			public required Dictionary<string, Dictionary<string, string?>> WolClients { get; init; }
+			public Dictionary<string, Dictionary<string, string?>> WolClients { get; init; } = [];
 			/// <summary>
 			/// List of <see cref="WolHandling.WolClient"/>s saved by the user.
 			/// </summary>
@@ -178,18 +200,9 @@ public static class ApiConfig
 				}
 				File.Move(ConfigFilePath, $"{ConfigFilePath}.old");
 			}
-			Console.WriteLine($"[INFO] Configuration file seems to be invalid or non-existent, regenerating at {Path.GetRelativePath(Environment.CurrentDirectory, ConfigFilePath)}...");
+			Console.WriteLine("[INFO] Configuration file seems to be invalid or non-existent, regenerating...");
 
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(new ConfigProperties
-			{
-				ConfigVersion = ApiVersion,
-				BackendName = "Bayt API Host",
-				SecondsToUpdate = 5,
-				PathToDataFolder = "clientData",
-				PathToComposeFolder = "containers",
-				WatchedMounts = new() { {"/", "Root Partition"} },
-				WolClients = []
-			}), Encoding.UTF8);
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(new ConfigProperties()), Encoding.UTF8);
 		}
 
 		/// <summary>

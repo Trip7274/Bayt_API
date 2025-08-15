@@ -21,12 +21,20 @@ if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 	builder.WebHost.ConfigureKestrel(opts => opts.Listen(localIp, ApiConfig.NetworkPort));
 }
 
-if (Environment.GetEnvironmentVariable("BAYT_USE_SOCK") == "1")
+if (Environment.GetEnvironmentVariable("BAYT_USE_SOCK") != "1")
 {
+	if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
 	Console.WriteLine($"[INFO] Adding URL 'unix://{ApiConfig.UnixSocketPath}' to listen list");
 	builder.WebHost.ConfigureKestrel(opts => opts.ListenUnixSocket(ApiConfig.UnixSocketPath));
 }
 
+Console.ForegroundColor = ConsoleColor.Gray;
+Console.WriteLine($"""
+                   [INFO] Loaded configuration from: '{ApiConfig.ConfigFilePath}'
+                   [INFO] Loaded clientData folder: '{ApiConfig.MainConfigs.ConfigProps.PathToDataFolder}'
+                   [INFO] Loaded containers folder: '{ApiConfig.MainConfigs.ConfigProps.PathToComposeFolder}'
+                   """);
+Console.ResetColor();
 
 var app = builder.Build();
 
@@ -381,6 +389,10 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (string? folderName, str
 	{
 		fileRecord = DataEndpointManagement.GetDataFile(folderName, fileName);
 	}
+	catch(ArgumentException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
 	catch (Exception e) when(e is FileNotFoundException or DirectoryNotFoundException)
 	{
 		return Results.NotFound(e.Message);
@@ -409,8 +421,16 @@ app.MapPut($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context, st
 
 	var memoryStream = new MemoryStream();
 	await context.Request.Body.CopyToAsync(memoryStream);
+	DataEndpointManagement.DataFileMetadata metadataObject;
 
-	DataEndpointManagement.DataFileMetadata metadataObject = new(folderName, fileName, memoryStream.ToArray());
+	try
+	{
+		metadataObject = new(folderName, fileName, memoryStream.ToArray());
+	}
+	catch (ArgumentException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
 	await DataEndpointManagement.SetDataFile(metadataObject);
 
 	return Results.NoContent();
@@ -429,6 +449,10 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", (string? folderName, str
 	{
 		DataEndpointManagement.DeleteDataFile(folderName, fileName);
 	}
+	catch (ArgumentException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
 	catch (FileNotFoundException)
 	{
 		return Results.NotFound($"File '{fileName}' was not found.");
@@ -437,6 +461,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", (string? folderName, str
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status404NotFound)
 	.WithName("DeleteClientData");
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =>
@@ -446,6 +471,10 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =
 	try
 	{
 		DataEndpointManagement.DeleteDataFolder(folderName);
+	}
+	catch (ArgumentException)
+	{
+		return Results.BadRequest("Folder name must not be empty or invalid.");
 	}
 	catch (DirectoryNotFoundException)
 	{

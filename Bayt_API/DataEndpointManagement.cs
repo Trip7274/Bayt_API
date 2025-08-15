@@ -10,7 +10,7 @@ public static class DataEndpointManagement
 	/// <summary>
 	/// Relative path from the base executable to the client data folder
 	/// </summary>
-	private static string ClientDataFolder => Path.GetRelativePath(ApiConfig.BaseExecutablePath, ApiConfig.MainConfigs.ConfigProps.PathToDataFolder);
+	private static string ClientDataFolder => ApiConfig.MainConfigs.ConfigProps.PathToDataFolder;
 
 	/// <summary>
 	/// Default content written to the "README.txt" file within the client data folder.
@@ -21,6 +21,7 @@ public static class DataEndpointManagement
 
 	                                     Please refer to the specific client's documentation for info on the file types, along with usage details.
 	                                     Make sure the server is shut down before modifying these files.
+	                                     This folder was made by Bayt API. More info: https://github.com/Trip7274/Bayt_API
 	                                     """;
 
 	/// <summary>
@@ -35,16 +36,13 @@ public static class DataEndpointManagement
 		/// <param name="folder">The name of the folder inside the root clientData folder. Subfolders will be trimmed off.</param>
 		/// <param name="fileName">The name of the file itself. Extension included.</param>
 		/// <param name="fileData">The contents of the file. The <see cref="FileStreamRead"/> property will fall back to creating a new stream if this is null.</param>
+		/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
 		public DataFileMetadata(string folder, string fileName, byte[]? fileData = null)
 		{
-			Folder = folder.Trim('/');
-			if (Folder.Contains('/'))
-			{
-				Folder = Folder[..Folder.IndexOf('/')]; // E.g. "Test/subFolder" => "Test".
-                                            // Bayt API does not support subfolders at this stage.
-                                            // Proper endpoints for this will be implemented later.
-			}
-			FileName = fileName.Trim('/');
+			SanitizeFileFolderNames(ref folder, ref fileName);
+
+			Folder = folder;
+			FileName = fileName;
 			FileData = fileData;
 		}
 		/// <summary>
@@ -86,18 +84,27 @@ public static class DataEndpointManagement
 		folder = folder.Trim(Path.DirectorySeparatorChar); // E.g. "/Test/" => "Test"
 		fileName = fileName.Trim(Path.DirectorySeparatorChar); // E.g. "config.json/" => "config.json
 
-		if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains)
-		       || string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
+		// Prevent potential directory traversal attacks
+		while (folder.StartsWith("../"))
 		{
-			throw new ArgumentException("Folder and file name must not be empty or invalid.");
+			folder = folder[3..]; // E.g. "../Test" => "Test"
 		}
-
+		while (fileName.StartsWith("../"))
+		{
+			fileName = fileName[3..]; // E.g. "../Test" => "Test"
+		}
 
 		if (folder.Contains(Path.DirectorySeparatorChar))
 		{
 			folder = folder[..folder.IndexOf(Path.DirectorySeparatorChar)]; // E.g. "Test/subFolder" => "Test".
-                                           // Bayt API does not support subfolders at this stage.
-                                           // Proper endpoints for this will be implemented later.
+			// Bayt API does not support subfolders at this stage.
+			// Proper endpoints for this will be implemented later.
+		}
+
+		if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains)
+		       || string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
+		{
+			throw new ArgumentException("Folder and file name must not be empty or invalid.");
 		}
 	}
 
@@ -108,6 +115,7 @@ public static class DataEndpointManagement
 	/// <param name="fileName">The file's name, extension included.</param>
 	/// <returns><see cref="DataFileMetadata"/> of the requested file.</returns>
 	/// <exception cref="FileNotFoundException">The specified file was not found under the folder provided.</exception>
+	/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
 	public static DataFileMetadata GetDataFile(string folder, string fileName)
 	{
 		SanitizeFileFolderNames(ref folder, ref fileName);
@@ -150,6 +158,7 @@ public static class DataEndpointManagement
 	/// <param name="folderName">Folder path relative to the <see cref="ClientDataFolder"/> root.</param>
 	/// <param name="fileName">Name of the file to delete.</param>
 	/// <exception cref="DirectoryNotFoundException">The parent folder doesn't exist.</exception>
+	/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
 	public static void DeleteDataFile(string folderName, string fileName)
 	{
 		SanitizeFileFolderNames(ref folderName, ref fileName);
@@ -168,6 +177,7 @@ public static class DataEndpointManagement
 	/// </summary>
 	/// <param name="folder">Folder to delete. Relative to the <see cref="ClientDataFolder"/> root.</param>
 	/// <exception cref="DirectoryNotFoundException">The specified directory was not found.</exception>
+	/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
 	public static void DeleteDataFolder(string folder)
 	{
 		var emptyString = "this is just to satisfy the method. It is not used.";

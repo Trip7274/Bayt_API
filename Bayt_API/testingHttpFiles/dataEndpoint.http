@@ -1,10 +1,10 @@
 ### Fetch data file
-GET {{Bayt_API_HostAddress}}/getData?folderName=Test&fileName=configs.json
+GET {{Bayt_API_HostAddress}}/getData?folderName=GoodTest&fileName=configs.json
 Accept: application/json
 
 
 ### Set data file and folder
-PUT {{Bayt_API_HostAddress}}/setData?folderName=Test/subfolder&fileName=configs.json
+PUT {{Bayt_API_HostAddress}}/setData?folderName=GoodTest/subfolder&fileName=configs.json
 Accept: application/json
 
 {
@@ -13,10 +13,36 @@ Accept: application/json
 }
 
 ### Delete data file
-DELETE {{Bayt_API_HostAddress}}/deleteData?folderName=Test/subfolder&fileName=configs.json
+DELETE {{Bayt_API_HostAddress}}/deleteData?folderName=GoodTest/subfolder&fileName=configs.json
 Accept: application/json
 
 
 ### Delete specific data folder recursively
-DELETE {{Bayt_API_HostAddress}}/deletefolder?folderName=Test
+DELETE {{Bayt_API_HostAddress}}/deletefolder?folderName=GoodTest
 Accept: application/json
+
+
+# --Directory traversal checks--
+### Make sure nothing outside the folder is readable
+# Folder-side
+GET {{Bayt_API_HostAddress}}/getData?folderName=../BadTest&fileName=check.json
+
+### Make sure nothing outside the folder is writable
+PUT {{Bayt_API_HostAddress}}/setData?folderName=../BadTest/subfolder&fileName=check.json
+
+{
+    "Version": 1,
+    "Working? Hopefully": false
+}
+
+### Make sure nothing outside the folder is readable
+# File-side
+GET {{Bayt_API_HostAddress}}/getData?folderName=BadTest&fileName=../check.json
+
+### Make sure nothing outside the folder is writable
+PUT {{Bayt_API_HostAddress}}/setData?folderName=BadTest/subfolder&fileName=../check.json
+
+{
+    "Version": 1,
+    "Working? Hopefully": false
+}

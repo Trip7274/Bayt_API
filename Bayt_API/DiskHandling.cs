@@ -193,7 +193,7 @@ public static partial class DiskHandling
 	{
 		static FullDisksData()
 		{
-			foreach (var mountPoint in ApiConfig.MainConfigs.ConfigProps.WatchedMounts)
+			foreach (var mountPoint in ApiConfig.ApiConfiguration.WatchedMounts)
 			{
 				DiskDataList.Add(new DiskData(mountPoint.Key, mountPoint.Value, ScriptSupports));
 			}
@@ -224,7 +224,7 @@ public static partial class DiskHandling
 		/// Returns whether the current data is too stale and should be updated.
 		/// </summary>
 		public static bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
+			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 		/// <summary>
 		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
 		/// </summary>

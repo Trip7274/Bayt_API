@@ -10,7 +10,7 @@ public static class DataEndpointManagement
 	/// <summary>
 	/// Relative path from the base executable to the client data folder
 	/// </summary>
-	private static string ClientDataFolder => ApiConfig.MainConfigs.ConfigProps.PathToDataFolder;
+	private static string ClientDataFolder => ApiConfig.ApiConfiguration.PathToDataFolder;
 
 	/// <summary>
 	/// Default content written to the "README.txt" file within the client data folder.

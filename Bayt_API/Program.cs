@@ -24,15 +24,15 @@ if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 if (Environment.GetEnvironmentVariable("BAYT_USE_SOCK") != "1")
 {
 	if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
-	Console.WriteLine($"[INFO] Adding URL 'unix://{ApiConfig.UnixSocketPath}' to listen list");
+	Console.WriteLine($"[INFO] Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list");
 	builder.WebHost.ConfigureKestrel(opts => opts.ListenUnixSocket(ApiConfig.UnixSocketPath));
 }
 
 Console.ForegroundColor = ConsoleColor.Gray;
 Console.WriteLine($"""
                    [INFO] Loaded configuration from: '{ApiConfig.ConfigFilePath}'
-                   [INFO] Loaded clientData folder: '{ApiConfig.MainConfigs.ConfigProps.PathToDataFolder}'
-                   [INFO] Loaded containers folder: '{ApiConfig.MainConfigs.ConfigProps.PathToComposeFolder}'
+                   [INFO] Loaded clientData folder: '{ApiConfig.ApiConfiguration.PathToDataFolder}'
+                   [INFO] Loaded containers folder: '{ApiConfig.ApiConfiguration.PathToComposeFolder}'
                    """);
 Console.ResetColor();
 
@@ -131,8 +131,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 						{
 							{ nameof(ApiConfig.Version), ApiConfig.Version },
 							{ nameof(ApiConfig.ApiVersion), ApiConfig.ApiVersion },
-							{ nameof(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate),
-								ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate },
+							{ nameof(ApiConfig.ApiConfiguration.SecondsToUpdate),
+								ApiConfig.ApiConfiguration.SecondsToUpdate },
 							{ nameof(Docker.IsDockerAvailable), Docker.IsDockerAvailable }
 						}
 					]);
@@ -194,7 +194,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context
 		return Results.BadRequest(e.Message);
 	}
 
-	ApiConfig.MainConfigs.EditConfig(newConfigs);
+	ApiConfig.ApiConfiguration.EditConfig(newConfigs);
 
 	return Results.NoContent();
 
@@ -205,14 +205,14 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
 {
-	return Results.Json(ApiConfig.MainConfigs.ConfigProps);
+	return Results.Json(ApiConfig.ApiConfiguration.ToDictionary());
 }).Produces(StatusCodes.Status200OK)
 	.WithName("GetActiveApiConfigs");
 
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 {
-	ApiConfig.MainConfigs.UpdateConfig();
+	ApiConfig.ApiConfiguration.LoadConfig();
 
 	return Results.NoContent();
 
@@ -225,7 +225,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 {
-	return Results.Json(ApiConfig.MainConfigs.ConfigProps.WatchedMounts);
+	return Results.Json(ApiConfig.ApiConfiguration.WatchedMounts);
 }).Produces(StatusCodes.Status200OK)
 	.WithName("GetMountsList");
 
@@ -252,7 +252,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context)
 		return Results.BadRequest("Mountpoints list must contain at least 1 valid element.");
 	}
 
-	ApiConfig.MainConfigs.AddMountpoint(mountPoints);
+	ApiConfig.ApiConfiguration.AddMountpoint(mountPoints);
 
 	return Results.NoContent();
 }).WithName("AddMounts").Produces(StatusCodes.Status204NoContent)
@@ -277,7 +277,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext con
 		return Results.BadRequest("List must contain more than 0 elements.");
 	}
 
-	ApiConfig.MainConfigs.RemoveMountpoint(mountPoints);
+	ApiConfig.ApiConfiguration.RemoveMountpoint(mountPoints);
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status400BadRequest)
@@ -316,7 +316,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", async (HttpContext conte
 		return Results.BadRequest("List evaluated down to 0 valid elements.");
 	}
 
-	ApiConfig.MainConfigs.AddWolClient(clients);
+	ApiConfig.ApiConfiguration.AddWolClient(clients);
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
@@ -339,7 +339,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext
 		return Results.BadRequest("IP address list must contain at least 1 element.");
 	}
 
-	ApiConfig.MainConfigs.RemoveWolClient(ipAddrs);
+	ApiConfig.ApiConfiguration.RemoveWolClient(ipAddrs);
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status400BadRequest)
@@ -348,19 +348,14 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/GetWolClients", () =>
 {
-	return Results.Json(ApiConfig.MainConfigs.ConfigProps.WolClients);
+	return Results.Json(ApiConfig.ApiConfiguration.WolClients);
 }).Produces(StatusCodes.Status200OK)
 	.WithName("GetWolClients");
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string ipAddress) =>
 {
-	if (ApiConfig.MainConfigs.ConfigProps.WolClientsClass is null)
-	{
-		ApiConfig.MainConfigs.UpdateConfig();
-	}
-
 	var clientToWake =
-		ApiConfig.MainConfigs.ConfigProps.WolClientsClass!.Find(client =>
+		ApiConfig.ApiConfiguration.WolClientsClass!.Find(client =>
 			client.IpAddress.ToString() == ipAddress);
 	if (clientToWake is null)
 	{

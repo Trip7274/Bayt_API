@@ -19,7 +19,14 @@ public static class ApiConfig
 	/// Represents the current Bayt instance's MAJOR version in semver.
 	/// </summary>
 	public const byte ApiVersion = 0;
+
+	/// <summary>
+	/// The base path for API endpoints, including the API version. Prefixed before all endpoints
+	/// </summary>
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
+	/// <summary>
+	/// Network port to expose the API on.
+	/// </summary>
 	public const ushort NetworkPort = 5899;
 
 	/// <summary>
@@ -53,7 +60,9 @@ public static class ApiConfig
 	/// Abs. path to the specific configuration loaded currently.
 	/// </summary>
 	public static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
-
+	/// <summary>
+	/// All the supported stats one can request from the <c>getStats</c> endpoint
+	/// </summary>
 	public static readonly string[] PossibleStats = ["Meta", "System", "CPU", "GPU", "Memory", "Mounts"];
 
 	// Config management
@@ -61,9 +70,9 @@ public static class ApiConfig
 	/// <summary>
 	/// A unified class to access and modify all the API's configuration properties.
 	/// </summary>
-	public sealed class ApiConfiguration
+	public static class ApiConfiguration
 	{
-		internal ApiConfiguration()
+		static ApiConfiguration()
 		{
 			if (!Directory.Exists(BaseConfigPath))
 			{
@@ -71,110 +80,128 @@ public static class ApiConfig
 				File.WriteAllText(Path.Combine(BaseConfigPath, "README"), "This folder is for the Bayt API project.\n" +
 				                                                          "More info: https://github.com/Trip7274/Bayt_API");
 			}
-
-			ConfigProps = GetConfig();
+			LoadConfig();
 		}
 
-
 		/// <summary>
-		/// Live Configuration object with all the appropriate properties.
-		/// Use its parent class's methods to alter and update it.
+		/// The major API version associated with the current config.
 		/// </summary>
-		public ConfigProperties ConfigProps { get; private set; }
-
-		/// <summary>
-		/// Class that contains and specifies all the configuration properties.
-		/// </summary>
-		/// <seealso cref="ApiConfiguration.UpdateConfig"/>
 		/// <remarks>
-		///	This could probably be refactored into normal properties for the ApiConfiguration class (its parent),
-		/// but that can be done later.
+		///	This is required in the saved config.
 		/// </remarks>
-		public sealed class ConfigProperties
-		{
-			/// <summary>
-			/// The major API version associated with the current config.
-			/// </summary>
-			/// <remarks>
-			///	This is required in the saved config.
-			/// </remarks>
-			public byte ConfigVersion { get; init; } = ApiVersion;
-
-			/// <summary>
-			/// The user-set name for this instance of Bayt.
-			/// </summary>
-			/// <remarks>
-			///	Defaults to "Bayt API Host"
-			/// </remarks>
-			public string BackendName { get; init; } = "Bayt API Host";
-
-			/// <summary>
-			/// Lifetime of the cache. Set to 0 to effectively disable it.
-			/// </summary>
-			/// <remarks>
-			///	Defaults to 5 seconds.
-			/// </remarks>
-			public ushort SecondsToUpdate { get; init; } = 5;
-			/// <summary>
-			///	Abs. path to the client data folder.
-			/// </summary>
-			/// <remarks>
-			///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/clientData</c>, or <c>BaytExecutablePath/clientData</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
-			/// </remarks>
-			public string PathToDataFolder { get; init; } = XdgDataHome is not null && XdgDataHome.Length != 0 ?
-				Path.Combine(XdgDataHome, "Bayt", "clientData") : Path.Combine(BaseExecutablePath, "clientData");
-			/// <summary>
-			/// Relative (to the Bayt binary) path to the folder containing all the docker compose folders.
-			/// </summary>
-			/// <remarks>
-			///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/containers</c>, or <c>BaytExecutablePath/containers</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
-			/// Each container will be inside a folder named with the slug of its name
-			/// </remarks>
-			public string PathToComposeFolder { get; init; } = XdgDataHome is not null && XdgDataHome.Length != 0 ?
-				Path.Combine(XdgDataHome, "Bayt", "containers") : Path.Combine(BaseExecutablePath, "containers");
-			/// <summary>
-			/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
-			/// </summary>
-			/// <remarks>
-			///	Defaults to { "/": "Root Partition" }. This is required in the saved config.
-			/// </remarks>
-			public Dictionary<string, string> WatchedMounts { get; init; } = new() { { "/", "Root Partition" } };
-
-			/// <summary>
-			/// JSON form of the <see cref="WolClientsClass"/> property. It's recommended to use that instead.
-			/// </summary>
-			/// <remarks>
-			///	This is required in the saved config.
-			/// </remarks>
-			public Dictionary<string, Dictionary<string, string?>> WolClients { get; init; } = [];
-			/// <summary>
-			/// List of <see cref="WolHandling.WolClient"/>s saved by the user.
-			/// </summary>
-			/// <remarks>
-			///	Defaults to empty. Generated from <see cref="WolClients"/> during startup.
-			/// </remarks>
-			[JsonIgnore]
-			public List<WolHandling.WolClient>? WolClientsClass { get; set; }
-		}
-		private static readonly List<string> RequiredProperties = ["ConfigVersion", "WatchedMounts", "WolClients"];
-
+		public static byte ConfigVersion { get; private set; } = ApiVersion;
+		/// <summary>
+		/// The user-set name for this instance of Bayt.
+		/// </summary>
+		/// <remarks>
+		///	Defaults to "Bayt API Host"
+		/// </remarks>
+		public static string BackendName { get; private set; } = "Bayt API Host";
 
 		/// <summary>
-		/// Checks the corresponding in-disk configuration file for corruption or incompleteness and returns the ConfigProperties of it.
+		/// Lifetime of the cache. Set to 0 to effectively disable it.
 		/// </summary>
-		/// <returns>
-		/// ConfigProperties of the in-disk configuration file
-		/// </returns>
-		private static ConfigProperties GetConfig()
+		/// <remarks>
+		///	Defaults to 5 seconds.
+		/// </remarks>
+		public static ushort SecondsToUpdate { get; private set; } = 5;
+
+		/// <summary>
+		///	Abs. path to the client data folder.
+		/// </summary>
+		/// <remarks>
+		///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/clientData</c>, or <c>BaytExecutablePath/clientData</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
+		/// </remarks>
+		public static string PathToDataFolder { get; private set; } = XdgDataHome is not null && XdgDataHome.Length != 0 ?
+			Path.Combine(XdgDataHome, "Bayt", "clientData") : Path.Combine(BaseExecutablePath, "clientData");
+
+		/// <summary>
+		/// Relative (to the Bayt binary) path to the folder containing all the docker compose folders.
+		/// </summary>
+		/// <remarks>
+		///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/containers</c>, or <c>BaytExecutablePath/containers</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
+		/// Each container will be inside a folder named with the slug of its name
+		/// </remarks>
+		public static string PathToComposeFolder { get; private set; } = XdgDataHome is not null && XdgDataHome.Length != 0 ?
+			Path.Combine(XdgDataHome, "Bayt", "containers") : Path.Combine(BaseExecutablePath, "containers");
+
+		/// <summary>
+		/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
+		/// </summary>
+		/// <remarks>
+		///	Defaults to { "/": "Root Partition" }. This is required in the saved config.
+		/// </remarks>
+		public static Dictionary<string, string> WatchedMounts { get; private set; } = new() { { "/", "Root Partition" } };
+
+		/// <summary>
+		/// JSON form of the <see cref="WolClientsClass"/> property. It's recommended to use that instead.
+		/// </summary>
+		/// <remarks>
+		///	This is required in the saved config.
+		/// </remarks>
+		public static Dictionary<string, Dictionary<string, string?>> WolClients { get; private set; } = [];
+		/// <summary>
+		/// List of <see cref="WolHandling.WolClient"/>s saved by the user.
+		/// </summary>
+		/// <remarks>
+		///	Defaults to empty. Generated from <see cref="WolClients"/> during startup.
+		/// </remarks>
+		[JsonIgnore]
+		public static List<WolHandling.WolClient>? WolClientsClass { get; private set; }
+
+		// Methods
+
+		/// <summary>
+		/// Gets the live configs as a Dictionary. Useful for JSON conversion.
+		/// </summary>
+		/// <returns></returns>
+		public static Dictionary<string, dynamic> ToDictionary()
+		{
+			return new()
+			{
+				{ nameof(ConfigVersion), ConfigVersion },
+				{ nameof(BackendName), BackendName },
+				{ nameof(SecondsToUpdate), SecondsToUpdate },
+				{ nameof(PathToDataFolder), PathToDataFolder },
+				{ nameof(PathToComposeFolder), PathToComposeFolder },
+				{ nameof(WatchedMounts), WatchedMounts },
+				{ nameof(WolClients), WolClients }
+			};
+		}
+		/// <summary>
+		/// Serialize and flush the live configs to disk.
+		/// </summary>
+		private static void SaveConfig()
+		{
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(ToDictionary()));
+		}
+
+		/// <summary>
+		/// Checks the corresponding in-disk configuration file for corruption or incompleteness and syncs the live configuration with it.
+		/// </summary>
+		public static void LoadConfig()
 		{
 			CheckConfig();
 
-			var configProperties = JsonSerializer.Deserialize<ConfigProperties>(File.ReadAllText(ConfigFilePath, Encoding.UTF8))
-			       ?? throw new Exception("Failed to deserialize config file");
+			var loadedDict = (JsonSerializer.Deserialize<JsonDocument>(File.ReadAllText(ConfigFilePath, Encoding.UTF8))
+			                 ?? throw new Exception("Failed to deserialize config file")).RootElement;
 
-			LoadWolClientsList(ref configProperties);
+			ConfigVersion = loadedDict.GetProperty(nameof(ConfigVersion)).GetByte();
+			BackendName = loadedDict.TryGetProperty(nameof(BackendName), out var backendName) ? backendName.GetString() ?? BackendName : BackendName;
+			SecondsToUpdate = loadedDict.TryGetProperty(nameof(SecondsToUpdate), out var secondsToUpdate) ? secondsToUpdate.GetUInt16() : SecondsToUpdate;
+			PathToDataFolder = loadedDict.TryGetProperty(nameof(PathToDataFolder), out var pathToDataFolder) ? pathToDataFolder.GetString() ?? PathToDataFolder : PathToDataFolder;
+			PathToComposeFolder = loadedDict.TryGetProperty(nameof(PathToComposeFolder), out var pathToComposeFolder) ? pathToComposeFolder.GetString() ?? PathToComposeFolder : PathToComposeFolder;
 
-			return configProperties;
+			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
+			{
+				WatchedMounts = JsonSerializer.Deserialize<Dictionary<string, string>>(watchedMounts.ToString()) ?? WatchedMounts;
+			}
+			if (loadedDict.TryGetProperty(nameof(WolClients), out var wolClients))
+			{
+				WolClients = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string?>>>(wolClients.ToString()) ?? WolClients;
+			}
+
+			LoadWolClientsList();
 		}
 
 		// Config file maintainence
@@ -202,42 +229,27 @@ public static class ApiConfig
 			}
 			Console.WriteLine("[INFO] Configuration file seems to be invalid or non-existent, regenerating...");
 
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(new ConfigProperties()), Encoding.UTF8);
+			SaveConfig();
 		}
 
 		/// <summary>
-		/// Ensures that the live and in-disk configurations are synced.
+		/// Check the config file for any corruption and the existence of the required minimum properties.
 		/// </summary>
-		public void UpdateConfig()
-		{
-			ConfigProps = GetConfig();
-		}
-
+		/// <returns>True if the file is valid. False otherwise.</returns>
 		private static bool ValidateConfigSyntax()
 		{
 			try
 			{
 				var jsonDocument = JsonDocument.Parse(File.ReadAllText(ConfigFilePath)).RootElement;
-				var requiredProperties = RequiredProperties.ToList();
 
-				foreach (var jsonProp in jsonDocument.EnumerateObject())
-				{
-					if (jsonProp.Value.ValueKind == JsonValueKind.Null)
-					{
-						continue;
-					}
-                    requiredProperties.Remove(jsonProp.Name);
-                }
-
-
-				if (jsonDocument.TryGetProperty("ConfigVersion", out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() > ApiVersion)
+				if (jsonDocument.TryGetProperty(nameof(ConfigVersion), out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() > ApiVersion)
 				{
 					Console.ForegroundColor = ConsoleColor.Yellow;
 					Console.WriteLine($"[WARNING] Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons.");
 					Console.ResetColor();
 				}
 
-				return requiredProperties.Count == 0;
+				return jsonDocument.TryGetProperty(nameof(ConfigVersion), out configVersion) && configVersion.ValueKind == JsonValueKind.Number;
 			}
 			catch (JsonException exception)
 			{
@@ -257,36 +269,61 @@ public static class ApiConfig
 		///	Changing <c>WatchedMounts</c> or the <c>ConfigVersion</c> properties are blocked from this method. Use the appropriate methods for that.
 		/// </remarks>
 		/// <param name="newProps">
-		///	Has to have more than one element to edit.
+		///	Configs to edit. In the format: <c>{ "ConfigVersion": 0 }</c>
 		/// </param>
-		/// <param name="addNew">
-		///	Whether to allow the addition of new properties.
-		/// </param>
+		/// <exception cref="ArgumentException">One of the requested parameters is blocked.</exception>
 		/// <seealso cref="AddMountpoint"/>
 		/// <seealso cref="RemoveMountpoint"/>
-		public void EditConfig(Dictionary<string, dynamic> newProps, bool addNew = false)
+		public static void EditConfig(Dictionary<string, dynamic> newProps)
 		{
-			if (newProps.Count == 0)
+			if (newProps.Count == 0) return;
+
+			foreach (var newPropKvp in newProps)
 			{
-				return;
-			}
-
-
-			var newConfig = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(File.ReadAllText(ConfigFilePath))
-			                ?? throw new Exception("Failed to deserialize config file");
-
-			foreach (var newPropsKvp in newProps)
-			{
-				if ((!addNew && !newConfig.ContainsKey(newPropsKvp.Key)) || newPropsKvp.Key == "Mountpoints" || newPropsKvp.Key == "ConfigVersion")
+				switch (newPropKvp.Key)
 				{
-					continue;
+					case nameof(ConfigVersion):
+					{
+						ConfigVersion = newPropKvp.Value;
+						break;
+					}
+					case nameof(BackendName):
+					{
+						BackendName = newPropKvp.Value;
+						break;
+					}
+					case nameof(SecondsToUpdate):
+					{
+						SecondsToUpdate = newPropKvp.Value;
+						break;
+					}
+					case nameof(PathToDataFolder):
+					{
+						PathToDataFolder = newPropKvp.Value;
+						break;
+					}
+					case nameof(PathToComposeFolder):
+					{
+						PathToComposeFolder = newPropKvp.Value;
+						break;
+					}
+					case nameof(WatchedMounts):
+					{
+						throw new ArgumentException("Cannot edit WatchedMounts directly. Use AddMountpoint and RemoveMountpoint instead.");
+					}
+					case nameof(WolClients):
+					case nameof(WolClientsClass):
+					{
+						throw new ArgumentException($"Cannot edit {newPropKvp.Key} directly. Use AddWolClient or RemoveWolClient instead.");
+					}
+					default:
+					{
+						throw new ArgumentException("Invalid property name");
+					}
 				}
-
-				newConfig[newPropsKvp.Key] = newPropsKvp.Value;
 			}
 
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
-			UpdateConfig();
+			SaveConfig();
 		}
 
 		// Mountpoint management
@@ -299,28 +336,20 @@ public static class ApiConfig
 		/// Keys being the mountpoint path, and values being the user's label for each.
 		/// The label (value) can be null, but it'll default to the name of "Mount".
 		/// </param>
-		public void AddMountpoint(Dictionary<string, string?> mountPoints)
+		public static void AddMountpoint(Dictionary<string, string?> mountPoints)
 		{
 			if (mountPoints.Count == 0) return;
 
-			var newConfig = GetConfig();
-
 			bool configChanged = false;
-			foreach (var mountPointToAdd in mountPoints)
+			foreach (var mountPointToAdd in mountPoints.Where(mountPointToAdd => !WatchedMounts.ContainsKey(mountPointToAdd.Key)))
 			{
-				if (newConfig.WatchedMounts.ContainsKey(mountPointToAdd.Key))
-				{
-					continue;
-				}
-
-				newConfig.WatchedMounts.Add(mountPointToAdd.Key, mountPointToAdd.Value ?? "Mount");
+				WatchedMounts.Add(mountPointToAdd.Key, mountPointToAdd.Value ?? "Mount");
 				DiskHandling.FullDisksData.AddMount(mountPointToAdd.Key, mountPointToAdd.Value ?? "Mount");
 				configChanged = true;
 			}
 
 			if (!configChanged) return;
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
-			UpdateConfig();
+			SaveConfig();
 		}
 
 
@@ -328,41 +357,29 @@ public static class ApiConfig
 		/// Remove a list of mountpoints from the configuration, both live and in-disk.
 		/// </summary>
 		/// <param name="mountPoints">The list of mountpoint's paths (Dict keys) to remove</param>
-		public void RemoveMountpoint(List<string> mountPoints)
+		public static void RemoveMountpoint(List<string> mountPoints)
 		{
-			if (mountPoints.Count == 0)
-			{
-				return;
-			}
-
-			var newConfig = GetConfig();
+			if (mountPoints.Count == 0) return;
 
 			foreach (var mountPoint in mountPoints)
 			{
-				newConfig.WatchedMounts.Remove(mountPoint);
+				WatchedMounts.Remove(mountPoint);
 				DiskHandling.FullDisksData.RemoveMount(mountPoint);
 			}
 
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
-			UpdateConfig();
+			SaveConfig();
 		}
 
 		// WOL management
 
 		/// <summary>
-		/// "Fills in" the appropriate <see cref="ConfigProperties.WolClientsClass"/> derived from the given parameter's <see cref="ConfigProperties.WolClients"/> property.
+		/// Generates and sets the appropriate <see cref="WolClientsClass"/> derived from the <see cref="WolClients"/> property.
 		/// </summary>
-		/// <param name="configProps">A reference to a <see cref="ConfigProperties"/> object to fill its <see cref="ConfigProperties.WolClientsClass"/> property.</param>
-		private static void LoadWolClientsList(ref ConfigProperties configProps)
+		private static void LoadWolClientsList()
 		{
-			if (configProps.WolClientsClass is not null)
-			{
-				return;
-			}
-
 			List<WolHandling.WolClient> wolClientsList = [];
 
-			foreach (var wolClientDict in configProps.WolClients)
+			foreach (var wolClientDict in WolClients)
 			{
 				try
 				{
@@ -390,16 +407,15 @@ public static class ApiConfig
 				}
 			}
 
-			configProps.WolClientsClass = wolClientsList;
+			WolClientsClass = wolClientsList;
 		}
 
 		/// <summary>
 		/// Append a WoL client to the configuration. Updates the live and in-disk configuration.
 		/// </summary>
 		/// <param name="clients">Dictionary with the format <c>{ "IPv4 Address": "Label" }</c></param>
-		public void AddWolClient(Dictionary<string, string> clients)
+		public static void AddWolClient(Dictionary<string, string> clients)
 		{
-			var newConfig = GetConfig();
 
 			foreach (var clientsToAdd in clients)
 			{
@@ -418,7 +434,7 @@ public static class ApiConfig
 					continue;
 				}
 
-				newConfig.WolClients.TryAdd(physicalAddress.ToString(), new()
+				WolClients.TryAdd(physicalAddress.ToString(), new()
 				{
 					{ "Name", clientsToAdd.Value },
 					{ "IpAddress", clientsToAdd.Key },
@@ -427,25 +443,21 @@ public static class ApiConfig
 				});
 			}
 
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
-			UpdateConfig();
+			SaveConfig();
 		}
 
 		/// <summary>
 		/// Remove a specific client or list of clients from the current configuration. Updates the live and in-disk configuration.
 		/// </summary>
 		/// <param name="clients">List of local IP Addresses to remove.</param>
-		public void RemoveWolClient(List<string> clients)
+		public static void RemoveWolClient(List<string> clients)
 		{
-			var newConfig = GetConfig();
-
-			foreach (var configKvp in from clientIpAddr in clients from configKvp in newConfig.WolClients where configKvp.Value["IpAddress"] == clientIpAddr select configKvp)
+			foreach (var configKvp in from clientIpAddr in clients from configKvp in WolClients where configKvp.Value["IpAddress"] == clientIpAddr select configKvp)
 			{
-				newConfig.WolClients.Remove(configKvp.Key);
+				WolClients.Remove(configKvp.Key);
 			}
 
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
-			UpdateConfig();
+			SaveConfig();
 		}
 
 		/// <summary>
@@ -453,16 +465,11 @@ public static class ApiConfig
 		/// </summary>
 		/// <param name="wolClient">WolClient objket</param>
 		/// <param name="newBroadcastAddress"></param>
-		internal void UpdateBroadcastAddress(WolHandling.WolClient wolClient, string newBroadcastAddress)
+		internal static void UpdateBroadcastAddress(WolHandling.WolClient wolClient, string newBroadcastAddress)
 		{
-			var newConfig = GetConfig();
+			WolClients[wolClient.PhysicalAddress.ToString()]["BroadcastAddress"] = newBroadcastAddress;
 
-			newConfig.WolClients[wolClient.PhysicalAddress.ToString()]["BroadcastAddress"] = newBroadcastAddress;
-
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(newConfig), Encoding.UTF8);
-			UpdateConfig();
+			SaveConfig();
 		}
 	}
-
-	public static ApiConfiguration MainConfigs { get; } = new();
 }

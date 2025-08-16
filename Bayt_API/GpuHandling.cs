@@ -227,7 +227,7 @@ public static class GpuHandling
 		/// Returns whether the current data is too stale and should be updated.
 		/// </summary>
 		public static bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
+			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 
 		/// <summary>
 		/// Force-updates each entry in the <see cref="GpuDataList"/> property with the respective GPU's latest metrics.

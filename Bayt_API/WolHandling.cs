@@ -53,7 +53,7 @@ public static class WolHandling
 		}
 		var broadcastAddress = new IPAddress(broadcastAddressBytes);
 
-		ApiConfig.MainConfigs.UpdateBroadcastAddress(wolClient, broadcastAddress.ToString());
+		ApiConfig.ApiConfiguration.UpdateBroadcastAddress(wolClient, broadcastAddress.ToString());
 
 		return broadcastAddress;
 	}

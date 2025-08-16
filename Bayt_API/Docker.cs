@@ -66,7 +66,7 @@ public static class Docker
 		/// Returns whether the current data is too stale and should be updated.
 		/// </summary>
 		public static bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.MainConfigs.ConfigProps.SecondsToUpdate) < DateTime.Now;
+			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 	}
 
 	public sealed class DockerContainer

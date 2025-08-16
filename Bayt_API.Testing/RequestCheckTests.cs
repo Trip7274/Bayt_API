@@ -88,6 +88,8 @@ public class RequestCheckTests
 	[Fact]
 	public async Task TestDockerRequestValidation()
 	{
+		if (!Docker.IsDockerAvailable) return; // It'd be annoying to *require* Docker just to pass tests.
+
 		await Assert.ThrowsAsync<ArgumentException>(() => RequestChecking.ValidateDockerRequest(null, false));
 		await Assert.ThrowsAsync<ArgumentException>(() => RequestChecking.ValidateDockerRequest("tooshort", false));
 		try

@@ -530,60 +530,48 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =
 	.WithName("DeleteClientDataFolder");
 
 
-// Power endpoint
-
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/powerOperation", async (HttpContext context) =>
+// Power endpoints
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", () =>
 {
-	string operation;
-	try
-	{
-		operation = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? new Dictionary<string, string> {{"Operation", ""}})["Operation"];
-	}
-	catch (BadHttpRequestException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
+	Console.WriteLine("[INFO] Recieved poweroff request, attempting to shut down...");
+	var operationShell = ShellMethods.RunShell("sudo", "-n /sbin/poweroff");
 
-	ShellResult? operationShell;
-	switch (operation)
+	if (operationShell.Success) return Results.NoContent();
+
+	Dictionary<string, string> errorMessage = new()
 	{
-		case "poweroff" or "shutdown": {
-			Console.WriteLine("[INFO] Recieved poweroff request, attempting to shut down...");
-			operationShell = ShellMethods.RunShell("sudo", "-n /sbin/poweroff");
-			break;
-		}
-		case "reboot" or "restart":
-		{
-			Console.WriteLine("[INFO] Recieved reboot request, attempting to reboot...");
-			operationShell = ShellMethods.RunShell("sudo", "-n /sbin/reboot");
-			break;
-		}
+		{ "Message", "Seems like the shutdown operation failed. Did you run SetupBayt.sh on this user?" },
+		{ "stdout", operationShell.StandardOutput },
+		{ "stderr", operationShell.StandardError }
+	};
+	return Results.InternalServerError(errorMessage);
 
-		default:
-		{
-			return Results.BadRequest("Operation must be either ('poweroff'|'shutdown') or ('reboot'|'restart').");
-		}
-	}
-
-	if (!operationShell.Success)
-	{
-		Dictionary<string, string> errorMessage = new()
-		{
-			{"Message", "Seems like the power operation failed. Did you run SetupBayt.sh on this user?"},
-			{"stdout", operationShell.StandardOutput},
-			{"stderr", operationShell.StandardError}
-		};
-		return Results.InternalServerError(errorMessage);
-	}
-
-	return Results.NoContent();
-}).Produces(StatusCodes.Status204NoContent)
-	.Produces(StatusCodes.Status400BadRequest)
-	.Produces(StatusCodes.Status500InternalServerError)
-	.WithSummary("Either shutdown or reboot the system.")
-	.WithDescription("Format: { 'Operation': 'poweroff', 'shutdown', 'reboot', or 'restart' }. Expected to be in the body of the request.")
+}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Shutdown the system.")
 	.WithTags("Power")
-	.WithName("PowerOperation");
+	.WithName("ShutdownServer");
+
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", () =>
+{
+	Console.WriteLine("[INFO] Recieved restart request, attempting to restart...");
+	var operationShell = ShellMethods.RunShell("sudo", "-n /sbin/reboot");
+
+	if (operationShell.Success) return Results.NoContent();
+
+	Dictionary<string, string> errorMessage = new()
+	{
+		{ "Message", "Seems like the restart operation failed. Did you run SetupBayt.sh on this user?" },
+		{ "stdout", operationShell.StandardOutput },
+		{ "stderr", operationShell.StandardError }
+	};
+	return Results.InternalServerError(errorMessage);
+
+}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Restart the system.")
+	.WithTags("Power")
+	.WithName("RestartServer");
 
 // Docker endpoints
 

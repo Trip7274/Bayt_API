@@ -171,10 +171,11 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 			}
 		}
 		return Results.Json(responseDictionary);
-	})
-	.Produces(StatusCodes.Status200OK)
+	}).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
-	.WithName("GetStats");
+	.WithSummary("Returns the stats/metrics of the server according to what was requested. Defaults to all in case none were specified.")
+	.WithTags("Stats")
+	.WithName("GetSystemMetrics");
 
 
 
@@ -200,13 +201,18 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context
 
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
+	.WithSummary("Change one or a few configs of the API. Follows the names and types of the ApiConfiguration.json file")
+	.WithDescription("The property cannot be 'WatchedMounts', nor 'WolClients'. Those two have their own endpoints. " +
+	                 "Format: { '${PropertyName}': '${PropertyValue}' }. Expected to be in the body of the request.")
+	.WithTags("Configuration")
 	.WithName("EditConfig");
 
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
-{
-	return Results.Json(ApiConfig.ApiConfiguration.ToDictionary());
-}).Produces(StatusCodes.Status200OK)
+		Results.Json(ApiConfig.ApiConfiguration.ToDictionary()))
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Fetch the API's live configs in the form of JSON.")
+	.WithTags("Configuration")
 	.WithName("GetActiveApiConfigs");
 
 
@@ -215,8 +221,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 	ApiConfig.ApiConfiguration.LoadConfig();
 
 	return Results.NoContent();
-
 }).Produces(StatusCodes.Status200OK)
+	.WithSummary("Refresh and sync the API's live configs with the file on-disk.")
+	.WithTags("Configuration")
 	.WithName("UpdateLiveConfigs");
 
 
@@ -224,9 +231,10 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 // Mount management endpoints
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
-{
-	return Results.Json(ApiConfig.ApiConfiguration.WatchedMounts);
-}).Produces(StatusCodes.Status200OK)
+		Results.Json(ApiConfig.ApiConfiguration.WatchedMounts))
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Fetch the list of the currently watched mounts.")
+	.WithTags("Mounts")
 	.WithName("GetMountsList");
 
 
@@ -252,11 +260,15 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context)
 		return Results.BadRequest("Mountpoints list must contain at least 1 valid element.");
 	}
 
-	ApiConfig.ApiConfiguration.AddMountpoint(mountPoints);
+	bool wereChangesMade = ApiConfig.ApiConfiguration.AddMountpoint(mountPoints);
 
-	return Results.NoContent();
-}).WithName("AddMounts").Produces(StatusCodes.Status204NoContent)
+	return !wereChangesMade ? Results.StatusCode(StatusCodes.Status304NotModified) : Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status304NotModified)
+	.WithSummary("Add one or more mounts to the list of watched mounts.")
+	.WithDescription("Format: { '${MountPoint}': '${MountLabel}' }. Expected to be in the body of the request.")
+	.WithTags("Mounts")
 	.WithName("AddMounts");
 
 
@@ -282,6 +294,9 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext con
 	return Results.NoContent();
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Remove one or more mounts from the list of watched mounts.")
+	.WithDescription("Format: { 'Mounts': ['${Mountpoint1}', '${Mountpoint2}', '...'] }. Expected to be in the body of the request.")
+	.WithTags("Mounts")
 	.WithName("RemoveMounts");
 
 
@@ -321,6 +336,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", async (HttpContext conte
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
+	.WithSummary("Save one or more WoL clients to this Bayt instance. Both fields are required, and cannot be empty.")
+	.WithDescription("Format: { '${IPv4Address}': '${Label}' }. Expected to be in the body of the request.")
+	.WithTags("Wake-on-LAN")
 	.WithName("AddWolClients");
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext context) =>
@@ -344,16 +362,24 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext
 	return Results.NoContent();
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Remove one or more saved WoL clients from this Bayt instance.")
+	.WithDescription("Format: { 'IPs': ['${IPv4Address1}', '${IPv4Address2}', '...'] }. Expected to be in the body of the request.")
+	.WithTags("Wake-on-LAN")
 	.WithName("RemoveWolClients");
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/GetWolClients", () =>
-{
-	return Results.Json(ApiConfig.ApiConfiguration.WolClients);
-}).Produces(StatusCodes.Status200OK)
+		Results.Json(ApiConfig.ApiConfiguration.WolClients))
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Fetch the list of the currently saved WoL clients.")
+	.WithTags("Wake-on-LAN")
 	.WithName("GetWolClients");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string ipAddress) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string? ipAddress) =>
 {
+	if (ipAddress is null || !IPAddress.TryParse(ipAddress, out _))
+	{
+		return Results.BadRequest("ipAddress must be a valid IPv4 address.");
+	}
 	var clientToWake =
 		ApiConfig.ApiConfiguration.WolClientsClass!.Find(client =>
 			client.IpAddress.ToString() == ipAddress);
@@ -367,6 +393,9 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string ipAddress) =>
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
+	.WithSummary("Send a wake signal to a specific WoL client.")
+	.WithDescription("ipAddress is required. It must be a valid, saved, IPv4 address of the target client.")
+	.WithTags("Wake-on-LAN")
 	.WithName("WakeWolClient");
 
 // Client Data endpoints
@@ -405,6 +434,9 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (string? folderName, str
 }).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
+	.WithSummary("Fetch a specific file from a specific folder in the base clientData folder.")
+	.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. If the file ends with .json, it will be returned as a JSON object. Otherwise, it will be returned as a binary file.")
+	.WithTags("clientData")
 	.WithName("GetClientData");
 
 app.MapPut($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context, string? folderName, string? fileName) =>
@@ -431,6 +463,9 @@ app.MapPut($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context, st
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
+	.WithSummary("Replace/Set a specific file under a specific folder in the base clientData folder. Will create the folder if it doesn't exist.")
+	.WithDescription("Both parameters are required and must be valid, non-empty file/folder names.")
+	.WithTags("clientData")
 	.WithName("SetClientData");
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", (string? folderName, string? fileName) =>
@@ -450,13 +485,21 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", (string? folderName, str
 	}
 	catch (FileNotFoundException)
 	{
-		return Results.NotFound($"File '{fileName}' was not found.");
+		return Results.StatusCode(StatusCodes.Status304NotModified);
+	}
+	catch (DirectoryNotFoundException)
+	{
+		return Results.NotFound($"Folder '{folderName}' was not found.");
 	}
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status304NotModified)
+	.WithSummary("Delete the specified file under the clientData folder.")
+	.WithDescription("Both parameters are required and must be valid, non-empty file/folder names.")
+	.WithTags("clientData")
 	.WithName("DeleteClientData");
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =>
@@ -473,13 +516,17 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =
 	}
 	catch (DirectoryNotFoundException)
 	{
-		return Results.NotFound($"Folder '{folderName}' was not found.");
+		return Results.StatusCode(StatusCodes.Status304NotModified);
 	}
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status304NotModified)
+	.WithSummary("Delete a specific data folder. Will recursively delete everything inside it.")
+	.WithDescription("folderName must be a valid, non-empty folder name.")
+	.WithTags("clientData")
 	.WithName("DeleteClientDataFolder");
 
 
@@ -532,6 +579,10 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/powerOperation", async (HttpContext con
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.WithSummary("Either shutdown or reboot the system.")
+	.WithDescription("Format: { 'Operation': 'poweroff', 'shutdown', 'reboot', or 'restart' }. Expected to be in the body of the request.")
+	.WithTags("Power")
 	.WithName("PowerOperation");
 
 // Docker endpoints
@@ -551,7 +602,11 @@ app.MapGet($"{baseDockerUrl}/getActiveContainers", async () =>
 
 	return Results.Json(containerDict);
 
-}).WithName("GetDockerContainers");
+}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Fetch the currently active containers in the system.")
+	.WithTags("Docker")
+	.WithName("GetDockerContainers");
 
 app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 {
@@ -580,7 +635,15 @@ app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while starting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
 	};
-}).WithName("StartDockerContainer");
+}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status304NotModified)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Issues a command to start a specific Docker container.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
+	.WithName("StartDockerContainer");
 
 app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 {
@@ -609,7 +672,15 @@ app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while stopping container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
 	};
-}).WithName("StopDockerContainer");
+}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status304NotModified)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Issues a command to stop a specific Docker container.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
+	.WithName("StopDockerContainer");
 
 app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
 {
@@ -637,7 +708,14 @@ app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
 	};
-}).WithName("RestartDockerContainer");
+}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Issues a command to restart a specific Docker container.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
+	.WithName("RestartDockerContainer");
 
 app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
 {
@@ -666,7 +744,15 @@ app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
 	};
-}).WithName("KillDockerContainer");
+}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status409Conflict)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Issues a command to kill a specific Docker container.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
+	.WithName("KillDockerContainer");
 
 app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string? containerId) =>
 {
@@ -696,9 +782,24 @@ app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string? containerId) =>
 		_ => Results.InternalServerError(
 			$"Docker returned an unknown error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
 	};
-}).WithName("DeleteDockerContainer");
+}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status409Conflict)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Issues a command to delete a specific Docker container. Does not include the compose file, if applicable.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
+	.WithName("DeleteDockerContainer");
 
-app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs).WithName("GetDockerContainerLogs");
+app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status404NotFound)
+	.WithSummary("Stream the Docker container's live logs.")
+	.WithDescription("containerId is required. stdout, stderr, and timestamps are optional to specify which streams to follow, and whether to prefix each line with a timestamp. Will default to stdout=true, stderr=true, and timestamps=false if not specified.")
+	.WithTags("Docker")
+	.WithName("GetDockerContainerLogs");
 
 // Docker Compose endpoints
 
@@ -734,9 +835,16 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 	return Results.File(stream, "application/ocetet-stream", Path.GetFileName(targetContainer.ComposePath),
 		File.GetLastWriteTime(targetContainer.ComposePath));
 
-}).WithName("GetDockerContainerCompose");
+}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Fetch the compose file of a specific Docker container. Will return the exact contents in an 'application/ocetet-stream' response.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
+	.WithName("GetDockerContainerCompose");
 
-app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId, bool? restartContainer) =>
+app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
 {
 	// Request validation
 	try
@@ -751,7 +859,11 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 	{
 		return Results.InternalServerError(e.Message);
 	}
-	if (context.Request.ContentLength is null or 0) return Results.BadRequest("The request body must be specified and not empty.");
+
+	if (!context.Request.Headers.ContentEncoding.Contains("chunked") && context.Request.ContentLength is null or 0)
+	{
+		return Results.StatusCode(StatusCodes.Status411LengthRequired);
+	}
 
 	// Container validation
 	Docker.DockerContainer targetContainer;
@@ -774,23 +886,27 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 		await context.Request.Body.CopyToAsync(fileStream);
 	}
 
-	if (!(restartContainer ?? false)) return Results.NoContent();
+	if (!restartContainer) return Results.NoContent();
 
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
 	return dockerRequest.Status switch
 	{
 		HttpStatusCode.NoContent => Results.NoContent(),
-		HttpStatusCode.NotFound => Results.NotFound($"[Reboot] Container with ID '{containerId}' was not found."),
+		HttpStatusCode.NotFound => Results.NotFound($"[Reboot step] Container with ID '{containerId}' was not found."),
 		HttpStatusCode.InternalServerError => Results.InternalServerError(
-			$"[Reboot] Docker returned an error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
+			$"[Reboot step] Docker returned an error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
 		_ => Results.InternalServerError(
-			$"[Reboot] Docker returned an unknown error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
+			$"[Reboot step] Docker returned an unknown error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
 	};
 	}).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
 	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status411LengthRequired)
+	.WithSummary("Replace a Docker container's compose file if it's managed by Bayt.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID. Will default to not restarting the container after replacing its compose. The new compose's contents are expected to be in the body of the request.")
+	.WithTags("Docker")
 	.WithName("SetDockerContainerCompose");
 
 app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
@@ -833,6 +949,9 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
 	.Produces(StatusCodes.Status500InternalServerError)
+	.WithSummary("Mark a Docker container as managed by Bayt.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
 	.WithName("OwnDockerContainer");
 
 app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
@@ -872,6 +991,9 @@ app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
 	.Produces(StatusCodes.Status500InternalServerError)
+	.WithSummary("Mark a Docker container as unmanaged by Bayt.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
 	.WithName("DisownDockerContainer");
 
 app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
@@ -892,6 +1014,9 @@ app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
 	};
 }).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status500InternalServerError)
+	.WithSummary("Prune all stopped Docker containers.")
+	.WithDescription("This will delete all stopped Docker containers.")
+	.WithTags("Docker")
 	.WithName("PruneDockerContainers");
 
 app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
@@ -926,6 +1051,9 @@ app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 	.Produces(StatusCodes.Status404NotFound)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Fetch the usage stats of a specific Docker container.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
 	.WithName("GetDockerContainerStats");
 
 

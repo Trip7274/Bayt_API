@@ -336,9 +336,10 @@ public static class ApiConfig
 		/// Keys being the mountpoint path, and values being the user's label for each.
 		/// The label (value) can be null, but it'll default to the name of "Mount".
 		/// </param>
-		public static void AddMountpoint(Dictionary<string, string?> mountPoints)
+		/// <returns>True if the config was changed. False otherwise.</returns>
+		public static bool AddMountpoint(Dictionary<string, string?> mountPoints)
 		{
-			if (mountPoints.Count == 0) return;
+			if (mountPoints.Count == 0) return false;
 
 			bool configChanged = false;
 			foreach (var mountPointToAdd in mountPoints.Where(mountPointToAdd => !WatchedMounts.ContainsKey(mountPointToAdd.Key)))
@@ -348,8 +349,9 @@ public static class ApiConfig
 				configChanged = true;
 			}
 
-			if (!configChanged) return;
+			if (!configChanged) return false;
 			SaveConfig();
+			return true;
 		}
 
 

@@ -116,7 +116,7 @@ public static class ApiConfig
 			Path.Combine(XdgDataHome, "Bayt", "clientData") : Path.Combine(BaseExecutablePath, "clientData");
 
 		/// <summary>
-		/// Relative (to the Bayt binary) path to the folder containing all the docker compose folders.
+		/// Abs. path to the folder containing all the docker compose folders.
 		/// </summary>
 		/// <remarks>
 		///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/containers</c>, or <c>BaytExecutablePath/containers</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.

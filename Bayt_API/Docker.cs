@@ -117,7 +117,7 @@ public static class Docker
 				IsManaged = composeDirectory is not null && File.Exists(Path.Combine(composeDirectory, ".BaytManaged"));
 			}
 
-			IconUrl = GetIconUrl(labelsElement);
+			IconUrls = GetIconUrls(labelsElement);
 
 			NetworkMode = dockerOutput.GetProperty("HostConfig").GetProperty(nameof(NetworkMode)).GetString() ?? throw new ArgumentException("Docker container network mode is null.");
 			IpAddress = GetIp(dockerOutput.GetProperty("NetworkSettings"), NetworkMode);
@@ -169,7 +169,7 @@ public static class Docker
 				{ nameof(IsCompose), IsCompose },
 				{ nameof(IsManaged), IsManaged },
 
-				{ nameof(IconUrl), IconUrl },
+				{ nameof(IconUrls), IconUrls },
 
 				{ nameof(IpAddress), IpAddress.ToString() },
 				{ nameof(NetworkMode), NetworkMode },
@@ -180,34 +180,50 @@ public static class Docker
 			};
 		}
 
-		private static string? GetIconUrl(JsonElement labelsElement)
+		private static List<string> GetIconUrls(JsonElement labelsElement)
 		{
-			string? iconUrl = null;
+			List<string> iconUrls = [];
 
-			if (labelsElement.TryGetProperty("com.docker.desktop.extension.icon", out var iconElement)
-			    || labelsElement.TryGetProperty("glance.icon", out iconElement))
+			if (labelsElement.TryGetProperty("bayt.icon", out var iconElement))
 			{
-				iconUrl = iconElement.GetString();
+				var baytIconUrl = iconElement.GetString();
+				if (baytIconUrl is not null) iconUrls.Add(GetUrlFromRepos(baytIconUrl));
+			}
+			if (labelsElement.TryGetProperty("com.docker.desktop.extension.icon", out iconElement))
+			{
+				var desktopIconUrl = iconElement.GetString();
+				if (desktopIconUrl is not null) iconUrls.Add(GetUrlFromRepos(desktopIconUrl));
+			}
+			if (labelsElement.TryGetProperty("glance.icon", out iconElement))
+			{
+				var glanceIconUrl = iconElement.GetString();
+				if (glanceIconUrl is not null) iconUrls.Add(GetUrlFromRepos(glanceIconUrl));
 			}
 
-			if (iconUrl is null || iconUrl.StartsWith("http")) return iconUrl;
 
-			if (iconUrl.StartsWith("di:"))
+			return iconUrls;
+
+			string GetUrlFromRepos(string repoName)
 			{
-				iconUrl = iconUrl[3..];
-				return $"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/{iconUrl}.svg";
+				if (repoName.StartsWith("http")) return repoName;
+				if (repoName.StartsWith("di:"))
+				{
+					repoName = repoName[3..];
+					return $"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/{repoName}.svg";
+				}
+				if (repoName.StartsWith("sh:"))
+				{
+					repoName = repoName[3..];
+					return $"https://cdn.jsdelivr.net/gh/selfhst/icons/svg/{repoName}.svg";
+				}
+				if (repoName.StartsWith("si:"))
+				{
+					repoName = repoName[3..];
+					return $"https://cdn.jsdelivr.net/npm/simple-icons@v15/icons/{repoName}.svg";
+				}
+
+				return repoName;
 			}
-			if (iconUrl.StartsWith("sh:"))
-			{
-				iconUrl = iconUrl[3..];
-				return $"https://cdn.jsdelivr.net/gh/selfhst/icons/svg/{iconUrl}.svg";
-			}
-			if (iconUrl.StartsWith("si:"))
-			{
-				iconUrl = iconUrl[3..];
-				return $"https://cdn.jsdelivr.net/npm/simple-icons@v15/icons/{iconUrl}.svg";
-			}
-			return null;
 		}
 		private static string? GetImageUrl(JsonElement labelsElement)
 		{
@@ -259,7 +275,7 @@ public static class Docker
 		public bool IsCompose { get; }
 		public bool IsManaged { get; }
 
-		public string? IconUrl { get; }
+		public List<string> IconUrls { get; }
 
 		public IPAddress IpAddress { get; }
 
@@ -328,31 +344,8 @@ public static class Docker
 		public ulong SentNetworkBytes { get; }
 	}
 
-	public sealed class PortBinding
+	public sealed class PortBinding(JsonElement portEntry)
 	{
-		public PortBinding(JsonElement portEntry)
-		{
-			if (portEntry.TryGetProperty("IP", out var ipAddr) && IPAddress.TryParse(ipAddr.GetString(), out var ip))
-			{
-				IpAddress = ip.ToString();
-			}
-
-			if (portEntry.TryGetProperty(nameof(PrivatePort), out var privatePort))
-			{
-				PrivatePort = privatePort.GetUInt16();
-			}
-			if (portEntry.TryGetProperty(nameof(PrivatePort), out var publicPort))
-			{
-				PublicPort = publicPort.GetUInt16();
-			}
-			if (portEntry.TryGetProperty(nameof(Type), out var bindingType))
-			{
-				Type = bindingType.GetString() ?? throw new ArgumentException("Docker container IP address is null.");
-			}
-
-
-		}
-
 		public Dictionary<string, dynamic?> ToDictionary()
 		{
 			return new()
@@ -364,10 +357,10 @@ public static class Docker
 			};
 		}
 
-		public string? IpAddress { get; }
-		public ushort? PrivatePort { get; }
-		public ushort? PublicPort { get; }
-		public string? Type { get; }
+		public string? IpAddress { get; } = portEntry.TryGetProperty("IP", out var ipAddr) ? ipAddr.GetString() : null;
+		public ushort? PrivatePort { get; } = portEntry.TryGetProperty(nameof(PrivatePort), out var privatePort) ? privatePort.GetUInt16() : null;
+		public ushort? PublicPort { get; } = portEntry.TryGetProperty(nameof(PublicPort), out var publicPort) ? publicPort.GetUInt16() : null;
+		public string? Type { get; } = portEntry.TryGetProperty(nameof(Type), out var bindingType) ? bindingType.GetString() : null;
 	}
 
 	public sealed class MountBinding(JsonElement mountEntry)

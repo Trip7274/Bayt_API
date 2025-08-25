@@ -197,6 +197,7 @@ public static partial class DiskHandling
 			{
 				DiskDataList.Add(new DiskData(mountPoint.Key, mountPoint.Value, ScriptSupports));
 			}
+			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
 		public static void AddMount(string mountPoint, string mountName)

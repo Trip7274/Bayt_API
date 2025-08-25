@@ -49,12 +49,12 @@ public static class ApiConfig
 	/// <summary>
 	/// Abs. path to the Bayt SOCK interface. Will be non-existent if the interface is inactive.
 	/// </summary>
-	public static readonly string UnixSocketPath = XdgStateHome is not null && XdgStateHome.Length != 0 ?
+	public static readonly string UnixSocketPath = XdgStateHome is not null && XdgStateHome.Trim().Length != 0 ?
 		Path.Combine(XdgStateHome, "BaytApi.sock") : Path.Combine(BaseExecutablePath, "BaytApi.sock");
 	/// <summary>
 	/// Abs. path to the configuration directory
 	/// </summary>
-	private static readonly string BaseConfigPath = XdgConfigHome is not null && XdgConfigHome.Length != 0 ?
+	private static readonly string BaseConfigPath = XdgConfigHome is not null && XdgConfigHome.Trim().Length != 0 ?
 		Path.Combine(XdgConfigHome, "Bayt") : Path.Combine(BaseExecutablePath, "config");
 	/// <summary>
 	/// Abs. path to the specific configuration loaded currently.
@@ -105,6 +105,7 @@ public static class ApiConfig
 		///	Defaults to 5 seconds.
 		/// </remarks>
 		public static ushort SecondsToUpdate { get; private set; } = 5;
+		public static ushort ClampedSecondsToUpdate => ushort.Clamp(SecondsToUpdate, 3, ushort.MaxValue);
 
 		/// <summary>
 		///	Abs. path to the client data folder.
@@ -112,7 +113,7 @@ public static class ApiConfig
 		/// <remarks>
 		///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/clientData</c>, or <c>BaytExecutablePath/clientData</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
 		/// </remarks>
-		public static string PathToDataFolder { get; private set; } = XdgDataHome is not null && XdgDataHome.Length != 0 ?
+		public static string PathToDataFolder { get; private set; } = XdgDataHome is not null && XdgDataHome.Trim().Length != 0 ?
 			Path.Combine(XdgDataHome, "Bayt", "clientData") : Path.Combine(BaseExecutablePath, "clientData");
 
 		/// <summary>
@@ -216,6 +217,31 @@ public static class ApiConfig
 		{
 			if (File.Exists(ConfigFilePath))
 			{
+				if (!Directory.Exists(PathToDataFolder))
+				{
+					const string defaultReadmeContent = """
+					                                    This folder contains all server-wide data for each client, separated by client.
+
+					                                    Please refer to the specific client's documentation for info on the file types, along with usage details.
+					                                    Make sure the server is shut down before modifying these files.
+					                                    This folder was made by Bayt API. More info: https://github.com/Trip7274/Bayt_API
+					                                    """;
+
+					Directory.CreateDirectory(PathToDataFolder);
+					File.WriteAllText(Path.Combine(PathToDataFolder, "README"), defaultReadmeContent);
+				}
+				if (!Directory.Exists(PathToComposeFolder))
+				{
+					const string defaultReadmeContent = """
+					                                    This folder contains all the Docker compose files made by Bayt API.
+
+					                                    You should be safe manually deleting these files, provided the container is not running.
+					                                    This folder was made by Bayt API. More info: https://github.com/Trip7274/Bayt_API
+					                                    """;
+
+					Directory.CreateDirectory(PathToComposeFolder);
+					File.WriteAllText(Path.Combine(PathToComposeFolder, "README"), defaultReadmeContent);
+				}
 				if (ValidateConfigSyntax())
 				{
 					return;

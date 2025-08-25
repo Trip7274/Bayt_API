@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 
 namespace Bayt_API;
 
@@ -14,9 +15,45 @@ internal static class ParsingMethods
 		if (result is float f)
 		{
 			// This is a bit of a mess
-			result = (T) (object) (float) Math.Round((decimal)f, 2);
+			result = (T) (object) MathF.Round(f, 2);
 		}
 
 		return result;
+	}
+	/// <summary>
+	/// Creates a "slug" from text that can be used as part of a valid URL.
+	///
+	/// Invalid characters are converted to hyphens. Punctuation that is
+	/// perfect valid in a URL is also converted to hyphens to keep the
+	/// result mostly text. Steps are taken to prevent leading, trailing,
+	/// and consecutive hyphens.
+	/// </summary>
+	/// <param name="input">String to convert to a slug</param>
+	/// <returns>The slug-ified string</returns>
+	/// <remarks>This method was originally taken from https://www.codeproject.com/Articles/80882/Converting-Text-to-a-URL-Slug</remarks>
+	public static string ConvertTextToSlug(string? input)
+	{
+		if (string.IsNullOrWhiteSpace(input)) return "";
+		if (input.Length > 32) input = input[..32];
+
+		var outpuStringBuilder = new StringBuilder();
+		bool wasHyphen = true;
+		foreach (var character in input)
+		{
+			if (char.IsLetterOrDigit(character))
+			{
+				outpuStringBuilder.Append(char.ToLower(character));
+				wasHyphen = false;
+			}
+			else if (char.IsWhiteSpace(character) && !wasHyphen)
+			{
+				outpuStringBuilder.Append('-');
+				wasHyphen = true;
+			}
+		}
+		// Avoid trailing hyphens
+		if (wasHyphen && outpuStringBuilder.Length > 0)
+			outpuStringBuilder.Length--;
+		return outpuStringBuilder.ToString();
 	}
 }

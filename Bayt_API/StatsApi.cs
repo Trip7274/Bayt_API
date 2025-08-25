@@ -74,6 +74,7 @@ public static class StatsApi
 			Name = rawOutput.StandardOutput;
 
 			UpdateData();
+			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
 		/// <summary>
@@ -152,10 +153,10 @@ public static class StatsApi
 			}
 			if (outputArray[3] != "null")
 			{
-				temp = (float) Math.Round((decimal) (temp ?? 0), 2);
+				temp = MathF.Round(temp ?? 0, 2);
 			}
 
-			UtilizationPerc = (float) Math.Round(float.Parse(outputArray[0]), 2);
+			UtilizationPerc = MathF.Round(float.Parse(outputArray[0]), 2);
 			PhysicalCoreCount = ushort.Parse(outputArray[1]);
 			ThreadCount = ushort.Parse(outputArray[2]);
 			TemperatureType = outputArray[3] == "null" ? null : outputArray[3];
@@ -189,6 +190,7 @@ public static class StatsApi
 		static MemoryData()
 		{
 			UpdateData();
+			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
 		/// <summary>
@@ -207,7 +209,7 @@ public static class StatsApi
 		/// <summary>
 		/// Gets the percentage of used system memory (RAM).
 		/// </summary>
-		public static float UsedMemoryPercent => TotalMemory == 0 ? 0 : (float) Math.Round((float) UsedMemory / TotalMemory * 100, 2);
+		public static float UsedMemoryPercent => TotalMemory == 0 ? 0 : MathF.Round((float) UsedMemory / TotalMemory * 100, 2);
 
 		/// <summary>
 		/// The last time this object was updated.

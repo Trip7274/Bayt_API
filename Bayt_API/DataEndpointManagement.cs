@@ -13,18 +13,6 @@ public static class DataEndpointManagement
 	private static string ClientDataFolder => ApiConfig.ApiConfiguration.PathToDataFolder;
 
 	/// <summary>
-	/// Default content written to the "README.txt" file within the client data folder.
-	/// Provides an overview of the folder's purpose and guidelines for modification.
-	/// </summary>
-	private const string DefaultReadmeContent = """
-	                                     This folder contains all server-wide data for each client, separated by client.
-
-	                                     Please refer to the specific client's documentation for info on the file types, along with usage details.
-	                                     Make sure the server is shut down before modifying these files.
-	                                     This folder was made by Bayt API. More info: https://github.com/Trip7274/Bayt_API
-	                                     """;
-
-	/// <summary>
 	/// Represents metadata for a data file, including its folder location, file name, and file data.
 	/// Provides utilities for accessing the file's absolute path, last modification time, and file stream.
 	/// </summary>
@@ -196,13 +184,6 @@ public static class DataEndpointManagement
 	/// <exception cref="DirectoryNotFoundException">Only thrown if <see cref="throwIfSpecificFolderDoesNotExist"/> was set to true. Prevents the creation of the folder.</exception>
 	private static void SetupDataFolder(string? dataFolderName = null, bool throwIfSpecificFolderDoesNotExist = false)
 	{
-		if (!Directory.Exists(ClientDataFolder))
-		{
-			Directory.CreateDirectory(ClientDataFolder);
-
-			File.WriteAllText(Path.Combine(ClientDataFolder, "README.txt"), DefaultReadmeContent, Encoding.UTF8);
-		}
-
 		if (dataFolderName == null) return;
 
 		string folderPath = Path.Combine(ClientDataFolder, dataFolderName);
@@ -211,6 +192,9 @@ public static class DataEndpointManagement
 			throw new DirectoryNotFoundException($"The folder '{dataFolderName}' does not exist.");
 		}
 
-		Directory.CreateDirectory(folderPath);
+		if (!Directory.Exists(folderPath))
+		{
+			Directory.CreateDirectory(folderPath);
+		}
 	}
 }

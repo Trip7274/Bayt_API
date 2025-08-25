@@ -158,7 +158,7 @@ public static class GpuHandling
 			{
 				// Workaround for the AMD GPU interface not providing a VRAM usage percentage
 				arrayOutput[5] =
-					$"{Math.Round(float.Parse(arrayOutput[7]) / float.Parse(arrayOutput[6]) * 100, 2)}";
+					$"{MathF.Round(float.Parse(arrayOutput[7]) / float.Parse(arrayOutput[6]) * 100, 2)}";
 			}
 
 			try
@@ -215,6 +215,7 @@ public static class GpuHandling
 			{
 				GpuDataList.Add(new GpuData(gpuId));
 			}
+			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
 		public static List<GpuData> GpuDataList { get; } = [];

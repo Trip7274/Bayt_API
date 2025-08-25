@@ -22,12 +22,12 @@ public static class Docker
 			{
 				Containers.Add(new DockerContainer(containerEntries));
 			}
-			LastUpdate = DateTime.Now;
+			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
-		public static async Task UpdateData()
+		public static async Task UpdateData(bool getAllContainers = true)
 		{
-			var dockerRequest = await SendRequest("containers/json");
+			var dockerRequest = await SendRequest($"containers/json?all={getAllContainers}");
 			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
 
 			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);
@@ -37,14 +37,14 @@ public static class Docker
 			{
 				Containers.Add(new DockerContainer(containerEntries));
 			}
-			LastUpdate = DateTime.Now;
+			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ushort.Clamp(ApiConfig.ApiConfiguration.SecondsToUpdate, 3, ushort.MaxValue));
 		}
 
-		public static async Task UpdateDataIfNecessary()
+		public static async Task UpdateDataIfNecessary(bool getAllContainers = true)
 		{
 			if (!ShouldUpdate) return;
 
-			await UpdateData();
+			await UpdateData(getAllContainers);
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()
@@ -75,11 +75,53 @@ public static class Docker
 		{
 			var labelsElement = dockerOutput.GetProperty("Labels");
 
+			if (labelsElement.TryGetProperty("com.docker.compose.project.config_files", out var composePath))
+			{
+				ComposePath = composePath.GetString();
+			}
+			if (labelsElement.TryGetProperty("com.docker.compose.project.working_dir", out var workingPath))
+			{
+				WorkingPath = workingPath.GetString();
+			}
+			if (ComposePath is not null && File.Exists(ComposePath))
+			{
+				IsCompose = true;
+				var composeDirectory = Path.GetDirectoryName(ComposePath);
+				IsManaged = composeDirectory is not null && File.Exists(Path.Combine(composeDirectory, ".BaytMetadata"));
+			}
+
+			GetContainerMetadata();
+			GetIconUrls(labelsElement);
+
 			Id = dockerOutput.GetProperty(nameof(Id)).GetString() ?? throw new ArgumentException("Docker container ID is null.");
-			Names = dockerOutput.GetProperty(nameof(Names)).EnumerateArray().Select(x => x.GetString() ?? throw new ArgumentException("Docker container name is null.")).ToList();
+			if (IsManaged && PrettyName is not null)
+			{
+				Names.Add(PrettyName);
+			}
 			if (labelsElement.TryGetProperty("org.opencontainers.image.title", out var title))
 			{
 				Title = title.GetString();
+				if (Title is not null) Names.Add(Title);
+			}
+
+			if (dockerOutput.TryGetProperty(nameof(Names), out var namesElement) && namesElement.GetArrayLength() > 0)
+			{
+				List<JsonElement> dockerNames = namesElement.EnumerateArray().ToList();
+				dockerNames.RemoveAll(name => name.GetString() is null);
+
+				// If we're going to have to use the Docker default name, let's clean it up first. (remove leading /, e.g. "/jellyfin" => "jellyfin")
+				var firstName = dockerNames.First().GetString();
+				if (Names.Count == 0 && firstName!.StartsWith('/'))
+				{
+					Names.Add(firstName[1..]);
+					dockerNames = dockerNames.Skip(1).ToList();
+				}
+
+				// Add the rest of the names, if any.
+				if (dockerNames.Count > 0)
+				{
+					Names.AddRange(dockerNames.Select(x => x.GetString()!));
+				}
 			}
 
 			Image = dockerOutput.GetProperty(nameof(Image)).GetString() ?? throw new ArgumentException("Docker container image is null.");
@@ -94,14 +136,6 @@ public static class Docker
 				ImageDescription = descriptionLabel.GetString();
 			}
 
-			if (labelsElement.TryGetProperty("com.docker.compose.project.config_files", out var composePath))
-			{
-				ComposePath = composePath.GetString();
-			}
-			if (labelsElement.TryGetProperty("com.docker.compose.project.working_dir", out var workingPath))
-			{
-				WorkingPath = workingPath.GetString();
-			}
 			Command = dockerOutput.GetProperty(nameof(Command)).GetString() ?? throw new ArgumentException("Docker container command is null.");
 
 			CreatedUnix = dockerOutput.GetProperty(nameof(Created)).GetInt64();
@@ -110,14 +144,6 @@ public static class Docker
 
 			State = dockerOutput.GetProperty(nameof(State)).GetString() ?? throw new ArgumentException("Docker container state is null.");
 			Status = dockerOutput.GetProperty(nameof(Status)).GetString() ?? throw new ArgumentException("Docker container status is null.");
-			if (ComposePath is not null && File.Exists(ComposePath))
-			{
-				IsCompose = true;
-				var composeDirectory = Path.GetDirectoryName(ComposePath);
-				IsManaged = composeDirectory is not null && File.Exists(Path.Combine(composeDirectory, ".BaytManaged"));
-			}
-
-			IconUrls = GetIconUrls(labelsElement);
 
 			NetworkMode = dockerOutput.GetProperty("HostConfig").GetProperty(nameof(NetworkMode)).GetString() ?? throw new ArgumentException("Docker container network mode is null.");
 			IpAddress = GetIp(dockerOutput.GetProperty("NetworkSettings"), NetworkMode);
@@ -176,32 +202,33 @@ public static class Docker
 				{ nameof(PortBindings), portBindings },
 				{ nameof(MountBindings), mountBindings },
 
+				{ nameof(Notes), Notes },
+				{ nameof(PreferredServiceUrl), PreferredServiceUrl },
+
 				{ nameof(DockerContainers.LastUpdate), DockerContainers.LastUpdate.ToUniversalTime() }
 			};
 		}
 
-		private static List<string> GetIconUrls(JsonElement labelsElement)
+		private void GetIconUrls(JsonElement labelsElement)
 		{
-			List<string> iconUrls = [];
-
+			if (IsManaged && IconUrl is not null) IconUrls.Add(IconUrl);
 			if (labelsElement.TryGetProperty("bayt.icon", out var iconElement))
 			{
 				var baytIconUrl = iconElement.GetString();
-				if (baytIconUrl is not null) iconUrls.Add(GetUrlFromRepos(baytIconUrl));
-			}
-			if (labelsElement.TryGetProperty("com.docker.desktop.extension.icon", out iconElement))
-			{
-				var desktopIconUrl = iconElement.GetString();
-				if (desktopIconUrl is not null) iconUrls.Add(GetUrlFromRepos(desktopIconUrl));
+				if (baytIconUrl is not null) IconUrls.Add(GetUrlFromRepos(baytIconUrl));
 			}
 			if (labelsElement.TryGetProperty("glance.icon", out iconElement))
 			{
 				var glanceIconUrl = iconElement.GetString();
-				if (glanceIconUrl is not null) iconUrls.Add(GetUrlFromRepos(glanceIconUrl));
+				if (glanceIconUrl is not null) IconUrls.Add(GetUrlFromRepos(glanceIconUrl));
+			}
+			if (labelsElement.TryGetProperty("com.docker.desktop.extension.icon", out iconElement))
+			{
+				var desktopIconUrl = iconElement.GetString();
+				if (desktopIconUrl is not null) IconUrls.Add(GetUrlFromRepos(desktopIconUrl));
 			}
 
-
-			return iconUrls;
+			return;
 
 			string GetUrlFromRepos(string repoName)
 			{
@@ -214,7 +241,7 @@ public static class Docker
 				if (repoName.StartsWith("sh:"))
 				{
 					repoName = repoName[3..];
-					return $"https://cdn.jsdelivr.net/gh/selfhst/icons/svg/{repoName}.svg";
+					return $"https://cdn.jsdelivr.net/gh/selfhst/icons/png/{repoName}.png";
 				}
 				if (repoName.StartsWith("si:"))
 				{
@@ -252,8 +279,50 @@ public static class Docker
 
 		}
 
+		private void GetContainerMetadata()
+		{
+			if (!IsManaged || ComposePath is null) return;
+
+			string composeMetadataFile = Path.Combine(Path.GetDirectoryName(ComposePath) ?? "/", ".BaytMetadata");
+			if (!File.Exists(composeMetadataFile)) return;
+			var lines = File.ReadAllLines(composeMetadataFile).ToList();
+
+			var prettyNameLine = lines.FirstOrDefault(line => line.StartsWith("Pretty name"));
+			PrettyName = ExtractProp(prettyNameLine);
+
+			var notesLine = lines.FirstOrDefault(line => line.StartsWith("Notes"));
+			Notes = ExtractProp(notesLine);
+
+			var iconUrlLine = lines.FirstOrDefault(line => line.StartsWith("Icon URL"));
+			IconUrl = ExtractProp(iconUrlLine);
+
+			var preferredServiceUrlLine = lines.FirstOrDefault(line => line.StartsWith("Preferred Service URL"));
+			PreferredServiceUrl = ExtractProp(preferredServiceUrlLine);
+
+			return;
+
+			static string? ExtractProp(string? line)
+			{
+				if (line is null || line.Length == 0 || !line.Contains(':') || !line.Contains('"')) return null;
+
+				var colonIndex = line.IndexOf(':');
+				var firstIndex = line.IndexOf('"');
+				var lastIndex = line.LastIndexOf('"');
+
+				// Make sure that the order is at least: '${key}: "${value}"'
+				if (colonIndex > firstIndex || colonIndex > lastIndex
+				                             || lastIndex < firstIndex
+				                             || string.IsNullOrWhiteSpace(line[(firstIndex + 1)..lastIndex]))
+				{
+					return null;
+				}
+
+				return line[(firstIndex + 1)..lastIndex];
+			}
+		}
+
 		public string Id { get; }
-		public List<string> Names { get; }
+		public List<string> Names { get; } = [];
 		public string? Title { get; }
 
 		public string Image { get; }
@@ -275,7 +344,7 @@ public static class Docker
 		public bool IsCompose { get; }
 		public bool IsManaged { get; }
 
-		public List<string> IconUrls { get; }
+		public List<string> IconUrls { get; } = [];
 
 		public IPAddress IpAddress { get; }
 
@@ -283,6 +352,11 @@ public static class Docker
 		public List<PortBinding> PortBindings { get; } = [];
 		public List<MountBinding> MountBindings { get; } = [];
 		public ContainerStats Stats => new(Id);
+
+		public string? PrettyName { get; private set; }
+		public string? Notes { get; private set; }
+		public string? IconUrl { get; private set; }
+		public string? PreferredServiceUrl { get; private set; }
 	}
 
 	public sealed class ContainerStats
@@ -308,7 +382,7 @@ public static class Docker
 			                     - dockerOutput.GetProperty("precpu_stats").GetProperty("system_cpu_usage").GetUInt64();
 			var cpuCount = cpuProperty.GetProperty("online_cpus").GetUInt32();
 
-			CpuUtilizationPerc = (float) Math.Round((float) cpuDelta / systemCpuDelta * cpuCount * 100, 2);
+			CpuUtilizationPerc = MathF.Round((float) cpuDelta / systemCpuDelta * cpuCount * 100, 2);
 
 			var memoryProperty = dockerOutput.GetProperty("memory_stats");
 			UsedMemory = memoryProperty.GetProperty("usage").GetUInt64();
@@ -338,7 +412,7 @@ public static class Docker
 		public ulong UsedMemory { get; }
 		public ulong TotalMemory { get; }
 		public ulong AvailableMemory => TotalMemory - UsedMemory;
-		public float UsedMemoryPercent => TotalMemory == 0 ? 0 : (float) Math.Round((float) UsedMemory / TotalMemory * 100, 2);
+		public float UsedMemoryPercent => TotalMemory == 0 ? 0 : MathF.Round((float) UsedMemory / TotalMemory * 100, 2);
 
 		public ulong RecievedNetworkBytes { get; }
 		public ulong SentNetworkBytes { get; }
@@ -440,24 +514,35 @@ public static class Docker
 		var client = GetDockerClient();
 		client.BaseAddress = new Uri("http://localhost");
 
-		await using var stream = await client.GetStreamAsync($"/containers/{containerId}/logs?stdout={stdout}&stderr={stderr}&timestamps={timestamps}&follow=true");
-		if (!stream.CanRead) throw new Exception("Docker UNIX socket is not readable.");
-
-		byte[] logHeader = new byte[8];
-
-		while (!context.RequestAborted.IsCancellationRequested)
+		try
 		{
-			var bytesRead = await stream.ReadAtLeastAsync(logHeader, 8, false, context.RequestAborted);
-			if (bytesRead < 8)
+			await using var stream = await client.GetStreamAsync($"/containers/{containerId}/logs?stdout={stdout}&stderr={stderr}&timestamps={timestamps}&follow=true");
+			if (!stream.CanRead) throw new Exception("Docker UNIX socket is not readable.");
+
+			byte[] logHeader = new byte[8];
+
+			while (!context.RequestAborted.IsCancellationRequested)
 			{
-				break;
+				var bytesRead = await stream.ReadAtLeastAsync(logHeader, 8, false, context.RequestAborted);
+				if (bytesRead < 8)
+				{
+					break;
+				}
+				var payloadSize = (int) BinaryPrimitives.ReadUInt32BigEndian(logHeader.AsSpan(4));
+
+				var payloadBuffer = new byte[payloadSize];
+				await stream.ReadExactlyAsync(payloadBuffer, 0, payloadSize);
+
+				await response.WriteAsync($"data: {Encoding.UTF8.GetString(payloadBuffer)}\n\n", context.RequestAborted);
+				await response.Body.FlushAsync(context.RequestAborted);
 			}
-			var payloadSize = (int) BinaryPrimitives.ReadUInt32BigEndian(logHeader.AsSpan(4));
-
-			var payloadBuffer = new byte[payloadSize];
-			await stream.ReadExactlyAsync(payloadBuffer, 0, payloadSize);
-
-			await response.WriteAsync($"data: {Encoding.UTF8.GetString(payloadBuffer)}\n\n", context.RequestAborted);
+		}
+		catch (Exception e)
+		{
+			response.StatusCode = 500;
+			await response.WriteAsync("data: There was an error fetching the logs. The details will follow.", context.RequestAborted);
+			await response.Body.FlushAsync(context.RequestAborted);
+			await response.WriteAsync($"data: Error message:{e.Message}", context.RequestAborted);
 			await response.Body.FlushAsync(context.RequestAborted);
 		}
 	}

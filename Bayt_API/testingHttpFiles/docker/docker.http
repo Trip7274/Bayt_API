@@ -1,7 +1,9 @@
 # Please make sure the environment file (http-client.env.json) is setup for your test containter's ID
+# {{Docker_BaseAddress}} Should be {{Bayt_API_HostAddress}}, but with `/docker` appended. (e.g., "http://localhost:5899/api/v0/docker")
+# {{DockerContainerId}} Should be at least the first 12 characters of your test container's ID
 
 ### Fetch current Docker containers
-GET {{Docker_BaseAddress}}/getActiveContainers/
+GET {{Docker_BaseAddress}}/getContainers/
 
 ### Start a docker container
 POST {{Docker_BaseAddress}}/startContainer?containerId={{DockerContainerId}}

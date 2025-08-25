@@ -577,7 +577,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", () =>
 
 string baseDockerUrl = $"{ApiConfig.BaseApiUrlPath}/docker";
 
-app.MapGet($"{baseDockerUrl}/getActiveContainers", async () =>
+app.MapGet($"{baseDockerUrl}/getContainers", async (bool all = true) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
 	await Docker.DockerContainers.UpdateDataIfNecessary();
@@ -898,9 +898,16 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 	.WithName("SetDockerContainerCompose");
 
 app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
-{
-	const string defaultFlagContents = "This file indicates that this container is managed by Bayt. " +
-	                                   "It is safe to delete it to manually un-manage this container.";
+	{
+		const string defaultFlagContents = """
+		                                   This file indicates that this container is managed by Bayt. You are free to edit or delete it.
+		                                   This header is used by Bayt to determine a few details about the container. It's okay for some to be empty.
+
+		                                   Pretty name: ""
+		                                   Notes: ""
+		                                   Icon URL: ""
+		                                   Preferred Service URL: ""
+		                                   """;
 
 	try
 	{
@@ -929,7 +936,7 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 	if (targetContainer.IsManaged) return Results.StatusCode(StatusCodes.Status304NotModified);
 
 	var composeDir = Path.GetDirectoryName(targetContainer.ComposePath) ?? "/";
-	File.WriteAllText(Path.Combine(composeDir, ".BaytManaged"), defaultFlagContents);
+	File.WriteAllText(Path.Combine(composeDir, ".BaytMetadata"), defaultFlagContents);
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
@@ -971,7 +978,7 @@ app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 	if (!targetContainer.IsManaged) return Results.StatusCode(StatusCodes.Status304NotModified);
 
 	var composeDir = Path.GetDirectoryName(targetContainer.ComposePath) ?? "/";
-	File.Delete(Path.Combine(composeDir, ".BaytManaged"));
+	File.Delete(Path.Combine(composeDir, ".BaytMetadata"));
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
@@ -1044,6 +1051,53 @@ app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("GetDockerContainerStats");
 
+app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, string? containerName, bool startContainer = false) =>
+{
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
+	var containerNameSlug = ParsingMethods.ConvertTextToSlug(containerName);
+	if (string.IsNullOrWhiteSpace(containerNameSlug)) return Results.BadRequest($"{nameof(containerName)} is required and must contain at least one ASCII character.");
+	if (!context.Request.Headers.ContentEncoding.Contains("chunked") && context.Request.ContentLength is null or 0)
+	{
+		return Results.StatusCode(StatusCodes.Status411LengthRequired);
+	}
+
+	var defaultComposeSidecarContent = $"""
+	                            This file indicates that this container is managed by Bayt. You are free to edit or delete it.
+	                            This header is used by Bayt to determine a few details about the container. It's okay for some to be empty.
+
+	                            Pretty name: "{containerName}"
+	                            Notes: ""
+	                            Icon URL: ""
+	                            Preferred Service URL: ""
+	                            """;
+
+	var containerExists = Directory.EnumerateDirectories(ApiConfig.ApiConfiguration.PathToComposeFolder).Any(directory => Path.GetFileNameWithoutExtension(directory) == containerNameSlug);
+	if (containerExists) return Results.Conflict($"A container with the name '{containerNameSlug}' already exists.");
+
+	var composePath = Path.Combine(ApiConfig.ApiConfiguration.PathToComposeFolder, containerNameSlug);
+	Directory.CreateDirectory(composePath);
+
+	await File.WriteAllTextAsync(Path.Combine(composePath, ".BaytMetadata"), defaultComposeSidecarContent);
+	await using (var fileStream = new FileStream(Path.Combine(composePath, "docker-compose.yml"), FileMode.Create, FileAccess.Write,
+		             FileShare.None))
+	{
+		await context.Request.Body.CopyToAsync(fileStream);
+	}
+
+	if (!startContainer) return Results.NoContent();
+
+
+	var composeShell = ShellMethods.RunShell("docker-compose", $"-f {composePath}/docker-compose.yml up -d");
+
+	return composeShell.Success ? Results.NoContent() : Results.InternalServerError($"Non-zero exit code from starting the container. " +
+		$"Stdout: {composeShell.StandardOutput} " +
+		$"Stderr: {composeShell.StandardError}");
+});
+
+app.MapGet($"{baseDockerUrl}/getBaytContainters", () =>
+{
+	return Results.Text(string.Join('\n', Directory.EnumerateDirectories(ApiConfig.ApiConfiguration.PathToComposeFolder)));
+});
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
@@ -1054,16 +1108,16 @@ else
 {
 	// Do a fetch cycle to let the constructors run.
 	List<Task> fetchTasks = [
-		Task.Run(StatsApi.CpuData.UpdateData),
-		Task.Run(GpuHandling.FullGpusData.UpdateData),
-		Task.Run(StatsApi.MemoryData.UpdateData),
-		Task.Run(DiskHandling.FullDisksData.UpdateData)
+		Task.Run(StatsApi.CpuData.UpdateDataIfNecessary),
+		Task.Run(GpuHandling.FullGpusData.UpdateDataIfNecessary),
+		Task.Run(StatsApi.MemoryData.UpdateDataIfNecessary),
+		Task.Run(DiskHandling.FullDisksData.UpdateDataIfNecessary)
 	];
 
 	if (Docker.IsDockerAvailable)
 	{
 		Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
-		fetchTasks.Add(Task.Run(Docker.DockerContainers.UpdateData));
+		fetchTasks.Add(Task.Run(() => Docker.DockerContainers.UpdateDataIfNecessary()));
 	}
 
 	Console.WriteLine("[INFO] Preparing a few things...");

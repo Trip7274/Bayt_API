@@ -21,7 +21,7 @@ if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 	builder.WebHost.ConfigureKestrel(opts => opts.Listen(localIp, ApiConfig.NetworkPort));
 }
 
-if (Environment.GetEnvironmentVariable("BAYT_USE_SOCK") != "1")
+if (Environment.GetEnvironmentVariable("BAYT_DISABLE_SOCK") != "1")
 {
 	if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
 	Console.WriteLine($"[INFO] Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list");

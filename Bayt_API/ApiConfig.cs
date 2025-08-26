@@ -30,17 +30,26 @@ public static class ApiConfig
 	public const ushort NetworkPort = 5899;
 
 	/// <summary>
-	/// Contains the contents of the "XDG_CONFIG_HOME" env var if it exists. Used to set <see cref="BaseConfigPath"/>
+	/// Contains the preferred directory to use for configs. Used to set <see cref="BaseConfigPath"/>
 	/// </summary>
-	private static readonly string? XdgConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+	/// <remarks>
+	///	Tries to fetch the env var <c>BAYT_CONFIG</c> first, then <c>XDG_CONFIG_HOME</c>.
+	/// </remarks>
+	private static readonly string? XdgConfigHome = Environment.GetEnvironmentVariable("BAYT_CONFIG") ?? Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
 	/// <summary>
-	/// Contains the contents of the "XDG_DATA_HOME" env var if it exists. Used to set the default clientData folder.
+	/// Contains the preferred directory to use for data. Used to set the default clientData folder.
 	/// </summary>
-	private static readonly string? XdgDataHome = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+	/// <remarks>
+	///	Tries to fetch the env var <c>BAYT_DATA</c> first, then <c>XDG_DATA_HOME</c>.
+	/// </remarks>
+	private static readonly string? XdgDataHome = Environment.GetEnvironmentVariable("BAYT_DATA") ?? Environment.GetEnvironmentVariable("XDG_DATA_HOME");
 	/// <summary>
-	/// Contains the contents of the "XDG_STATE_HOME" env var if it exists. Used to set <see cref="UnixSocketPath"/>
+	/// Contains the preferred directory to use for the Bayt UNIX Socket. Used to set <see cref="UnixSocketPath"/>
 	/// </summary>
-	private static readonly string? XdgStateHome = Environment.GetEnvironmentVariable("XDG_STATE_HOME");
+	/// <remarks>
+	///	Tries to fetch the env var <c>BAYT_SOCKET</c> first, then <c>XDG_STATE_HOME</c>.
+	/// </remarks>
+	private static readonly string? XdgStateHome = Environment.GetEnvironmentVariable("BAYT_SOCKET") ?? Environment.GetEnvironmentVariable("XDG_STATE_HOME");
 
 	/// <summary>
 	/// Abs. path to the Bayt binary's directory

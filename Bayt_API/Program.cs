@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -58,22 +57,23 @@ if (Environment.OSVersion.Platform != PlatformID.Unix)
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts) =>
 	{
-		Dictionary<string, bool?> requestedStatsRaw = new() {
-			{ "Meta", meta },
-			{ "System", system },
-			{ "CPU", cpu },
-			{ "GPU", gpu },
-			{ "Memory", memory },
-			{ "Mounts", mounts }
+		Dictionary<ApiConfig.SystemStats, bool?> requestedStatsRaw = new() {
+			{ ApiConfig.SystemStats.Meta, meta },
+			{ ApiConfig.SystemStats.System, system },
+			{ ApiConfig.SystemStats.Cpu, cpu },
+			{ ApiConfig.SystemStats.Gpu, gpu },
+			{ ApiConfig.SystemStats.Memory, memory },
+			{ ApiConfig.SystemStats.Mounts, mounts }
 		};
-		List<string> requestedStats = [];
+		List<ApiConfig.SystemStats> requestedStats = [];
 		if (requestedStatsRaw.All(stat => !stat.Value.HasValue))
 		{
 			requestedStats = ApiConfig.PossibleStats.ToList();
 		}
 		else
 		{
-			requestedStats.AddRange(from statKvp in requestedStatsRaw where statKvp.Value.HasValue && statKvp.Value.Value select statKvp.Key);
+			requestedStats.AddRange(from statKvp in requestedStatsRaw where
+				statKvp.Value.HasValue && statKvp.Value.Value select statKvp.Key);
 		}
 
 		if (requestedStats.Count == 0)
@@ -83,8 +83,6 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 
 		// Request checks done
 
-		Debug.WriteLine($"Got a request asking for: {string.Join(", ", requestedStats)}");
-
 		Dictionary<string, Dictionary<string, dynamic>[]> responseDictionary = [];
 
 		// Queue and update all the requested stats up asynchronously
@@ -93,38 +91,43 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 		{
 			switch (stat)
 			{
-				case "CPU":
+				case ApiConfig.SystemStats.Cpu:
 				{
 					fetchTasks.Add(Task.Run(StatsApi.CpuData.UpdateDataIfNecessary));
 					break;
 				}
 
-				case "GPU":
+				case ApiConfig.SystemStats.Gpu:
 				{
 					fetchTasks.Add(Task.Run(GpuHandling.FullGpusData.UpdateDataIfNecessary));
 					break;
 				}
 
-				case "Memory":
+				case ApiConfig.SystemStats.Memory:
 				{
 					fetchTasks.Add(Task.Run(StatsApi.MemoryData.UpdateDataIfNecessary));
 					break;
 				}
 
-				case "Mounts":
+				case ApiConfig.SystemStats.Mounts:
 				{
 					fetchTasks.Add(Task.Run(DiskHandling.FullDisksData.UpdateDataIfNecessary));
 					break;
+				}
+				default:
+				{
+					throw new ArgumentOutOfRangeException(stat.ToString());
 				}
 			}
 		}
 		await Task.WhenAll(fetchTasks);
 
+		// Request assembly
 		foreach (var requestedStat in requestedStats)
 		{
 			switch (requestedStat)
 			{
-				case "Meta":
+				case ApiConfig.SystemStats.Meta:
 				{
 					responseDictionary.Add("Meta", [
 						new Dictionary<string, dynamic>
@@ -139,34 +142,38 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 					break;
 				}
 
-				case "System":
+				case ApiConfig.SystemStats.System:
 				{
 					responseDictionary.Add("System", [ StatsApi.GeneralSpecs.ToDictionary() ]);
 					break;
 				}
 
-				case "CPU":
+				case ApiConfig.SystemStats.Cpu:
 				{
 					responseDictionary.Add("CPU", [ StatsApi.CpuData.ToDictionary()! ]);
 					break;
 				}
 
-				case "GPU":
+				case ApiConfig.SystemStats.Gpu:
 				{
 					responseDictionary.Add("GPU", GpuHandling.FullGpusData.ToDictionary()!);
 					break;
 				}
 
-				case "Memory":
+				case ApiConfig.SystemStats.Memory:
 				{
 					responseDictionary.Add("Memory", [ StatsApi.MemoryData.ToDictionary() ]);
 					break;
 				}
 
-				case "Mounts":
+				case ApiConfig.SystemStats.Mounts:
 				{
 					responseDictionary.Add("Mounts", DiskHandling.FullDisksData.ToDictionary()!);
 					break;
+				}
+				default:
+				{
+					throw new ArgumentOutOfRangeException(requestedStat.ToString());
 				}
 			}
 		}

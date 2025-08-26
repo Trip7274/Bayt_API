@@ -60,10 +60,26 @@ public static class ApiConfig
 	/// Abs. path to the specific configuration loaded currently.
 	/// </summary>
 	public static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
+
+
 	/// <summary>
 	/// All the supported stats one can request from the <c>getStats</c> endpoint
 	/// </summary>
-	public static readonly string[] PossibleStats = ["Meta", "System", "CPU", "GPU", "Memory", "Mounts"];
+	public static readonly SystemStats[] PossibleStats = [SystemStats.Meta, SystemStats.System, SystemStats.Cpu, SystemStats.Gpu, SystemStats.Memory, SystemStats.Mounts];
+
+	/// <summary>
+	/// Enum containing all the stats this API can fetch.
+	/// </summary>
+	/// <seealso cref="ApiConfig.PossibleStats"/>
+	public enum SystemStats : byte
+	{
+		Meta,
+		System,
+		Cpu,
+		Gpu,
+		Memory,
+		Mounts
+	}
 
 	// Config management
 
@@ -77,7 +93,7 @@ public static class ApiConfig
 			if (!Directory.Exists(BaseConfigPath))
 			{
 				Directory.CreateDirectory(BaseConfigPath);
-				File.WriteAllText(Path.Combine(BaseConfigPath, "README"), "This folder is for the Bayt API project.\n" +
+				File.WriteAllText(Path.Combine(BaseConfigPath, "README"), "This folder is where the configs for the Bayt API are stored.\n" +
 				                                                          "More info: https://github.com/Trip7274/Bayt_API");
 			}
 			LoadConfig();

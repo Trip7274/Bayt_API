@@ -3,9 +3,9 @@ using System.Text;
 
 namespace Bayt_API;
 
-internal static class ParsingMethods
+public static class ParsingMethods
 {
-	internal static T? ParseTypeNullable<T>(string value) where T : struct, IParsable<T>
+	public static T? ParseTypeNullable<T>(string value) where T : struct, IParsable<T>
 	{
 		if (value == "null" || !T.TryParse(value, CultureInfo.CurrentCulture, out var result))
 		{

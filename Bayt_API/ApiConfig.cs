@@ -29,42 +29,40 @@ public static class ApiConfig
 	/// </summary>
 	public const ushort NetworkPort = 5899;
 
-	/// <summary>
-	/// Contains the preferred directory to use for configs. Used to set <see cref="BaseConfigPath"/>
-	/// </summary>
-	/// <remarks>
-	///	Tries to fetch the env var <c>BAYT_CONFIG</c> first, then <c>XDG_CONFIG_HOME</c>.
-	/// </remarks>
-	private static readonly string? XdgConfigHome = Environment.GetEnvironmentVariable("BAYT_CONFIG") ?? Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-	/// <summary>
-	/// Contains the preferred directory to use for data. Used to set the default clientData folder.
-	/// </summary>
-	/// <remarks>
-	///	Tries to fetch the env var <c>BAYT_DATA</c> first, then <c>XDG_DATA_HOME</c>.
-	/// </remarks>
-	private static readonly string? XdgDataHome = Environment.GetEnvironmentVariable("BAYT_DATA") ?? Environment.GetEnvironmentVariable("XDG_DATA_HOME");
-	/// <summary>
-	/// Contains the preferred directory to use for the Bayt UNIX Socket. Used to set <see cref="UnixSocketPath"/>
-	/// </summary>
-	/// <remarks>
-	///	Tries to fetch the env var <c>BAYT_SOCKET</c> first, then <c>XDG_STATE_HOME</c>.
-	/// </remarks>
-	private static readonly string? XdgStateHome = Environment.GetEnvironmentVariable("BAYT_SOCKET") ?? Environment.GetEnvironmentVariable("XDG_STATE_HOME");
 
 	/// <summary>
 	/// Abs. path to the Bayt binary's directory
 	/// </summary>
 	public static readonly string BaseExecutablePath = Path.GetDirectoryName(Environment.ProcessPath) ?? Environment.CurrentDirectory;
+
 	/// <summary>
-	/// Abs. path to the Bayt SOCK interface. Will be non-existent if the interface is inactive.
+	/// Abs. path to the configuration directory. E.g. <c>/home/{user}/.config/baytConfig/</c>.
 	/// </summary>
-	public static readonly string UnixSocketPath = XdgStateHome is not null && XdgStateHome.Trim().Length != 0 ?
-		Path.Combine(XdgStateHome, "BaytApi.sock") : Path.Combine(BaseExecutablePath, "BaytApi.sock");
+	/// <remarks>
+	///	Tries to fetch the env var <c>BAYT_CONFIG_DIRECTORY</c> first, then <c>XDG_CONFIG_HOME</c>. Falls back to "<see cref="BaseExecutablePath"/>/baytConfig" if neither are set.
+	/// </remarks>
+	private static readonly string BaseConfigPath = Path.Combine(Environment.GetEnvironmentVariable("BAYT_CONFIG_DIRECTORY") ??
+	                                                             Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") ??
+	                                                             BaseExecutablePath, "baytConfig");
 	/// <summary>
-	/// Abs. path to the configuration directory
+	/// Abs. path to the Bayt SOCK interface file. The file will be non-existent if the interface is inactive. E.g. <c>/home/{user}/.local/state/baytApi.sock</c>.
 	/// </summary>
-	private static readonly string BaseConfigPath = XdgConfigHome is not null && XdgConfigHome.Trim().Length != 0 ?
-		Path.Combine(XdgConfigHome, "Bayt") : Path.Combine(BaseExecutablePath, "config");
+	/// <remarks>
+	///	Tries to fetch the env var <c>BAYT_SOCKET_DIRECTORY</c> first, then <c>XDG_STATE_HOME</c>. Falls back to "<see cref="BaseExecutablePath"/>/BaytApi.sock" if neither are set.
+	/// </remarks>
+	public static readonly string UnixSocketPath = Path.Combine(Environment.GetEnvironmentVariable("BAYT_SOCKET_DIRECTORY") ??
+																Environment.GetEnvironmentVariable("XDG_STATE_HOME") ??
+																BaseExecutablePath, "BaytApi.sock");
+	/// <summary>
+	/// Abs. path to the baytData directory. Used for <see cref="ApiConfiguration.PathToDataFolder"/> and <see cref="ApiConfiguration.PathToComposeFolder"/>. E.g. <c>/home/{user}/.local/share/baytData/</c>.
+	/// </summary>
+	/// <remarks>
+	///	Tries to fetch the env var <c>BAYT_DATA_DIRECTORY</c> first, then <c>XDG_DATA_HOME</c>. Falls back to "<see cref="BaseExecutablePath"/>/baytData" if neither are set.
+	/// </remarks>
+	private static readonly string BaseDataPath = Path.Combine(Environment.GetEnvironmentVariable("BAYT_DATA_DIRECTORY") ??
+	                                                           Environment.GetEnvironmentVariable("XDG_DATA_HOME")??
+	                                                           BaseExecutablePath, "baytData");
+
 	/// <summary>
 	/// Abs. path to the specific configuration loaded currently.
 	/// </summary>
@@ -138,8 +136,7 @@ public static class ApiConfig
 		/// <remarks>
 		///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/clientData</c>, or <c>BaytExecutablePath/clientData</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
 		/// </remarks>
-		public static string PathToDataFolder { get; private set; } = XdgDataHome is not null && XdgDataHome.Trim().Length != 0 ?
-			Path.Combine(XdgDataHome, "Bayt", "clientData") : Path.Combine(BaseExecutablePath, "clientData");
+		public static string PathToDataFolder { get; private set; } = Path.Combine(BaseDataPath, "clientData");
 
 		/// <summary>
 		/// Abs. path to the folder containing all the docker compose folders.
@@ -148,8 +145,7 @@ public static class ApiConfig
 		///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/containers</c>, or <c>BaytExecutablePath/containers</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
 		/// Each container will be inside a folder named with the slug of its name
 		/// </remarks>
-		public static string PathToComposeFolder { get; private set; } = XdgDataHome is not null && XdgDataHome.Length != 0 ?
-			Path.Combine(XdgDataHome, "Bayt", "containers") : Path.Combine(BaseExecutablePath, "containers");
+		public static string PathToComposeFolder { get; private set; } = Path.Combine(BaseDataPath, "containers");
 
 		/// <summary>
 		/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }

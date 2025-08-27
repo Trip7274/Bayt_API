@@ -34,22 +34,23 @@ public static class ParsingMethods
 	public static string ConvertTextToSlug(string? input)
 	{
 		if (string.IsNullOrWhiteSpace(input)) return "";
+		input = input.Trim();
 		if (input.Length > 32) input = input[..32];
 
 		var outpuStringBuilder = new StringBuilder();
 		bool wasHyphen = true;
-		foreach (var character in input)
+		foreach (var character in input.Where(c => char.IsAsciiLetterOrDigit(c) || char.IsWhiteSpace(c)))
 		{
-			if (char.IsLetterOrDigit(character))
+			if (!char.IsWhiteSpace(character))
 			{
 				outpuStringBuilder.Append(char.ToLower(character));
 				wasHyphen = false;
+				continue;
 			}
-			else if (char.IsWhiteSpace(character) && !wasHyphen)
-			{
-				outpuStringBuilder.Append('-');
-				wasHyphen = true;
-			}
+			if (wasHyphen) continue;
+
+			outpuStringBuilder.Append('-');
+			wasHyphen = true;
 		}
 		// Avoid trailing hyphens
 		if (wasHyphen && outpuStringBuilder.Length > 0)

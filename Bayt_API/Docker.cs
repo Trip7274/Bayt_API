@@ -91,10 +91,12 @@ public static class Docker
 			}
 
 			GetContainerMetadata();
+			GetContainerNames(dockerOutput, labelsElement);
+			GetContainerDescription(labelsElement);
+			GetContainerHrefs(labelsElement);
 			GetIconUrls(labelsElement);
 
 			Id = dockerOutput.GetProperty(nameof(Id)).GetString() ?? throw new ArgumentException("Docker container ID is null.");
-			GetContainerNames(dockerOutput, labelsElement);
 
 			Image = dockerOutput.GetProperty(nameof(Image)).GetString() ?? throw new ArgumentException("Docker container image is null.");
 			ImageID = dockerOutput.GetProperty(nameof(ImageID)).GetString() ?? throw new ArgumentException("Docker container image ID is null.");
@@ -103,8 +105,6 @@ public static class Docker
 			{
 				ImageVersion = versionLabel.GetString();
 			}
-			GetContainerDescription(labelsElement);
-			GetContainerHrefs(labelsElement);
 
 			Command = dockerOutput.GetProperty(nameof(Command)).GetString() ?? throw new ArgumentException("Docker container command is null.");
 

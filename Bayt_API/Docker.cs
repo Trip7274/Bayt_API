@@ -8,7 +8,7 @@ namespace Bayt_API;
 
 public static class Docker
 {
-	public static bool IsDockerAvailable => File.Exists("/var/run/docker.sock");
+	public static bool IsDockerAvailable => File.Exists("/var/run/docker.sock") && ApiConfig.ApiConfiguration.DockerIntegrationEnabled;
 
 	public static class DockerContainers
 	{

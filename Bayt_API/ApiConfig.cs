@@ -137,7 +137,7 @@ public static class ApiConfig
 		///	Abs. path to the client data folder.
 		/// </summary>
 		/// <remarks>
-		///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/clientData</c>, or <c>BaytExecutablePath/clientData</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
+		///	Defaults to "<see cref="BaseDataPath"/>/clientData".
 		/// </remarks>
 		public static string PathToDataFolder { get; private set; } = Path.Combine(BaseDataPath, "clientData");
 
@@ -145,10 +145,17 @@ public static class ApiConfig
 		/// Abs. path to the folder containing all the docker compose folders.
 		/// </summary>
 		/// <remarks>
-		///	Defaults to either: <c>$XDG_DATA_HOME/Bayt/containers</c>, or <c>BaytExecutablePath/containers</c> depending on whether the env var <c>$XDG_DATA_HOME</c> is set.
-		/// Each container will be inside a folder named with the slug of its name
+		///	Defaults to "<see cref="BaseDataPath"/>/containers".
 		/// </remarks>
 		public static string PathToComposeFolder { get; private set; } = Path.Combine(BaseDataPath, "containers");
+
+		/// <summary>
+		/// Whether the Docker integration is enabled.
+		/// </summary>
+		/// <remarks>
+		///	Defaults to true.
+		/// </remarks>
+		public static bool DockerIntegrationEnabled { get; private set; } = true;
 
 		/// <summary>
 		/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
@@ -189,6 +196,7 @@ public static class ApiConfig
 				{ nameof(SecondsToUpdate), SecondsToUpdate },
 				{ nameof(PathToDataFolder), PathToDataFolder },
 				{ nameof(PathToComposeFolder), PathToComposeFolder },
+				{ nameof(DockerIntegrationEnabled), DockerIntegrationEnabled },
 				{ nameof(WatchedMounts), WatchedMounts },
 				{ nameof(WolClients), WolClients }
 			};
@@ -216,6 +224,7 @@ public static class ApiConfig
 			SecondsToUpdate = loadedDict.TryGetProperty(nameof(SecondsToUpdate), out var secondsToUpdate) ? secondsToUpdate.GetUInt16() : SecondsToUpdate;
 			PathToDataFolder = loadedDict.TryGetProperty(nameof(PathToDataFolder), out var pathToDataFolder) ? pathToDataFolder.GetString() ?? PathToDataFolder : PathToDataFolder;
 			PathToComposeFolder = loadedDict.TryGetProperty(nameof(PathToComposeFolder), out var pathToComposeFolder) ? pathToComposeFolder.GetString() ?? PathToComposeFolder : PathToComposeFolder;
+			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
 
 			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
 			{

@@ -586,7 +586,7 @@ string baseDockerUrl = $"{ApiConfig.BaseApiUrlPath}/docker";
 
 app.MapGet($"{baseDockerUrl}/getContainers", async (bool all = true) =>
 {
-	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	await Docker.DockerContainers.UpdateDataIfNecessary();
 
 	Dictionary<string, Dictionary<string, dynamic?>[]> containerDict = new()
@@ -1000,7 +1000,7 @@ app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 
 app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
 {
-	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 
 	var dockerRequest = await Docker.SendRequest("containers/prune", "POST");
 
@@ -1060,7 +1060,7 @@ app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 
 app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, string? containerName, bool startContainer = false) =>
 {
-	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system.");
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	var containerNameSlug = ParsingMethods.ConvertTextToSlug(containerName);
 	if (string.IsNullOrWhiteSpace(containerNameSlug)) return Results.BadRequest($"{nameof(containerName)} is required and must contain at least one ASCII character.");
 	if (!context.Request.Headers.ContentEncoding.Contains("chunked") && context.Request.ContentLength is null or 0)

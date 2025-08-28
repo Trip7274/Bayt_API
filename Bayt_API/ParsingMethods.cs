@@ -21,11 +21,11 @@ public static class ParsingMethods
 		return result;
 	}
 	/// <summary>
-	/// Creates a "slug" from text that can be used as part of a valid URL.
+	/// Creates a "slug" from a string that can be used as part of a valid URL.
 	///
 	/// Invalid characters are converted to hyphens. Punctuation that is
-	/// perfect valid in a URL is also converted to hyphens to keep the
-	/// result mostly text. Steps are taken to prevent leading, trailing,
+	/// perfectly valid in a URL is also converted to hyphens to keep the
+	/// result alphanumeric (ASCII). Steps are taken to prevent leading, trailing,
 	/// and consecutive hyphens.
 	/// </summary>
 	/// <param name="input">String to convert to a slug</param>

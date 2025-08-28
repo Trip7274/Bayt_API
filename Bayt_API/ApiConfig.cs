@@ -128,6 +128,9 @@ public static class ApiConfig
 		///	Defaults to 5 seconds.
 		/// </remarks>
 		public static ushort SecondsToUpdate { get; private set; } = 5;
+		/// <summary>
+		/// Reflects the user's <see cref="SecondsToUpdate"/> clamped to a minimum of 3 seconds. Used for the initial fetch cycle as to not repeat it a few times.
+		/// </summary>
 		public static ushort ClampedSecondsToUpdate => ushort.Clamp(SecondsToUpdate, 3, ushort.MaxValue);
 
 		/// <summary>

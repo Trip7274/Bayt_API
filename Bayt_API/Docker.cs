@@ -37,7 +37,7 @@ public static class Docker
 			{
 				Containers.Add(new DockerContainer(containerEntries));
 			}
-			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ushort.Clamp(ApiConfig.ApiConfiguration.SecondsToUpdate, 3, ushort.MaxValue));
+			LastUpdate = DateTime.Now;
 		}
 
 		public static async Task UpdateDataIfNecessary(bool getAllContainers = true)

@@ -822,7 +822,7 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 	{
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 	}
-	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
+	if (targetContainer.ComposePath is null)
 		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
 
 	var stream = new FileStream(targetContainer.ComposePath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -870,7 +870,7 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 	{
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 	}
-	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
+	if (targetContainer.ComposePath is null)
 		return Results.NotFound("This container does not have a compose file.");
 	if (!targetContainer.IsManaged) return Results.BadRequest("This container is not managed by Bayt.");
 
@@ -938,7 +938,7 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 	{
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 	}
-	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
+	if (targetContainer.ComposePath is null)
 		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
 	if (targetContainer.IsManaged) return Results.StatusCode(StatusCodes.Status304NotModified);
 
@@ -980,7 +980,7 @@ app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 	{
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 	}
-	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
+	if (targetContainer.ComposePath is null)
 		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
 	if (!targetContainer.IsManaged) return Results.StatusCode(StatusCodes.Status304NotModified);
 
@@ -1045,7 +1045,7 @@ app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 	{
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 	}
-	if (targetContainer.ComposePath is null || !File.Exists(targetContainer.ComposePath))
+	if (targetContainer.ComposePath is null)
 		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
 
 	return Results.Json(targetContainer.Stats.ToDictionary());

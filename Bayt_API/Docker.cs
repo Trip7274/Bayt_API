@@ -75,7 +75,7 @@ public static class Docker
 		{
 			var labelsElement = dockerOutput.GetProperty("Labels");
 
-			if (labelsElement.TryGetProperty("com.docker.compose.project.config_files", out var composePath))
+			if (labelsElement.TryGetProperty("com.docker.compose.project.config_files", out var composePath) && File.Exists(composePath.GetString()))
 			{
 				ComposePath = composePath.GetString();
 			}
@@ -83,7 +83,7 @@ public static class Docker
 			{
 				WorkingPath = workingPath.GetString();
 			}
-			if (ComposePath is not null && File.Exists(ComposePath))
+			if (ComposePath is not null)
 			{
 				IsCompose = true;
 				var composeDirectory = Path.GetDirectoryName(ComposePath);

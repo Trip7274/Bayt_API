@@ -94,35 +94,7 @@ public static class Docker
 			GetIconUrls(labelsElement);
 
 			Id = dockerOutput.GetProperty(nameof(Id)).GetString() ?? throw new ArgumentException("Docker container ID is null.");
-			if (IsManaged && PrettyName is not null)
-			{
-				Names.Add(PrettyName);
-			}
-			if (labelsElement.TryGetProperty("org.opencontainers.image.title", out var title))
-			{
-				Title = title.GetString();
-				if (Title is not null) Names.Add(Title);
-			}
-
-			if (dockerOutput.TryGetProperty(nameof(Names), out var namesElement) && namesElement.GetArrayLength() > 0)
-			{
-				List<JsonElement> dockerNames = namesElement.EnumerateArray().ToList();
-				dockerNames.RemoveAll(name => name.GetString() is null);
-
-				// If we're going to have to use the Docker default name, let's clean it up first. (remove leading /, e.g. "/jellyfin" => "jellyfin")
-				var firstName = dockerNames.First().GetString();
-				if (Names.Count == 0 && firstName!.StartsWith('/'))
-				{
-					Names.Add(firstName[1..]);
-					dockerNames = dockerNames.Skip(1).ToList();
-				}
-
-				// Add the rest of the names, if any.
-				if (dockerNames.Count > 0)
-				{
-					Names.AddRange(dockerNames.Select(x => x.GetString()!));
-				}
-			}
+			GetContainerNames(dockerOutput, labelsElement);
 
 			Image = dockerOutput.GetProperty(nameof(Image)).GetString() ?? throw new ArgumentException("Docker container image is null.");
 			ImageID = dockerOutput.GetProperty(nameof(ImageID)).GetString() ?? throw new ArgumentException("Docker container image ID is null.");
@@ -131,16 +103,13 @@ public static class Docker
 			{
 				ImageVersion = versionLabel.GetString();
 			}
-			if (labelsElement.TryGetProperty("org.opencontainers.image.description", out var descriptionLabel))
-			{
-				ImageDescription = descriptionLabel.GetString();
-			}
+			GetContainerDescription(labelsElement);
+			GetContainerHrefs(labelsElement);
 
 			Command = dockerOutput.GetProperty(nameof(Command)).GetString() ?? throw new ArgumentException("Docker container command is null.");
 
 			CreatedUnix = dockerOutput.GetProperty(nameof(Created)).GetInt64();
-			var dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds(CreatedUnix);
-			Created = dateTimeOffset.DateTime.ToUniversalTime();
+			Created = DateTimeOffset.FromUnixTimeSeconds(CreatedUnix).DateTime.ToUniversalTime();
 
 			State = dockerOutput.GetProperty(nameof(State)).GetString() ?? throw new ArgumentException("Docker container state is null.");
 			Status = dockerOutput.GetProperty(nameof(Status)).GetString() ?? throw new ArgumentException("Docker container status is null.");
@@ -203,7 +172,7 @@ public static class Docker
 				{ nameof(MountBindings), mountBindings },
 
 				{ nameof(Notes), Notes },
-				{ nameof(PreferredServiceUrl), PreferredServiceUrl },
+				{ nameof(ContainerWebpageLinks), ContainerWebpageLinks },
 
 				{ nameof(DockerContainers.LastUpdate), DockerContainers.LastUpdate.ToUniversalTime() }
 			};
@@ -278,6 +247,77 @@ public static class Docker
 			return ip is null ? machineLocalIp : IPAddress.Parse(ip);
 
 		}
+		private void GetContainerNames(JsonElement dockerOutput, JsonElement labelsElement)
+		{
+			if (IsManaged && PrettyName is not null)
+			{
+				Names.Add(PrettyName);
+			}
+
+			foreach (var labelKvp in labelsElement.EnumerateObject())
+			{
+				switch (labelKvp.Name)
+				{
+					case "bayt.name":
+					case "glance.name":
+					case "homepage.name":
+						Names.Add(labelKvp.Value.GetString()!);
+						break;
+					case "org.opencontainers.image.title":
+						Title = labelKvp.Value.GetString();
+						if (Title is not null) Names.Add(Title);
+						break;
+				}
+			}
+
+			if (dockerOutput.TryGetProperty(nameof(Names), out var namesElement) && namesElement.GetArrayLength() > 0)
+			{
+				List<JsonElement> dockerNames = namesElement.EnumerateArray().ToList();
+				dockerNames.RemoveAll(name => name.GetString() is null);
+
+				// If we're going to have to use the Docker default name, let's clean it up first. (remove leading /, e.g. "/jellyfin" => "jellyfin")
+				var firstName = dockerNames.First().GetString();
+				if (Names.Count == 0 && firstName!.StartsWith('/'))
+				{
+					Names.Add(firstName[1..]);
+					dockerNames = dockerNames.Skip(1).ToList();
+				}
+
+				// Add the rest of the names, if any.
+				if (dockerNames.Count > 0)
+				{
+					Names.AddRange(dockerNames.Select(name => name.GetString()!));
+				}
+			}
+			Names = Names.Distinct().ToList();
+		}
+		private void GetContainerHrefs(JsonElement labelsElement)
+		{
+			foreach (var labelKvp in labelsElement.EnumerateObject())
+			{
+				switch (labelKvp.Name)
+				{
+					case "bayt.url":
+					case "glance.url":
+					case "homepage.instance.internal.href":
+						ContainerWebpageLinks.Add(labelKvp.Value.GetString()!);
+						break;
+				}
+			}
+			ContainerWebpageLinks = ContainerWebpageLinks.Distinct().ToList();
+		}
+		private void GetContainerDescription(JsonElement labelsElement)
+		{
+			foreach (var labelKvp in labelsElement.EnumerateObject())
+			{
+				ImageDescription = labelKvp.Name switch
+				{
+					"bayt.description" or "glance.description" or "homepage.description"
+						or "org.opencontainers.image.description" => labelKvp.Value.GetString()!,
+					_ => ImageDescription
+				};
+			}
+		}
 
 		private void GetContainerMetadata()
 		{
@@ -296,8 +336,9 @@ public static class Docker
 			var iconUrlLine = lines.FirstOrDefault(line => line.StartsWith("Icon URL"));
 			IconUrl = ExtractProp(iconUrlLine);
 
-			var preferredServiceUrlLine = lines.FirstOrDefault(line => line.StartsWith("Preferred Service URL"));
-			PreferredServiceUrl = ExtractProp(preferredServiceUrlLine);
+			var containerWebpageLinkLine = lines.FirstOrDefault(line => line.StartsWith("Webpage URL"));
+			var containerWebpageLink = ExtractProp(containerWebpageLinkLine);
+			if (containerWebpageLink is not null) ContainerWebpageLinks.Add(containerWebpageLink);
 
 			return;
 
@@ -322,15 +363,15 @@ public static class Docker
 		}
 
 		public string Id { get; }
-		public List<string> Names { get; } = [];
-		public string? Title { get; }
+		public List<string> Names { get; private set; } = [];
+		public string? Title { get; private set; }
 
 		public string Image { get; }
 		// ReSharper disable once InconsistentNaming
 		public string ImageID { get; }
 		public string? ImageUrl { get; }
 		public string? ImageVersion { get;  }
-		public string? ImageDescription { get; }
+		public string? ImageDescription { get; private set; }
 
 		public string? ComposePath { get; }
 		public string? WorkingPath { get; }
@@ -356,7 +397,7 @@ public static class Docker
 		public string? PrettyName { get; private set; }
 		public string? Notes { get; private set; }
 		public string? IconUrl { get; private set; }
-		public string? PreferredServiceUrl { get; private set; }
+		public List<string> ContainerWebpageLinks { get; private set; } = [];
 	}
 
 	public sealed class ContainerStats

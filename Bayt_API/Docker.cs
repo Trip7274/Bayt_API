@@ -220,6 +220,11 @@ public static class Docker
 					repoName = repoName[3..];
 					return $"https://cdn.jsdelivr.net/npm/simple-icons@v15/icons/{repoName}.svg";
 				}
+				if (repoName.StartsWith("mdi:"))
+				{
+					repoName = repoName[4..];
+					return $"https://api.iconify.design/mdi/{repoName}.svg";
+				}
 
 				return repoName;
 			}

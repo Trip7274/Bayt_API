@@ -27,7 +27,7 @@ public static class Docker
 
 		public static async Task UpdateData()
 		{
-			var dockerRequest = await SendRequest($"containers/json?all=true");
+			var dockerRequest = await SendRequest("containers/json?all=true");
 			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
 
 			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);

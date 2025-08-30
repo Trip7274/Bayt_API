@@ -25,9 +25,9 @@ public static class Docker
 			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
-		public static async Task UpdateData(bool getAllContainers = true)
+		public static async Task UpdateData()
 		{
-			var dockerRequest = await SendRequest($"containers/json?all={getAllContainers}");
+			var dockerRequest = await SendRequest($"containers/json?all=true");
 			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
 
 			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);
@@ -40,17 +40,20 @@ public static class Docker
 			LastUpdate = DateTime.Now;
 		}
 
-		public static async Task UpdateDataIfNecessary(bool getAllContainers = true)
+		public static async Task UpdateDataIfNecessary()
 		{
 			if (!ShouldUpdate) return;
 
-			await UpdateData(getAllContainers);
+			await UpdateData();
 		}
 
-		public static Dictionary<string, dynamic?>[] ToDictionary()
+		public static Dictionary<string, dynamic?>[] ToDictionary(bool getAllContainers = true)
 		{
 			List<Dictionary<string, dynamic?>> containersList = [];
-			containersList.AddRange(Containers.Select(container => container.ToDictionary()));
+			containersList.AddRange(getAllContainers
+				? Containers.Select(container => container.ToDictionary())
+				: Containers.Where(container => container.State == "running")
+					.Select(container => container.ToDictionary()));
 
 			return containersList.ToArray();
 		}

@@ -589,17 +589,12 @@ app.MapGet($"{baseDockerUrl}/getContainers", async (bool all = true) =>
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	await Docker.DockerContainers.UpdateDataIfNecessary();
 
-	Dictionary<string, Dictionary<string, dynamic?>[]> containerDict = new()
-	{
-		{ "Containers", Docker.DockerContainers.ToDictionary() }
-	};
 
-
-	return Results.Json(containerDict);
+	return Results.Json(Docker.DockerContainers.ToDictionary(all));
 
 }).Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status200OK)
-	.WithSummary("Fetch the currently active containers in the system.")
+	.WithSummary("Fetch all or only the currently active containers in the system.")
 	.WithTags("Docker")
 	.WithName("GetDockerContainers");
 

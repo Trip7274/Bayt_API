@@ -9,6 +9,7 @@ namespace Bayt_API;
 public static class Docker
 {
 	public static bool IsDockerAvailable => File.Exists("/var/run/docker.sock") && ApiConfig.ApiConfiguration.DockerIntegrationEnabled;
+	private const string GenericIconLink = "https://api.iconify.design/mdi/cube-outline.svg";
 
 	public static class DockerContainers
 	{
@@ -58,6 +59,20 @@ public static class Docker
 			return containersList.ToArray();
 		}
 
+		public static Dictionary<string, string?> GetDefaultMetadata()
+		{
+			return new()
+			{
+				{ "_comment", "This file indicates that this container is managed by Bayt and contains some details about the container. You are free to edit or delete it. It is okay for some to be null." },
+				{ "_types", "All of the keys are strings that can be null. (string? type)" },
+
+				{ nameof(DockerContainer.PrettyName), null },
+				{ nameof(DockerContainer.Note), null },
+				{ nameof(DockerContainer.PreferredIconLink), null },
+				{ nameof(DockerContainer.WebpageLink), null }
+			};
+		}
+
 		public static List<DockerContainer> Containers { get; } = [];
 
 		/// <summary>
@@ -76,6 +91,8 @@ public static class Docker
 	{
 		public DockerContainer(JsonElement dockerOutput)
 		{
+			Id = dockerOutput.GetProperty(nameof(Id)).GetString() ?? throw new ArgumentException("Docker container ID is null.");
+
 			var labelsElement = dockerOutput.GetProperty("Labels");
 
 			if (labelsElement.TryGetProperty("com.docker.compose.project.config_files", out var composePath) && File.Exists(composePath.GetString()))
@@ -90,16 +107,14 @@ public static class Docker
 			{
 				IsCompose = true;
 				var composeDirectory = Path.GetDirectoryName(ComposePath);
-				IsManaged = composeDirectory is not null && File.Exists(Path.Combine(composeDirectory, ".BaytMetadata"));
+				IsManaged = composeDirectory is not null && File.Exists(Path.Combine(composeDirectory, ".BaytMetadata.json"));
 			}
 
-			GetContainerMetadata();
+			FillContainerMetadata();
 			GetContainerNames(dockerOutput, labelsElement);
 			GetContainerDescription(labelsElement);
 			GetContainerHrefs(labelsElement);
 			GetIconUrls(labelsElement);
-
-			Id = dockerOutput.GetProperty(nameof(Id)).GetString() ?? throw new ArgumentException("Docker container ID is null.");
 
 			Image = dockerOutput.GetProperty(nameof(Image)).GetString() ?? throw new ArgumentException("Docker container image is null.");
 			ImageID = dockerOutput.GetProperty(nameof(ImageID)).GetString() ?? throw new ArgumentException("Docker container image ID is null.");
@@ -174,8 +189,8 @@ public static class Docker
 				{ nameof(PortBindings), portBindings },
 				{ nameof(MountBindings), mountBindings },
 
-				{ nameof(Notes), Notes },
-				{ nameof(ContainerWebpageLinks), ContainerWebpageLinks },
+				{ nameof(Note), Note },
+				{ nameof(WebpageLink), WebpageLink },
 
 				{ nameof(DockerContainers.LastUpdate), DockerContainers.LastUpdate.ToUniversalTime() }
 			};
@@ -183,22 +198,25 @@ public static class Docker
 
 		private void GetIconUrls(JsonElement labelsElement)
 		{
-			if (IsManaged && IconUrl is not null) IconUrls.Add(IconUrl);
+			List<string> iconUrls = [];
 			if (labelsElement.TryGetProperty("bayt.icon", out var iconElement))
 			{
 				var baytIconUrl = iconElement.GetString();
-				if (baytIconUrl is not null) IconUrls.Add(GetUrlFromRepos(baytIconUrl));
+				if (baytIconUrl is not null) iconUrls.Add(GetUrlFromRepos(baytIconUrl));
 			}
 			if (labelsElement.TryGetProperty("glance.icon", out iconElement))
 			{
 				var glanceIconUrl = iconElement.GetString();
-				if (glanceIconUrl is not null) IconUrls.Add(GetUrlFromRepos(glanceIconUrl));
+				if (glanceIconUrl is not null) iconUrls.Add(GetUrlFromRepos(glanceIconUrl));
 			}
 			if (labelsElement.TryGetProperty("com.docker.desktop.extension.icon", out iconElement))
 			{
 				var desktopIconUrl = iconElement.GetString();
-				if (desktopIconUrl is not null) IconUrls.Add(GetUrlFromRepos(desktopIconUrl));
+				if (desktopIconUrl is not null) iconUrls.Add(GetUrlFromRepos(desktopIconUrl));
 			}
+
+			if (iconUrls.Count == 0 || PreferredIconLink != GenericIconLink) IconUrls.Add(PreferredIconLink);
+			IconUrls.AddRange(iconUrls);
 
 			return;
 
@@ -301,18 +319,15 @@ public static class Docker
 		}
 		private void GetContainerHrefs(JsonElement labelsElement)
 		{
+			if (IsManaged && WebpageLink is not null) return;
 			foreach (var labelKvp in labelsElement.EnumerateObject())
 			{
-				switch (labelKvp.Name)
+				WebpageLink = labelKvp.Name switch
 				{
-					case "bayt.url":
-					case "glance.url":
-					case "homepage.instance.internal.href":
-						ContainerWebpageLinks.Add(labelKvp.Value.GetString()!);
-						break;
-				}
+					"bayt.url" or "glance.url" or "homepage.instance.internal.href" => labelKvp.Value.GetString(),
+					_ => WebpageLink
+				};
 			}
-			ContainerWebpageLinks = ContainerWebpageLinks.Distinct().ToList();
 		}
 		private void GetContainerDescription(JsonElement labelsElement)
 		{
@@ -327,47 +342,82 @@ public static class Docker
 			}
 		}
 
-		private void GetContainerMetadata()
+		private void FillContainerMetadata()
 		{
-			if (!IsManaged || ComposePath is null) return;
+			if (!IsManaged) return;
+			string composeMetadataPath = Path.Combine(Path.GetDirectoryName(ComposePath) ?? "/", ".BaytMetadata.json");
 
-			string composeMetadataFile = Path.Combine(Path.GetDirectoryName(ComposePath) ?? "/", ".BaytMetadata");
-			if (!File.Exists(composeMetadataFile)) return;
-			var lines = File.ReadAllLines(composeMetadataFile).ToList();
+			var currentMetadata = JsonSerializer.Deserialize<Dictionary<string, string?>>(File.ReadAllText(composeMetadataPath))
+			                      ?? throw new Exception("Failed to deserialize metadata file. Please make sure it is valid JSON.");
 
-			var prettyNameLine = lines.FirstOrDefault(line => line.StartsWith("Pretty name"));
-			PrettyName = ExtractProp(prettyNameLine);
-
-			var notesLine = lines.FirstOrDefault(line => line.StartsWith("Notes"));
-			Notes = ExtractProp(notesLine);
-
-			var iconUrlLine = lines.FirstOrDefault(line => line.StartsWith("Icon URL"));
-			IconUrl = ExtractProp(iconUrlLine);
-
-			var containerWebpageLinkLine = lines.FirstOrDefault(line => line.StartsWith("Webpage URL"));
-			var containerWebpageLink = ExtractProp(containerWebpageLinkLine);
-			if (containerWebpageLink is not null) ContainerWebpageLinks.Add(containerWebpageLink);
-
-			return;
-
-			static string? ExtractProp(string? line)
+			try
 			{
-				if (line is null || line.Length == 0 || !line.Contains(':') || !line.Contains('"')) return null;
-
-				var colonIndex = line.IndexOf(':');
-				var firstIndex = line.IndexOf('"');
-				var lastIndex = line.LastIndexOf('"');
-
-				// Make sure that the order is at least: '${key}: "${value}"'
-				if (colonIndex > firstIndex || colonIndex > lastIndex
-				                             || lastIndex < firstIndex
-				                             || string.IsNullOrWhiteSpace(line[(firstIndex + 1)..lastIndex]))
-				{
-					return null;
-				}
-
-				return line[(firstIndex + 1)..lastIndex];
+				PrettyName = currentMetadata[nameof(PrettyName)];
+				Note = currentMetadata[nameof(Note)];
+				PreferredIconLink = currentMetadata[nameof(PreferredIconLink)] ?? PreferredIconLink;
+				WebpageLink = currentMetadata[nameof(WebpageLink)];
 			}
+			catch (KeyNotFoundException e)
+			{
+				Console.ForegroundColor = ConsoleColor.Red;
+				Console.WriteLine("[ERROR] Couldn't process the metadata file for a Docker container. Please make sure it is valid JSON and contains all the required keys.");
+				Console.WriteLine($"\tContainer ID: {Id}");
+				Console.WriteLine($"\tError message: {e.Message}");
+				Console.WriteLine($"\tMetadata File: {composeMetadataPath}");
+				Console.ResetColor();
+			}
+		}
+
+		public static readonly List<string> SupportedLabels = [nameof(PrettyName), nameof(Note), nameof(PreferredIconLink), nameof(WebpageLink)];
+		public async Task<bool> SetContainerMetadata(Dictionary<string, string?> props)
+		{
+			if (!IsManaged) return false;
+			bool changedAnything = false;
+
+			string composeMetadataFile = Path.Combine(Path.GetDirectoryName(ComposePath) ?? "/", ".BaytMetadata.json");
+			await using var composeMetadataFileStream = File.Open(composeMetadataFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+			var currentMetadata = await JsonSerializer.DeserializeAsync<Dictionary<string, string?>>(composeMetadataFileStream) ?? throw new Exception("Failed to deserialize metadata file. Please make sure it is valid JSON.");
+			foreach (var prop in props.Where(prop => SupportedLabels.Contains(prop.Key)))
+			{
+				switch (prop.Key)
+				{
+					case nameof(PrettyName):
+					{
+						PrettyName = prop.Value;
+						currentMetadata[nameof(PrettyName)] = prop.Value;
+						changedAnything = true;
+						break;
+					}
+					case nameof(Note):
+					{
+						Note = prop.Value;
+						currentMetadata[nameof(Note)] = prop.Value;
+						changedAnything = true;
+						break;
+					}
+					case nameof(PreferredIconLink):
+					{
+						PreferredIconLink = prop.Value ?? GenericIconLink;
+						currentMetadata[nameof(PreferredIconLink)] = prop.Value;
+						changedAnything = true;
+						break;
+					}
+					case nameof(WebpageLink):
+					{
+						WebpageLink = prop.Value;
+						currentMetadata[nameof(WebpageLink)] = prop.Value;
+						changedAnything = true;
+						break;
+					}
+				}
+			}
+
+			if (!changedAnything) return false;
+
+			composeMetadataFileStream.SetLength(0);
+			await JsonSerializer.SerializeAsync(composeMetadataFileStream, currentMetadata, ApiConfig.BaytJsonSerializerOptions);
+			return true;
 		}
 
 		public string Id { get; }
@@ -403,9 +453,9 @@ public static class Docker
 		public ContainerStats Stats => new(Id);
 
 		public string? PrettyName { get; private set; }
-		public string? Notes { get; private set; }
-		public string? IconUrl { get; private set; }
-		public List<string> ContainerWebpageLinks { get; private set; } = [];
+		public string? Note { get; private set; }
+		public string PreferredIconLink { get; private set; } = GenericIconLink;
+		public string? WebpageLink { get; private set; }
 	}
 
 	public sealed class ContainerStats

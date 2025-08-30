@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using Bayt_API;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -900,16 +902,8 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 	.WithName("SetDockerContainerCompose");
 
 app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
-	{
-		const string defaultFlagContents = """
-		                                   This file indicates that this container is managed by Bayt. You are free to edit or delete it.
-		                                   This header is used by Bayt to determine a few details about the container. It's okay for some to be empty.
-
-		                                   Pretty name: ""
-		                                   Notes: ""
-		                                   Icon URL: ""
-		                                   Preferred Service URL: ""
-		                                   """;
+{
+	var defaultSidecarContents = JsonSerializer.Serialize(Docker.DockerContainers.GetDefaultMetadata(), ApiConfig.BaytJsonSerializerOptions);
 
 	try
 	{
@@ -938,7 +932,7 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 	if (targetContainer.IsManaged) return Results.StatusCode(StatusCodes.Status304NotModified);
 
 	var composeDir = Path.GetDirectoryName(targetContainer.ComposePath) ?? "/";
-	File.WriteAllText(Path.Combine(composeDir, ".BaytMetadata"), defaultFlagContents);
+	File.WriteAllText(Path.Combine(composeDir, ".BaytMetadata.json"), defaultSidecarContents);
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
@@ -980,7 +974,7 @@ app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 	if (!targetContainer.IsManaged) return Results.StatusCode(StatusCodes.Status304NotModified);
 
 	var composeDir = Path.GetDirectoryName(targetContainer.ComposePath) ?? "/";
-	File.Delete(Path.Combine(composeDir, ".BaytMetadata"));
+	File.Delete(Path.Combine(composeDir, ".BaytMetadata.json"));
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
@@ -1063,15 +1057,9 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 		return Results.StatusCode(StatusCodes.Status411LengthRequired);
 	}
 
-	var defaultComposeSidecarContent = $"""
-	                            This file indicates that this container is managed by Bayt. You are free to edit or delete it.
-	                            This header is used by Bayt to determine a few details about the container. It's okay for some to be empty.
-
-	                            Pretty name: "{containerName}"
-	                            Notes: ""
-	                            Icon URL: ""
-	                            Preferred Service URL: ""
-	                            """;
+	var defaultMetadata = Docker.DockerContainers.GetDefaultMetadata();
+	defaultMetadata[nameof(Docker.DockerContainer.PrettyName)] = containerName;
+	var defaultComposeSidecarContent = JsonSerializer.Serialize(defaultMetadata, ApiConfig.BaytJsonSerializerOptions);
 
 	var containerExists = Directory.EnumerateDirectories(ApiConfig.ApiConfiguration.PathToComposeFolder).Any(directory => Path.GetFileNameWithoutExtension(directory) == containerNameSlug);
 	if (containerExists) return Results.Conflict($"A container with the name '{containerNameSlug}' already exists.");
@@ -1079,7 +1067,7 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 	var composePath = Path.Combine(ApiConfig.ApiConfiguration.PathToComposeFolder, containerNameSlug);
 	Directory.CreateDirectory(composePath);
 
-	await File.WriteAllTextAsync(Path.Combine(composePath, ".BaytMetadata"), defaultComposeSidecarContent);
+	await File.WriteAllTextAsync(Path.Combine(composePath, ".BaytMetadata.json"), defaultComposeSidecarContent);
 	await using (var fileStream = new FileStream(Path.Combine(composePath, "docker-compose.yml"), FileMode.Create, FileAccess.Write,
 		             FileShare.None))
 	{
@@ -1104,9 +1092,42 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 	.WithTags("Docker")
 	.WithName("CreateDockerContainer");
 
+app.MapPost($"{baseDockerUrl}/setContainerMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
+{
+	try
+	{
+		await RequestChecking.ValidateDockerRequest(containerId);
+	}
+	catch (ArgumentException e)
+	{
+		return Results.BadRequest(e.Message);
+	}
+	catch (FileNotFoundException e)
+	{
+		return Results.InternalServerError(e.Message);
+	}
+	metadata = metadata.Where(pair => Docker.DockerContainer.SupportedLabels.Contains(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
+	if (metadata.Count == 0) return Results.BadRequest("No valid properties were provided. Please include one of: PrettyName, Notes, PreferredIconUrl, or WebpageLink");
+
+	var targetContainer = Docker.DockerContainers.Containers.First(container => container.Id.StartsWith(containerId));
+	if (!targetContainer.IsManaged) return Results.BadRequest("This container is not managed by Bayt.");
+
+	bool changesMade = await targetContainer.SetContainerMetadata(metadata);
+
+	return changesMade ? Results.NoContent() : Results.StatusCode(StatusCodes.Status304NotModified);
+
+}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status304NotModified)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Set the metadata of a Docker container, such as PrettyName, Notes, PreferredIconUrl, or WebpageLink.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID. A dictionary<string, string> object is expected in the body in the format: ({ 'metadataKey': 'metadataValue' })")
+	.WithTags("Docker")
+	.WithName("SetDockerContainerMetadata");
+
+if (Docker.IsDockerAvailable) Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
-	if (Docker.IsDockerAvailable) Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
 	Console.WriteLine("[INFO] Skipping first fetch cycle. This may cause the first request to be slow.");
 }
 else
@@ -1121,7 +1142,6 @@ else
 
 	if (Docker.IsDockerAvailable)
 	{
-		Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
 		fetchTasks.Add(Task.Run(Docker.DockerContainers.UpdateDataIfNecessary));
 	}
 

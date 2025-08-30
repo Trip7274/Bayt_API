@@ -90,6 +90,13 @@ public static class ApiConfig
 
 	// Config management
 
+	public static readonly JsonSerializerOptions BaytJsonSerializerOptions = new()
+	{
+		WriteIndented = true,
+		IndentCharacter = '\t',
+		IndentSize = 1
+	};
+
 	/// <summary>
 	/// A unified class to access and modify all the API's configuration properties.
 	/// </summary>
@@ -206,7 +213,7 @@ public static class ApiConfig
 		/// </summary>
 		private static void SaveConfig()
 		{
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(ToDictionary()));
+			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(ToDictionary(), BaytJsonSerializerOptions));
 		}
 
 		/// <summary>

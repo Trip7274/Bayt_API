@@ -1122,7 +1122,7 @@ else
 	if (Docker.IsDockerAvailable)
 	{
 		Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
-		fetchTasks.Add(Task.Run(() => Docker.DockerContainers.UpdateDataIfNecessary()));
+		fetchTasks.Add(Task.Run(Docker.DockerContainers.UpdateDataIfNecessary));
 	}
 
 	Console.WriteLine("[INFO] Preparing a few things...");

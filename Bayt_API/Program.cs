@@ -1099,12 +1099,15 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 	return composeShell.Success ? Results.NoContent() : Results.InternalServerError($"Non-zero exit code from starting the container. " +
 		$"Stdout: {composeShell.StandardOutput} " +
 		$"Stderr: {composeShell.StandardError}");
-});
-
-app.MapGet($"{baseDockerUrl}/getBaytContainters", () =>
-{
-	return Results.Text(string.Join('\n', Directory.EnumerateDirectories(ApiConfig.ApiConfiguration.PathToComposeFolder)));
-});
+}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status409Conflict)
+	.Produces(StatusCodes.Status411LengthRequired)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Create a new Docker container from a compose file. Optionally also start it.")
+	.WithDescription("containerName is required and must contain at least one ASCII character. startContainer defaults to false. The compose file is expected to be in the body of the request.")
+	.WithTags("Docker")
+	.WithName("CreateDockerContainer");
 
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {

@@ -59,17 +59,17 @@ public static class Docker
 			return containersList.ToArray();
 		}
 
-		public static Dictionary<string, string?> GetDefaultMetadata()
+		public static Dictionary<string, string?> GetDefaultMetadata(string? prettyName = null, string? note = null, string? preferredIconLink = null, string? webpageLink = null)
 		{
 			return new()
 			{
 				{ "_comment", "This file indicates that this container is managed by Bayt and contains some details about the container. You are free to edit or delete it. It is okay for some to be null." },
 				{ "_types", "All of the keys are strings that can be null. (string? type)" },
 
-				{ nameof(DockerContainer.PrettyName), null },
-				{ nameof(DockerContainer.Note), null },
-				{ nameof(DockerContainer.PreferredIconLink), null },
-				{ nameof(DockerContainer.WebpageLink), null }
+				{ nameof(DockerContainer.PrettyName), prettyName },
+				{ nameof(DockerContainer.Note), note },
+				{ nameof(DockerContainer.PreferredIconLink), preferredIconLink },
+				{ nameof(DockerContainer.WebpageLink), webpageLink }
 			};
 		}
 

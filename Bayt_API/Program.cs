@@ -1057,8 +1057,7 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 		return Results.StatusCode(StatusCodes.Status411LengthRequired);
 	}
 
-	var defaultMetadata = Docker.DockerContainers.GetDefaultMetadata();
-	defaultMetadata[nameof(Docker.DockerContainer.PrettyName)] = containerName;
+	var defaultMetadata = Docker.DockerContainers.GetDefaultMetadata(containerName);
 	var defaultComposeSidecarContent = JsonSerializer.Serialize(defaultMetadata, ApiConfig.BaytJsonSerializerOptions);
 
 	var containerExists = Directory.EnumerateDirectories(ApiConfig.ApiConfiguration.PathToComposeFolder).Any(directory => Path.GetFileNameWithoutExtension(directory) == containerNameSlug);

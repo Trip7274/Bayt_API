@@ -116,10 +116,6 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 					fetchTasks.Add(Task.Run(DiskHandling.FullDisksData.UpdateDataIfNecessary));
 					break;
 				}
-				default:
-				{
-					throw new ArgumentOutOfRangeException(stat.ToString());
-				}
 			}
 		}
 		await Task.WhenAll(fetchTasks);

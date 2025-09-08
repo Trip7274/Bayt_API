@@ -943,9 +943,10 @@ app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("GetDockerContainerStats");
 
-app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, string? containerName, bool startContainer = false) =>
+app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, string? containerName, bool startContainer = true, bool deleteIfFailed = true) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
+
 	var containerNameSlug = ParsingMethods.ConvertTextToSlug(containerName);
 	if (string.IsNullOrWhiteSpace(containerNameSlug)) return Results.BadRequest($"{nameof(containerName)} is required and must contain at least one ASCII character.");
 	if (!context.Request.Headers.ContentEncoding.Contains("chunked") && context.Request.ContentLength is null or 0)
@@ -963,7 +964,8 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 	Directory.CreateDirectory(composePath);
 
 	await File.WriteAllTextAsync(Path.Combine(composePath, ".BaytMetadata.json"), defaultComposeSidecarContent);
-	await using (var fileStream = new FileStream(Path.Combine(composePath, "docker-compose.yml"), FileMode.Create, FileAccess.Write,
+	string yamlFilePath = Path.Combine(composePath, "docker-compose.yml");
+	await using (var fileStream = new FileStream(yamlFilePath, FileMode.Create, FileAccess.Write,
 		             FileShare.None))
 	{
 		await context.Request.Body.CopyToAsync(fileStream);
@@ -971,19 +973,36 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 
 	if (!startContainer) return Results.NoContent();
 
+	var composeShell = ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} up -d");
 
-	var composeShell = ShellMethods.RunShell("docker-compose", $"-f {composePath}/docker-compose.yml up -d");
+	if (!composeShell.Success && deleteIfFailed)
+	{
+		// In case the docker-compose file left any services running
+		ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} down");
+		ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} rm");
 
-	return composeShell.Success ? Results.NoContent() : Results.InternalServerError($"Non-zero exit code from starting the container. " +
-		$"Stdout: {composeShell.StandardOutput} " +
-		$"Stderr: {composeShell.StandardError}");
+		Directory.Delete(composePath, true);
+		return Results.InternalServerError($"Non-zero exit code from starting the container. Container was deleted. " +
+		                                   $"Stdout: {composeShell.StandardOutput} " +
+		                                   $"Stderr: {composeShell.StandardError}");
+	}
+	if (!composeShell.Success)
+	{
+		return Results.InternalServerError($"Non-zero exit code from starting the container. " +
+		                                   $"Stdout: {composeShell.StandardOutput} " +
+		                                   $"Stderr: {composeShell.StandardError}");
+	}
+
+	return Results.Text(yamlFilePath, "plain/text");
 }).Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status409Conflict)
 	.Produces(StatusCodes.Status411LengthRequired)
 	.Produces(StatusCodes.Status204NoContent)
-	.WithSummary("Create a new Docker container from a compose file. Optionally also start it.")
-	.WithDescription("containerName is required and must contain at least one ASCII character. startContainer defaults to false. The compose file is expected to be in the body of the request.")
+	.WithSummary("Create and optionally start a new Docker container from a compose file.")
+	.WithDescription("containerName is required and must contain at least one ASCII character. " +
+	                 "deleteIfFailed defaults to true and deletes the compose directory in case a non-zero exit code was reported by docker-compose. " +
+	                 "startContainer defaults to true The compose file is expected to be in the body of the request.")
 	.WithTags("Docker")
 	.WithName("CreateDockerContainer");
 

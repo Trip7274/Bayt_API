@@ -90,15 +90,13 @@ public class RequestCheckTests
 	{
 		if (!Docker.IsDockerAvailable) return; // It'd be annoying to *require* Docker just to pass tests.
 
-		await Assert.ThrowsAsync<ArgumentException>(() => RequestChecking.ValidateDockerRequest(null, false));
-		await Assert.ThrowsAsync<ArgumentException>(() => RequestChecking.ValidateDockerRequest("tooshort", false));
-		try
-		{
-			await RequestChecking.ValidateDockerRequest("iamastringmuchmuchlongerthan12characters", false);
-		}
-		catch (Exception e) when(e is not FileNotFoundException)
-		{
-			Assert.Fail($"ValidateDockerRequest threw an exception even when a valid string was given. ({e.Message})");
-		}
+		var nullValidationCheck = await RequestChecking.ValidateDockerRequest(null, false);
+		Assert.NotNull(nullValidationCheck);
+
+		var tooShortValidationCheck = await RequestChecking.ValidateDockerRequest("too short",false);
+		Assert.NotNull(tooShortValidationCheck);
+
+		var validValidationCheck = await RequestChecking.ValidateDockerRequest("i am a string much much longer than 12 characters", false);
+		Assert.Null(validValidationCheck);
 	}
 }

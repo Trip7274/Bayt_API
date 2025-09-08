@@ -44,32 +44,34 @@ public static class RequestChecking
 	/// <summary>
 	/// Ensures that the given container ID is not null, is longer than 12 characters, and Docker is available on this system. This is used to de-duplicate code from Docker endpoints.
 	/// </summary>
-	/// <param name="containerId">A potentially null string to ensure it's not null and >= 12 characters</param>
+	/// <param name="containerId">A potentially null string to ensure it's not null and is >= 12 characters</param>
 	/// <param name="updateContainers">Whether to update the <see cref="Docker.DockerContainers"/> list by using
 	/// <see cref="Docker.DockerContainers.UpdateDataIfNecessary"/>.</param>
-	/// <exception cref="ArgumentException">The provided string was either null or shorter than 12 characters.</exception>
-	/// <exception cref="FileNotFoundException">Docker is not available on this system.</exception>
+	/// <returns>
+	///	An IResult object if the request is invalid, otherwise null.
+	/// </returns>
 	/// <remarks>
-	///	The exception messages will have the appropriate user-facing error message.
+	///	The returned IResult should be returned to the user as it contains the appropriate status code and error message.
 	/// </remarks>
-	public static async Task ValidateDockerRequest([NotNull] string? containerId, bool updateContainers = true)
+	public static async Task<IResult?> ValidateDockerRequest([NotNull] string? containerId, bool updateContainers = true)
 	{
 		if (containerId is null)
 		{
-			throw new ArgumentException("Container ID must not be null.", nameof(containerId));
+			containerId = "123456789012"; // To satisfy the compiler
+			return Results.BadRequest("Container ID must not be null.");
 		}
 
 		if (containerId.Length < 12)
 		{
-			throw new ArgumentException("Container ID must be at least 12 characters long.", nameof(containerId));
+			return Results.BadRequest("Container ID must be at least 12 characters long.");
 		}
 
 		if (!Docker.IsDockerAvailable)
 		{
-			throw new FileNotFoundException("Docker is not available on this system.");
+			return Results.InternalServerError("Docker is not available on this system.");
 		}
 
-		if (!updateContainers) return;
-		await Docker.DockerContainers.UpdateDataIfNecessary();
+		if (updateContainers) await Docker.DockerContainers.UpdateDataIfNecessary();
+		return null;
 	}
 }

@@ -598,18 +598,8 @@ app.MapGet($"{baseDockerUrl}/getContainers", async (bool all = true) =>
 
 app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 {
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId, false);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	if (requestValidation is not null) return requestValidation;
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/start", "POST");
 
@@ -635,18 +625,8 @@ app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 
 app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 {
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId, false);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	if (requestValidation is not null) return requestValidation;
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/stop", "POST");
 
@@ -672,18 +652,8 @@ app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 
 app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
 {
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId, false);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	if (requestValidation is not null) return requestValidation;
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
 
@@ -707,18 +677,8 @@ app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
 
 app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
 {
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId, false);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	if (requestValidation is not null) return requestValidation;
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/kill", "POST");
 
@@ -744,18 +704,8 @@ app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
 
 app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string? containerId) =>
 {
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId, false);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	if (requestValidation is not null) return requestValidation;
 
 	var dockerRequest = await Docker.SendRequest($"containers/{containerId}", "DELETE");
 
@@ -793,18 +743,8 @@ app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs)
 
 app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =>
 {
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	if (requestValidation is not null) return requestValidation;
 
 	Docker.DockerContainer targetContainer;
 	try
@@ -835,18 +775,8 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
 {
 	// Request validation
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	if (requestValidation is not null) return requestValidation;
 
 	if (!context.Request.Headers.ContentEncoding.Contains("chunked") && context.Request.ContentLength is null or 0)
 	{
@@ -899,20 +829,10 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 
 app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 {
-	var defaultSidecarContents = JsonSerializer.Serialize(Docker.DockerContainers.GetDefaultMetadata(), ApiConfig.BaytJsonSerializerOptions);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	if (requestValidation is not null) return requestValidation;
 
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var defaultSidecarContents = JsonSerializer.Serialize(Docker.DockerContainers.GetDefaultMetadata(), ApiConfig.BaytJsonSerializerOptions);
 
 	Docker.DockerContainer targetContainer;
 	try
@@ -943,18 +863,8 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 
 app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 {
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	if (requestValidation is not null) return requestValidation;
 
 	Docker.DockerContainer targetContainer;
 	try
@@ -1008,18 +918,8 @@ app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
 
 app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 {
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	if (requestValidation is not null) return requestValidation;
 
 	Docker.DockerContainer targetContainer;
 	try
@@ -1089,18 +989,9 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 
 app.MapPost($"{baseDockerUrl}/setContainerMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
 {
-	try
-	{
-		await RequestChecking.ValidateDockerRequest(containerId);
-	}
-	catch (ArgumentException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	catch (FileNotFoundException e)
-	{
-		return Results.InternalServerError(e.Message);
-	}
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	if (requestValidation is not null) return requestValidation;
+
 	metadata = metadata.Where(pair => Docker.DockerContainer.SupportedLabels.Contains(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
 	if (metadata.Count == 0) return Results.BadRequest("No valid properties were provided. Please include one of: PrettyName, Notes, PreferredIconUrl, or WebpageLink");
 

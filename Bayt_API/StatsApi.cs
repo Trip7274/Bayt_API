@@ -17,7 +17,7 @@ public static class StatsApi
 	{
 		static GeneralSpecs()
 		{
-			HostName = ShellMethods.RunShell("uname", "-n").StandardOutput;
+			HostName = ShellMethods.RunShell("hostname").StandardOutput;
 			DistroName = ShellMethods
 				.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", "Distro.Name").StandardOutput;
 			KernelName = ShellMethods.RunShell("uname", "-s").StandardOutput;

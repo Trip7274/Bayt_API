@@ -36,7 +36,7 @@ please do help out if you have the experience!)
 - *Do feel free to suggest some more features!*
 
 ## Architecture
-Bayt uses simple scripts to fetch system information, thus allowing you to modify its implementations to suit your system without knowing C#.
+Bayt uses simple scripts (located in `Bayt_API/scripts/`) to fetch system information, thus allowing you to modify its implementations to suit your system without knowing C#.
 The scripts can be written in any language that can be invoked using a shebang. More details on the specific format of I/O can be found in the script headers.
 
 ## Dependencies

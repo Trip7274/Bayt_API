@@ -32,7 +32,7 @@ PCIID="$2"
 # "VideoEnhance" Engine Util (%) = utilization.videoenhance (Intel)
 # Video Encoder/Decoder Frequency (MHz) = clocks.current.video (NVIDIA)
 #
-# Power draw (W) = power.draw (NVIDIA, Intel, AMD)
+# Power draw (W) = power.draw (NVIDIA, Intel, AMD [dGPU only, otherwise CPU draw])
 # Temperature (C) = temperature.gpu (NVIDIA, AMD)
 # Fan Speed (RPM) = fan.speed (AMD)
 
@@ -249,7 +249,11 @@ getAmd() {
             ;;
 
             "power.draw")
-                echo "$OUTPUT" | jq '.[0]["Sensors"]["Average Power"]["value"]'
+                possiblePower=$(echo "$OUTPUT" | jq '.[0]["Sensors"]["Average Power"]["value"]')
+            if [[ $possiblePower == "null" ]]; then
+            	possiblePower=$(echo "$OUTPUT" | jq '.[0]["Sensors"]["Input Power"]["value"]')
+            fi
+            echo "$possiblePower"
             ;;
 
         	"temperature.gpu")

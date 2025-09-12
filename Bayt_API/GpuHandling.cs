@@ -106,6 +106,9 @@ public static class GpuHandling
 		/// <summary>
 		/// Average power usage of the whole GPU device. Unit is Watts.
 		/// </summary>
+		/// <remarks>
+		///	In the case of an AMD iGPU, this will be the power consumption of the entire CPU die.
+		/// </remarks>
 		public float? PowerUse { get; private set; }
 		/// <summary>
 		/// Average temperature of the GPU die. Unit is in Celsius.

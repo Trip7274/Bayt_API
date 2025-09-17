@@ -25,9 +25,9 @@ public static class ApiConfig
 	/// </summary>
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	/// <summary>
-	/// Network port to expose the API on.
+	/// Network port to expose the API on. Tries to use the env var <c>BAYT_NETWORK_PORT</c> first, then falls back to 5899.
 	/// </summary>
-	public const ushort NetworkPort = 5899;
+	public static readonly ushort NetworkPort = (ushort) (ushort.TryParse(Environment.GetEnvironmentVariable("BAYT_NETWORK_PORT"), out var port) ? port : 5899);
 
 
 	/// <summary>

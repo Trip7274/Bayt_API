@@ -85,7 +85,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 
 		// Request checks done
 
-		Dictionary<string, Dictionary<string, dynamic>[]> responseDictionary = [];
+		Dictionary<string, Dictionary<string, dynamic?>[]> responseDictionary = [];
 
 		// Queue and update all the requested stats up asynchronously
 		List<Task> fetchTasks = [];
@@ -128,7 +128,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 				case ApiConfig.SystemStats.Meta:
 				{
 					responseDictionary.Add("Meta", [
-						new Dictionary<string, dynamic>
+						new Dictionary<string, dynamic?>
 						{
 							{ nameof(ApiConfig.Version), ApiConfig.Version },
 							{ nameof(ApiConfig.ApiVersion), ApiConfig.ApiVersion },
@@ -142,31 +142,31 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 
 				case ApiConfig.SystemStats.System:
 				{
-					responseDictionary.Add("System", [ StatsApi.GeneralSpecs.ToDictionary() ]);
+					responseDictionary.Add("System", [ StatsApi.GeneralSpecs.ToDictionary()! ]);
 					break;
 				}
 
 				case ApiConfig.SystemStats.Cpu:
 				{
-					responseDictionary.Add("CPU", [ StatsApi.CpuData.ToDictionary()! ]);
+					responseDictionary.Add("CPU", [ StatsApi.CpuData.ToDictionary() ]);
 					break;
 				}
 
 				case ApiConfig.SystemStats.Gpu:
 				{
-					responseDictionary.Add("GPU", GpuHandling.FullGpusData.ToDictionary()!);
+					responseDictionary.Add("GPU", GpuHandling.FullGpusData.ToDictionary());
 					break;
 				}
 
 				case ApiConfig.SystemStats.Memory:
 				{
-					responseDictionary.Add("Memory", [ StatsApi.MemoryData.ToDictionary() ]);
+					responseDictionary.Add("Memory", [ StatsApi.MemoryData.ToDictionary()! ]);
 					break;
 				}
 
 				case ApiConfig.SystemStats.Mounts:
 				{
-					responseDictionary.Add("Mounts", DiskHandling.FullDisksData.ToDictionary()!);
+					responseDictionary.Add("Mounts", DiskHandling.FullDisksData.ToDictionary());
 					break;
 				}
 				default:

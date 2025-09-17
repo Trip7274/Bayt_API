@@ -133,8 +133,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 							{ nameof(ApiConfig.Version), ApiConfig.Version },
 							{ nameof(ApiConfig.ApiVersion), ApiConfig.ApiVersion },
 							{ nameof(ApiConfig.ApiConfiguration.SecondsToUpdate),
-								ApiConfig.ApiConfiguration.SecondsToUpdate },
-							{ nameof(Docker.IsDockerAvailable), Docker.IsDockerAvailable }
+								ApiConfig.ApiConfiguration.SecondsToUpdate }
 						}
 					]);
 					break;
@@ -743,7 +742,7 @@ app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs)
 
 app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
 
 	Docker.DockerContainer targetContainer;
@@ -775,7 +774,7 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
 {
 	// Request validation
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
 
 	if (!context.Request.Headers.ContentEncoding.Contains("chunked") && context.Request.ContentLength is null or 0)
@@ -829,7 +828,7 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 
 app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
 
 	var defaultSidecarContents = JsonSerializer.Serialize(Docker.DockerContainers.GetDefaultMetadata(), ApiConfig.BaytJsonSerializerOptions);
@@ -863,7 +862,7 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 
 app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
 
 	Docker.DockerContainer targetContainer;
@@ -946,6 +945,7 @@ app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, string? containerName, bool startContainer = true, bool deleteIfFailed = true) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
+	if (!Docker.IsDockerComposeAvailable) return Results.InternalServerError("Docker-Compose is not available on this system or the Docker integration was disabled.");
 
 	var containerNameSlug = ParsingMethods.ConvertTextToSlug(containerName);
 	if (string.IsNullOrWhiteSpace(containerNameSlug)) return Results.BadRequest($"{nameof(containerName)} is required and must contain at least one ASCII character.");
@@ -1008,7 +1008,7 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 
 app.MapPost($"{baseDockerUrl}/setContainerMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
 
 	metadata = metadata.Where(pair => Docker.DockerContainer.SupportedLabels.Contains(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
@@ -1031,6 +1031,7 @@ app.MapPost($"{baseDockerUrl}/setContainerMetadata", async (string? containerId,
 	.WithName("SetDockerContainerMetadata");
 
 if (Docker.IsDockerAvailable) Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
+if (Docker.IsDockerComposeAvailable) Console.WriteLine("[INFO] Docker-Compose is available. Docker-Compose endpoints will be available.");
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
 	Console.WriteLine("[INFO] Skipping first fetch cycle. This may cause the first request to be slow.");

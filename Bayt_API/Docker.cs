@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -9,6 +10,37 @@ namespace Bayt_API;
 public static class Docker
 {
 	public static bool IsDockerAvailable => File.Exists("/var/run/docker.sock") && ApiConfig.ApiConfiguration.DockerIntegrationEnabled;
+
+	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
+	public static bool IsDockerComposeAvailable
+	{
+		get
+		{
+			if (!IsDockerAvailable) return false;
+
+			string[] pathsInPathEnv = Environment.GetEnvironmentVariable("PATH")!.Split(':');
+			string? composeBinPath = null;
+			foreach (var pathInEnv in pathsInPathEnv)
+			{
+				string[] dockerComposeBins;
+				try
+				{
+					dockerComposeBins = Directory.GetFiles(pathInEnv, "docker-compose", SearchOption.TopDirectoryOnly);
+				}
+				catch (DirectoryNotFoundException)
+				{
+					continue;
+				}
+				if (dockerComposeBins.Length == 0) continue;
+
+				composeBinPath = dockerComposeBins[0];
+			}
+
+			if (composeBinPath is null) return false;
+			return (File.GetUnixFileMode(composeBinPath) & UnixFileMode.UserExecute) != 0;
+		}
+	}
+
 	private const string GenericIconLink = "https://api.iconify.design/mdi/cube-outline.svg";
 
 	public static class DockerContainers

@@ -54,7 +54,9 @@ public static class StatsApi
 				{ nameof(DistroName), DistroName },
 				{ nameof(KernelName), KernelName },
 				{ nameof(KernelVersion), KernelVersion },
-				{ nameof(KernelArch), KernelArch }
+				{ nameof(KernelArch), KernelArch },
+				{ nameof(Docker.IsDockerAvailable), Docker.IsDockerAvailable },
+				{ nameof(Docker.IsDockerComposeAvailable), Docker.IsDockerComposeAvailable }
 			};
 		}
 	}

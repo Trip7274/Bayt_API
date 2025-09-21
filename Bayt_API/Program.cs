@@ -133,7 +133,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 							{ nameof(ApiConfig.Version), ApiConfig.Version },
 							{ nameof(ApiConfig.ApiVersion), ApiConfig.ApiVersion },
 							{ nameof(ApiConfig.ApiConfiguration.SecondsToUpdate),
-								ApiConfig.ApiConfiguration.SecondsToUpdate }
+								ApiConfig.ApiConfiguration.SecondsToUpdate },
+							{ "BaytUptime", ApiConfig.BaytStartStopwatch.Elapsed }
 						}
 					]);
 					break;

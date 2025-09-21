@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection.PortableExecutable;
 
 namespace Bayt_API;
 
@@ -10,8 +11,8 @@ public static class StatsApi
 {
 
 	/// <summary>
-	/// General specs include generally very static and general info about the system.
-	/// Essentially, if it takes at least a (system) restart to fully change it, and it's not inherent to Bayt, it's probably here.
+	/// General specs include generally static and general info about the system, or info about the system that's not inherent to Bayt.
+	/// Some of these *are* dynamic, but keep in mind that the constructor is only ran on start-up.
 	/// </summary>
 	public static class GeneralSpecs
 	{
@@ -46,6 +47,11 @@ public static class StatsApi
 		/// </summary>
 		public static string KernelArch { get; }
 
+		/// <summary>
+		/// The current system's uptime.
+		/// </summary>
+		public static TimeSpan SystemUptime => TimeSpan.FromMilliseconds(Environment.TickCount64);
+
 		public static Dictionary<string, dynamic> ToDictionary()
 		{
 			return new Dictionary<string, dynamic>
@@ -56,7 +62,8 @@ public static class StatsApi
 				{ nameof(KernelVersion), KernelVersion },
 				{ nameof(KernelArch), KernelArch },
 				{ nameof(Docker.IsDockerAvailable), Docker.IsDockerAvailable },
-				{ nameof(Docker.IsDockerComposeAvailable), Docker.IsDockerComposeAvailable }
+				{ nameof(Docker.IsDockerComposeAvailable), Docker.IsDockerComposeAvailable },
+				{ nameof(SystemUptime), SystemUptime }
 			};
 		}
 	}

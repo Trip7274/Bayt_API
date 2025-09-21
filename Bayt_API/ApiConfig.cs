@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -29,6 +30,12 @@ public static class ApiConfig
 	/// </summary>
 	public static readonly ushort NetworkPort = (ushort) (ushort.TryParse(Environment.GetEnvironmentVariable("BAYT_NETWORK_PORT"), out var port) ? port : 5899);
 
+	/// <summary>
+	/// A stopwatch used to track how long Bayt has been running for. Started on API startup
+	/// </summary>
+	public static readonly Stopwatch BaytStartStopwatch = Stopwatch.StartNew();
+
+	// Paths and config-specific stuff from here on out
 
 	/// <summary>
 	/// Abs. path to the Bayt binary's directory

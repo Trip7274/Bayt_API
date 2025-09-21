@@ -36,8 +36,7 @@ public static class Docker
 				composeBinPath = dockerComposeBins[0];
 			}
 
-			if (composeBinPath is null) return false;
-			return (File.GetUnixFileMode(composeBinPath) & UnixFileMode.UserExecute) != 0;
+			return composeBinPath is not null && (File.GetUnixFileMode(composeBinPath) & UnixFileMode.UserExecute) != 0;
 		}
 	}
 

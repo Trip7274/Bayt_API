@@ -137,7 +137,7 @@ public static class GpuHandling
 			}
 
 			var shellScriptProcess =
-					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {GpuId}", shellTimeout);
+					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {GpuId}", shellTimeout).Result;
 			string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
 
 			if (arrayOutput[1] == "null")
@@ -210,7 +210,7 @@ public static class GpuHandling
 	{
 		static FullGpusData()
 		{
-			GpuIdList = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", "gpu_ids").StandardOutput.TrimEnd('\n').Split('\n');
+			GpuIdList = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", "gpu_ids").Result.StandardOutput.TrimEnd('\n').Split('\n');
 
 			if (GpuIdList.Length == 0) return;
 
@@ -218,7 +218,6 @@ public static class GpuHandling
 			{
 				GpuDataList.Add(new GpuData(gpuId));
 			}
-			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
 		public static List<GpuData> GpuDataList { get; } = [];
@@ -232,6 +231,8 @@ public static class GpuHandling
 		/// </summary>
 		public static bool ShouldUpdate =>
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+
+		private static bool IsUpdating { get; set; } = false;
 
 		/// <summary>
 		/// Force-updates each entry in the <see cref="GpuDataList"/> property with the respective GPU's latest metrics.
@@ -256,7 +257,19 @@ public static class GpuHandling
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			if (ShouldUpdate) await UpdateData();
+			if (!ShouldUpdate) return;
+			if (IsUpdating)
+			{
+				while (IsUpdating)
+				{
+					await Task.Delay(100);
+				}
+				return;
+			}
+
+			IsUpdating = true;
+			await UpdateData();
+			IsUpdating = false;
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()

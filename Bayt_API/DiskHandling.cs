@@ -197,7 +197,6 @@ public static partial class DiskHandling
 			{
 				DiskDataList.Add(new DiskData(mountPoint.Key, mountPoint.Value, ScriptSupports));
 			}
-			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
 		public static void AddMount(string mountPoint, string mountName)
@@ -231,7 +230,19 @@ public static partial class DiskHandling
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			if (ShouldUpdate) await UpdateData();
+			if (!ShouldUpdate) return;
+			if (IsUpdating)
+			{
+				while (IsUpdating)
+				{
+					await Task.Delay(100);
+				}
+				return;
+			}
+
+			IsUpdating = true;
+			await UpdateData();
+			IsUpdating = false;
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()
@@ -283,6 +294,8 @@ public static partial class DiskHandling
 		}
 
 		private static readonly string[] ScriptSupports = ShellMethods.GetScriptSupports($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh");
+
+		private static bool IsUpdating { get; set; } = false;
 		public static List<DiskData> DiskDataList { get; private set; } = [];
 	}
 
@@ -325,8 +338,8 @@ public static partial class DiskHandling
 		if (scriptSupports.Contains(statName))
 		{
 			string scriptPath = $"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh";
-			var shellProcess = ShellMethods.RunShell(scriptPath, $"{statName} {devicePath}");
-			if (!shellProcess.Success)
+			var shellProcess = ShellMethods.RunShell(scriptPath, $"{statName} {devicePath}").Result;
+			if (!shellProcess.IsSuccess)
 			{
 				throw new Exception($"Error while running '{scriptPath} {statName}'! (code: {shellProcess.ExitCode})");
 			}
@@ -352,7 +365,7 @@ public static partial class DiskHandling
 	private static string GetDevicePath(string mountPoint)
 	{
 		var regexMatch = DevicePathAndFileSystemRegex()
-			.Match(ShellMethods.RunShell("df", $"{mountPoint} -T").StandardOutput);
+			.Match(ShellMethods.RunShell("df", $"{mountPoint} -T").Result.StandardOutput);
 
 		if (regexMatch.Groups.Count != 3) throw new Exception($"Error while parsing device path for '{mountPoint}'!");
 
@@ -370,7 +383,7 @@ public static partial class DiskHandling
 	private static string GetDeviceFileSystem(string mountPoint)
 	{
 		var regexMatch = DevicePathAndFileSystemRegex()
-			.Match(ShellMethods.RunShell("df", $"{mountPoint} -T").StandardOutput);
+			.Match(ShellMethods.RunShell("df", $"{mountPoint} -T").Result.StandardOutput);
 
 		if (regexMatch.Groups.Count != 3) throw new Exception($"Error while parsing device path for '{mountPoint}'!");
 

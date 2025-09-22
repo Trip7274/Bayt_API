@@ -536,12 +536,14 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =
 
 
 // Power endpoints
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", () =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", async () =>
 {
 	Console.WriteLine("[INFO] Recieved poweroff request, attempting to shut down...");
-	var operationShell = ShellMethods.RunShell("sudo", "-n /sbin/poweroff");
+	var operationShell = await ShellMethods.RunShell("sudo", "-n /sbin/poweroff");
 
-	if (operationShell.Success) return Results.NoContent();
+	// Realistically, execution shouldn't get this far.
+
+	if (operationShell.IsSuccess) return Results.NoContent();
 
 	Dictionary<string, string> errorMessage = new()
 	{
@@ -557,12 +559,12 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", () =>
 	.WithTags("Power")
 	.WithName("ShutdownServer");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", () =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", async () =>
 {
 	Console.WriteLine("[INFO] Recieved restart request, attempting to restart...");
-	var operationShell = ShellMethods.RunShell("sudo", "-n /sbin/reboot");
+	var operationShell = await ShellMethods.RunShell("sudo", "-n /sbin/reboot");
 
-	if (operationShell.Success) return Results.NoContent();
+	if (operationShell.IsSuccess) return Results.NoContent();
 
 	Dictionary<string, string> errorMessage = new()
 	{
@@ -974,20 +976,20 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 
 	if (!startContainer) return Results.NoContent();
 
-	var composeShell = ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} up -d");
+	var composeShell = await ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} up -d");
 
-	if (!composeShell.Success && deleteIfFailed)
+	if (!composeShell.IsSuccess && deleteIfFailed)
 	{
 		// In case the docker-compose file left any services running
-		ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} down");
-		ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} rm");
+		await ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} down");
+		await ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} rm");
 
 		Directory.Delete(composePath, true);
 		return Results.InternalServerError($"Non-zero exit code from starting the container. Container was deleted. " +
 		                                   $"Stdout: {composeShell.StandardOutput} " +
 		                                   $"Stderr: {composeShell.StandardError}");
 	}
-	if (!composeShell.Success)
+	if (!composeShell.IsSuccess)
 	{
 		return Results.InternalServerError($"Non-zero exit code from starting the container. " +
 		                                   $"Stdout: {composeShell.StandardOutput} " +

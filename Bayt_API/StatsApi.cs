@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection.PortableExecutable;
+using CliWrap;
+using CliWrap.Buffered;
 
 namespace Bayt_API;
 
@@ -18,12 +20,12 @@ public static class StatsApi
 	{
 		static GeneralSpecs()
 		{
-			HostName = ShellMethods.RunShell("hostname").StandardOutput;
+			HostName = Environment.MachineName;
 			DistroName = ShellMethods
-				.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", "Distro.Name").StandardOutput;
-			KernelName = ShellMethods.RunShell("uname", "-s").StandardOutput;
-			KernelVersion = ShellMethods.RunShell("uname", "-r").StandardOutput;
-			KernelArch = ShellMethods.RunShell("uname", "-m").StandardOutput;
+				.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", "Distro.Name").Result.StandardOutput;
+			KernelName = ShellMethods.RunShell("uname", "-s").Result.StandardOutput;
+			KernelVersion = ShellMethods.RunShell("uname", "-r").Result.StandardOutput;
+			KernelArch = ShellMethods.RunShell("uname", "-m").Result.StandardOutput;
 		}
 
 		/// <summary>
@@ -75,15 +77,12 @@ public static class StatsApi
 	{
 		static CpuData()
 		{
-			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "Name");
-			if (!rawOutput.Success)
+			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "Name").Result;
+			if (!rawOutput.IsSuccess)
 			{
 				throw new Exception($"Failed to get CPU name from getCpu.sh ({rawOutput.ExitCode}).");
 			}
 			Name = rawOutput.StandardOutput;
-
-			UpdateData();
-			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
 		/// <summary>
@@ -122,12 +121,27 @@ public static class StatsApi
 		/// </summary>
 		public static bool ShouldUpdate =>
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+
+		private static bool IsUpdating { get; set; } = false;
+
 		/// <summary>
 		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
 		/// </summary>
-		public static void UpdateDataIfNecessary()
+		public static async Task UpdateDataIfNecessary()
 		{
-			if (ShouldUpdate) UpdateData();
+			if (!ShouldUpdate) return;
+			if (IsUpdating)
+			{
+				while (IsUpdating)
+				{
+					await Task.Delay(100);
+				}
+				return;
+			}
+
+			IsUpdating = true;
+			await UpdateData();
+			IsUpdating = false;
 		}
 
 		/// <summary>
@@ -135,15 +149,15 @@ public static class StatsApi
 		/// Make sure to invoke this as to not serve stale data.
 		/// </summary>
 		/// <exception cref="Exception">Non-zero shell script exit code, or the output was of invalid length.</exception>
-		public static void UpdateData()
+		public static async Task UpdateData()
 		{
 			int shellTimeout = 2500;
 			if (LastUpdate == DateTime.MinValue)
 			{
 				shellTimeout *= 10;
 			}
-			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "AllUtil", shellTimeout);
-			if (!rawOutput.Success)
+			var rawOutput = await ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "AllUtil", shellTimeout);
+			if (!rawOutput.IsSuccess)
 			{
 				throw new Exception($"Failed to get CPU data from getCpu.sh ({rawOutput.ExitCode}).");
 			}
@@ -196,12 +210,6 @@ public static class StatsApi
 	/// </summary>
 	public static class MemoryData
 	{
-		static MemoryData()
-		{
-			UpdateData();
-			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
-		}
-
 		/// <summary>
 		/// Total system memory (RAM) in bytes.
 		/// </summary>
@@ -229,12 +237,27 @@ public static class StatsApi
 		/// </summary>
 		public static bool ShouldUpdate =>
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+
+		private static bool IsUpdating { get; set; } = false;
+
 		/// <summary>
 		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
 		/// </summary>
-		public static void UpdateDataIfNecessary()
+		public static async Task UpdateDataIfNecessary()
 		{
-			if (ShouldUpdate) UpdateData();
+			if (!ShouldUpdate) return;
+			if (IsUpdating)
+			{
+				while (IsUpdating)
+				{
+					await Task.Delay(100);
+				}
+				return;
+			}
+
+			IsUpdating = true;
+			await UpdateData();
+			IsUpdating = false;
 		}
 
 		/// <summary>
@@ -242,7 +265,7 @@ public static class StatsApi
 		/// Make sure to invoke this as to not serve stale data.
 		/// </summary>
 		/// <exception cref="Exception">Non-zero shell script exit code, or the output was of invalid length.</exception>
-		public static void UpdateData()
+		public static async Task UpdateData()
 		{
 			int shellTimeout = 2500;
 			if (LastUpdate == DateTime.MinValue)
@@ -250,8 +273,8 @@ public static class StatsApi
 				shellTimeout *= 10;
 			}
 
-			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "All", shellTimeout);
-			if (!rawOutput.Success)
+			var rawOutput = await ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "All", shellTimeout);
+			if (!rawOutput.IsSuccess)
 			{
 				throw new Exception($"Failed to get RAM data from getCpu.sh ({rawOutput.ExitCode})");
 			}
@@ -305,7 +328,7 @@ public static class StatsApi
 
 		using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
 		socket.Connect("1.1.1.1", 65530);
-		var endPoint = socket.LocalEndPoint as IPEndPoint ?? IPEndPoint.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getNet.sh", "LocalAddress").StandardOutput);
+		var endPoint = socket.LocalEndPoint as IPEndPoint ?? IPEndPoint.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getNet.sh", "LocalAddress").Result.StandardOutput);
 		localIp = endPoint.Address;
 
 		return localIp;

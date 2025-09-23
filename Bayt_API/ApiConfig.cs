@@ -172,6 +172,11 @@ public static class ApiConfig
 		public static bool DockerIntegrationEnabled { get; private set; } = true;
 
 		/// <summary>
+		/// Whether to keep 255 lines of logs, or 65,535. Useful for debugging but will use more RAM (~200MBs)
+		/// </summary>
+		public static bool KeepMoreLogs { get; private set; } = false;
+
+		/// <summary>
 		/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
 		/// </summary>
 		/// <remarks>
@@ -211,6 +216,7 @@ public static class ApiConfig
 				{ nameof(PathToDataFolder), PathToDataFolder },
 				{ nameof(PathToComposeFolder), PathToComposeFolder },
 				{ nameof(DockerIntegrationEnabled), DockerIntegrationEnabled },
+				{ nameof(KeepMoreLogs), KeepMoreLogs },
 				{ nameof(WatchedMounts), WatchedMounts },
 				{ nameof(WolClients), WolClients }
 			};
@@ -239,6 +245,7 @@ public static class ApiConfig
 			PathToDataFolder = loadedDict.TryGetProperty(nameof(PathToDataFolder), out var pathToDataFolder) ? pathToDataFolder.GetString() ?? PathToDataFolder : PathToDataFolder;
 			PathToComposeFolder = loadedDict.TryGetProperty(nameof(PathToComposeFolder), out var pathToComposeFolder) ? pathToComposeFolder.GetString() ?? PathToComposeFolder : PathToComposeFolder;
 			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
+			KeepMoreLogs = loadedDict.TryGetProperty(nameof(KeepMoreLogs), out var keepMoreLogs) ? keepMoreLogs.GetBoolean() : KeepMoreLogs;
 
 			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
 			{

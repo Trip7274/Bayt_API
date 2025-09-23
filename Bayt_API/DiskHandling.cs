@@ -231,18 +231,10 @@ public static partial class DiskHandling
 		public static async Task UpdateDataIfNecessary()
 		{
 			if (!ShouldUpdate) return;
-			if (IsUpdating)
-			{
-				while (IsUpdating)
-				{
-					await Task.Delay(100);
-				}
-				return;
-			}
+			UpdatingTask ??= UpdateData();
 
-			IsUpdating = true;
-			await UpdateData();
-			IsUpdating = false;
+			await UpdatingTask;
+			UpdatingTask = null;
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()
@@ -295,7 +287,7 @@ public static partial class DiskHandling
 
 		private static readonly string[] ScriptSupports = ShellMethods.GetScriptSupports($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh");
 
-		private static bool IsUpdating { get; set; } = false;
+		private static Task? UpdatingTask { get; set; }
 		public static List<DiskData> DiskDataList { get; private set; } = [];
 	}
 
@@ -339,7 +331,11 @@ public static partial class DiskHandling
 		{
 			string scriptPath = $"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh";
 			var shellProcess = ShellMethods.RunShell(scriptPath, $"{statName} {devicePath}").Result;
-			if (!shellProcess.IsSuccess)
+			if (shellProcess.ExitCode == 124)
+			{
+				throw new TimeoutException($"[ERROR] Timeout while running '{scriptPath} {statName}'!]");
+			}
+			else if (!shellProcess.IsSuccess)
 			{
 				throw new Exception($"Error while running '{scriptPath} {statName}'! (code: {shellProcess.ExitCode})");
 			}

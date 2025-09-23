@@ -23,6 +23,9 @@ public class ShellResult
 	/// <summary>
 	/// Contains the exit code returned by the process.
 	/// </summary>
+	/// <remarks>
+	///	The status code will be 124 if the process timed out, and 0 if it completed successfully.
+	/// </remarks>
 	public int ExitCode { get; init; }
 
 	/// <summary>
@@ -40,10 +43,10 @@ public static class ShellMethods
 	/// <param name="arguments">The command-line arguments to pass to the program.</param>
 	/// <param name="timeoutMilliseconds">The maximum time to wait for the process to exit, in milliseconds. Defaults to 5 seconds.</param>
 	/// <param name="environmentVariables">Environment variables to set for the specified process. These are applied over the Bayt API's env vars.</param>
-	/// <returns>A <see cref="ShellResult"/> containing the process output, error, and exit code.</returns>
+	/// <returns>A <see cref="ShellResult"/> containing the process output, error, and exit code. Will be null if the process timed out.</returns>
 	/// <exception cref="InvalidOperationException">Thrown if there is an error starting the process.</exception>
 	/// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
-	public static async Task<ShellResult> RunShell(string program, string arguments = "", int timeoutMilliseconds = 5000, Dictionary<string, string?>? environmentVariables = null)
+	public static async Task<ShellResult?> RunShell(string program, string arguments = "", int timeoutMilliseconds = 5000, Dictionary<string, string?>? environmentVariables = null)
 	{
 		StringBuilder stdout = new();
 		StringBuilder stderr = new();
@@ -59,14 +62,22 @@ public static class ShellMethods
 			}
 		}
 
-		var process = await Cli.Wrap(program)
-			.WithArguments(arguments.Split(' '))
-			.WithValidation(CommandResultValidation.None)
-			.WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdout))
-			.WithStandardErrorPipe(PipeTarget.ToStringBuilder(stderr))
-			.WithWorkingDirectory(Directory.GetCurrentDirectory())
-			.WithEnvironmentVariables(envVars)
-			.ExecuteAsync(new CancellationTokenSource(timeoutMilliseconds).Token);
+		CommandResult? process;
+		try
+		{
+			process = await Cli.Wrap(program)
+				.WithArguments(arguments.Split(' '))
+				.WithValidation(CommandResultValidation.None)
+				.WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdout))
+				.WithStandardErrorPipe(PipeTarget.ToStringBuilder(stderr))
+				.WithWorkingDirectory(Directory.GetCurrentDirectory())
+				.WithEnvironmentVariables(envVars)
+				.ExecuteAsync(new CancellationTokenSource(timeoutMilliseconds).Token);
+		}
+		catch (OperationCanceledException e)
+		{
+			throw new TimeoutException($"The process '{Path.GetFileName(program)}' timed out after {TimeSpan.FromMilliseconds(timeoutMilliseconds).Seconds} seconds.", e);
+		}
 
 		return new ShellResult
 		{

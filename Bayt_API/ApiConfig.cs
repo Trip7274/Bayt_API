@@ -495,14 +495,28 @@ public static class ApiConfig
 			foreach (var clientsToAdd in clients)
 			{
 				PhysicalAddress physicalAddress;
+				var physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
+					$"PhysicalAddress {clientsToAdd.Key}").Result;
+
 				IPAddress subnetMask;
+				var subnetMaskProcess =
+					ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", "Netmask").Result;
+				if (subnetMaskProcess.ExitCode == 124 || physicalAddressProcess.ExitCode == 124)
+				{
+					Console.ForegroundColor = ConsoleColor.Yellow;
+					Console.WriteLine($"[WARNING] Failed to get physical address for {clientsToAdd.Key} ('{clientsToAdd.Value}'), skipping.");
+					Console.ResetColor();
+					continue;
+				}
+
 				try
 				{
-					physicalAddress = PhysicalAddress.Parse(ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", $"PhysicalAddress {clientsToAdd.Key}").Result.StandardOutput);
-					subnetMask = IPAddress.Parse(ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", "Netmask").Result.StandardOutput);
+					physicalAddress = PhysicalAddress.Parse(physicalAddressProcess.StandardOutput);
+					subnetMask = IPAddress.Parse(subnetMaskProcess.StandardOutput);
 				}
 				catch (FormatException)
 				{
+					// TODO: Let the client know that the IP address is invalid. The client also doesn't need to add multiple clients at once.
 					Console.ForegroundColor = ConsoleColor.Yellow;
 					Console.WriteLine($"[WARNING] Failed to get physical address for {clientsToAdd.Key} ('{clientsToAdd.Value}'), skipping.");
 					Console.ResetColor();

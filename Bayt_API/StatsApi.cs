@@ -122,7 +122,7 @@ public static class StatsApi
 		public static bool ShouldUpdate =>
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 
-		private static bool IsUpdating { get; set; } = false;
+		private static Task? UpdatingTask { get; set; }
 
 		/// <summary>
 		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
@@ -130,18 +130,10 @@ public static class StatsApi
 		public static async Task UpdateDataIfNecessary()
 		{
 			if (!ShouldUpdate) return;
-			if (IsUpdating)
-			{
-				while (IsUpdating)
-				{
-					await Task.Delay(100);
-				}
-				return;
-			}
+			UpdatingTask ??= UpdateData();
 
-			IsUpdating = true;
-			await UpdateData();
-			IsUpdating = false;
+			await UpdatingTask;
+			UpdatingTask = null;
 		}
 
 		/// <summary>
@@ -238,7 +230,7 @@ public static class StatsApi
 		public static bool ShouldUpdate =>
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 
-		private static bool IsUpdating { get; set; } = false;
+		private static Task? UpdatingTask { get; set; }
 
 		/// <summary>
 		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
@@ -246,18 +238,10 @@ public static class StatsApi
 		public static async Task UpdateDataIfNecessary()
 		{
 			if (!ShouldUpdate) return;
-			if (IsUpdating)
-			{
-				while (IsUpdating)
-				{
-					await Task.Delay(100);
-				}
-				return;
-			}
+			UpdatingTask ??= UpdateData();
 
-			IsUpdating = true;
-			await UpdateData();
-			IsUpdating = false;
+			await UpdatingTask;
+			UpdatingTask = null;
 		}
 
 		/// <summary>

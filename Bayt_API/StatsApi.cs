@@ -123,6 +123,7 @@ public static class StatsApi
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 
 		private static Task? UpdatingTask { get; set; }
+		private static readonly Lock UpdatingLock = new();
 
 		/// <summary>
 		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
@@ -130,10 +131,22 @@ public static class StatsApi
 		public static async Task UpdateDataIfNecessary()
 		{
 			if (!ShouldUpdate) return;
-			UpdatingTask ??= UpdateData();
 
-			await UpdatingTask;
-			UpdatingTask = null;
+			var localTask = UpdatingTask;
+			if (localTask is null)
+			{
+				lock (UpdatingLock)
+				{
+					UpdatingTask ??= UpdateData();
+					localTask = UpdatingTask;
+				}
+			}
+
+			await localTask;
+			lock (UpdatingLock)
+			{
+				UpdatingTask = null;
+			}
 		}
 
 		/// <summary>
@@ -231,6 +244,7 @@ public static class StatsApi
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 
 		private static Task? UpdatingTask { get; set; }
+		private static readonly Lock UpdatingLock = new();
 
 		/// <summary>
 		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
@@ -238,10 +252,22 @@ public static class StatsApi
 		public static async Task UpdateDataIfNecessary()
 		{
 			if (!ShouldUpdate) return;
-			UpdatingTask ??= UpdateData();
 
-			await UpdatingTask;
-			UpdatingTask = null;
+			var localTask = UpdatingTask;
+			if (localTask is null)
+			{
+				lock (UpdatingLock)
+				{
+					UpdatingTask ??= UpdateData();
+					localTask = UpdatingTask;
+				}
+			}
+
+			await localTask;
+			lock (UpdatingLock)
+			{
+				UpdatingTask = null;
+			}
 		}
 
 		/// <summary>

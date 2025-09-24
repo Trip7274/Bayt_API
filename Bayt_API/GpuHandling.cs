@@ -244,6 +244,7 @@ public static class GpuHandling
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 
 		private static Task? UpdatingTask { get; set; }
+		private static readonly Lock UpdatingLock = new();
 
 		/// <summary>
 		/// Force-updates each entry in the <see cref="GpuDataList"/> property with the respective GPU's latest metrics.
@@ -269,10 +270,22 @@ public static class GpuHandling
 		public static async Task UpdateDataIfNecessary()
 		{
 			if (!ShouldUpdate) return;
-			UpdatingTask ??= UpdateData();
 
-			await UpdatingTask;
-			UpdatingTask = null;
+			var localTask = UpdatingTask;
+			if (localTask is null)
+			{
+				lock (UpdatingLock)
+				{
+					UpdatingTask ??= UpdateData();
+					localTask = UpdatingTask;
+				}
+			}
+
+			await localTask;
+			lock (UpdatingLock)
+			{
+				UpdatingTask = null;
+			}
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()

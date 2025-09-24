@@ -231,10 +231,22 @@ public static partial class DiskHandling
 		public static async Task UpdateDataIfNecessary()
 		{
 			if (!ShouldUpdate) return;
-			UpdatingTask ??= UpdateData();
 
-			await UpdatingTask;
-			UpdatingTask = null;
+			var localTask = UpdatingTask;
+			if (localTask is null)
+			{
+				lock (UpdatingLock)
+				{
+					UpdatingTask ??= UpdateData();
+					localTask = UpdatingTask;
+				}
+			}
+
+			await localTask;
+			lock (UpdatingLock)
+			{
+				UpdatingTask = null;
+			}
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()
@@ -288,6 +300,7 @@ public static partial class DiskHandling
 		private static readonly string[] ScriptSupports = ShellMethods.GetScriptSupports($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh");
 
 		private static Task? UpdatingTask { get; set; }
+		private static readonly Lock UpdatingLock = new();
 		public static List<DiskData> DiskDataList { get; private set; } = [];
 	}
 

@@ -35,6 +35,11 @@ public static class ApiConfig
 	/// </summary>
 	public static readonly Stopwatch BaytStartStopwatch = Stopwatch.StartNew();
 
+	/// <summary>
+	/// Indicates how verbose the API should be. 0-7, with 7 being the most verbose. Tries to use the env var <c>BAYT_VERBOSITY</c> first, then falls back to 6.
+	/// </summary>
+	public static readonly byte VerbosityLevel = (byte) (byte.TryParse(Environment.GetEnvironmentVariable("BAYT_VERBOSITY"), out var verbosityLevel) ? verbosityLevel : 6);
+
 	// Paths and config-specific stuff from here on out
 
 	/// <summary>
@@ -172,8 +177,11 @@ public static class ApiConfig
 		public static bool DockerIntegrationEnabled { get; private set; } = true;
 
 		/// <summary>
-		/// Whether to keep 255 lines of logs, or 65,535. Useful for debugging but will use more RAM (~200MBs)
+		/// Whether to keep 65,535 bytes of logs, or 6,553,500 (100x) bytes. Useful for debugging but will use more RAM (~20MBs+)
 		/// </summary>
+		/// <remarks>
+		/// Defaults to false.
+		/// </remarks>
 		public static bool KeepMoreLogs { get; private set; } = false;
 
 		/// <summary>

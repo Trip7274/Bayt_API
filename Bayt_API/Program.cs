@@ -10,32 +10,39 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+Logs.StreamWrittenTo += Logs.EchoLogs;
 
-Console.WriteLine($"[INFO] Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list");
+Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list"));
 builder.WebHost.ConfigureKestrel(opts => opts.Listen(IPAddress.Loopback, ApiConfig.NetworkPort));
 
 if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 {
 	var localIp = StatsApi.GetLocalIpAddress();
 
-	Console.WriteLine($"[INFO] Adding URL '{localIp}:{ApiConfig.NetworkPort}' to listen list");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL '{localIp}:{ApiConfig.NetworkPort}' to listen list"));
 	builder.WebHost.ConfigureKestrel(opts => opts.Listen(localIp, ApiConfig.NetworkPort));
 }
 
 if (Environment.GetEnvironmentVariable("BAYT_DISABLE_SOCK") != "1")
 {
 	if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
-	Console.WriteLine($"[INFO] Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list"));
 	builder.WebHost.ConfigureKestrel(opts => opts.ListenUnixSocket(ApiConfig.UnixSocketPath));
 }
 
-Console.ForegroundColor = ConsoleColor.Gray;
-Console.WriteLine($"""
-                   [INFO] Loaded configuration from: '{ApiConfig.ConfigFilePath}'
-                   [INFO] Loaded clientData folder: '{ApiConfig.ApiConfiguration.PathToDataFolder}'
-                   [INFO] Loaded containers folder: '{ApiConfig.ApiConfiguration.PathToComposeFolder}'
-                   """);
-Console.ResetColor();
+
+Logs.LogStream.Write(new LogEntry(StreamId.Notice, "Configuration",
+	$"Loaded configuration from: '{ApiConfig.ConfigFilePath}'"));
+
+Logs.LogStream.Write(new LogEntry(StreamId.Notice, "Client Data",
+	$"Loaded clientData from: '{ApiConfig.ApiConfiguration.PathToDataFolder}'"));
+
+if (Docker.IsDockerComposeAvailable)
+{
+	Logs.LogStream.Write(new LogEntry(StreamId.Notice, "Containers",
+		$"Loaded containers from: '{ApiConfig.ApiConfiguration.PathToComposeFolder}'"));
+}
+
 
 var app = builder.Build();
 
@@ -49,10 +56,8 @@ app.UseHttpsRedirection();
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
-	Console.ForegroundColor = ConsoleColor.Yellow;
-	Console.WriteLine($"[WARNING] Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like.\n" +
-	                  "Here be dragons, as this implementation is only targeted and supported for Unix-like systems.");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "Init",
+		$"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like. This is unsupported."));
 }
 
 
@@ -82,6 +87,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 		{
 			return Results.BadRequest("No stats were requested.");
 		}
+		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GetStats", $"Got a request for: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
 
 		// Request checks done
 
@@ -175,6 +181,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 				}
 			}
 		}
+		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GetStats", $"Sent off the response with {responseDictionary.Count} fields."));
 		return Results.Json(responseDictionary);
 	}).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
@@ -1033,11 +1040,11 @@ app.MapPost($"{baseDockerUrl}/setContainerMetadata", async (string? containerId,
 	.WithTags("Docker")
 	.WithName("SetDockerContainerMetadata");
 
-if (Docker.IsDockerAvailable) Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
-if (Docker.IsDockerComposeAvailable) Console.WriteLine("[INFO] Docker-Compose is available. Docker-Compose endpoints will be available.");
+if (Docker.IsDockerAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
+if (Docker.IsDockerComposeAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
-	Console.WriteLine("[INFO] Skipping first fetch cycle. This may cause the first request to be slow.");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Skipping first fetch cycle. This may cause the first request to be slow."));
 }
 else
 {
@@ -1054,12 +1061,10 @@ else
 		fetchTasks.Add(Task.Run(Docker.DockerContainers.UpdateDataIfNecessary));
 	}
 
-	Console.WriteLine("[INFO] Preparing a few things...");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Init", "Running an initial fetch cycle..."));
 	await Task.WhenAll(fetchTasks);
 
-	Console.ForegroundColor = ConsoleColor.Green;
-	Console.WriteLine("[OK] Fetch cycle complete. Starting API...");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Ok, "Init", "Fetch cycle complete. Starting API..."));
 }
 
 try
@@ -1068,22 +1073,16 @@ try
 }
 catch (SocketException e) when (e.Message == "Cannot assign requested address")
 {
-	Console.ForegroundColor = ConsoleColor.Red;
-	Console.WriteLine(
-		"[FATAL] Something went wrong while binding to one of the targetted IP addresses. " +
-		"Make sure the targetted IP address is valid.");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+		"Something went wrong while binding to one of the targetted IP addresses. Make sure the targetted IP address is valid."));
 }
 catch (SocketException e) when (e.Message == "Permission denied")
 {
-	Console.ForegroundColor = ConsoleColor.Red;
-	Console.WriteLine("[FATAL] The current user does not have permission to bind to one of the IP addresses or ports.");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+		"The current user does not have permission to bind to one of the IP addresses or ports."));
 }
 catch (IOException e) when (e.InnerException is not null && e.InnerException.Message == "Address already in use")
 {
-	Console.ForegroundColor = ConsoleColor.Red;
-	Console.WriteLine(
-		$"[FATAL] Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running.");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+		$"Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running."));
 }

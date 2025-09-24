@@ -230,7 +230,9 @@ public static partial class DiskHandling
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Disk Fetch", "Checking for disk data update..."));
 			if (!ShouldUpdate) return;
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Disk Fetch", "Updating disk data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -247,6 +249,7 @@ public static partial class DiskHandling
 			{
 				UpdatingTask = null;
 			}
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Disk Fetch", "Disk data updated."));
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()

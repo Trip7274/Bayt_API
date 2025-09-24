@@ -48,6 +48,7 @@ public static class ShellMethods
 	/// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
 	public static async Task<ShellResult?> RunShell(string program, string arguments = "", int timeoutMilliseconds = 5000, Dictionary<string, string?>? environmentVariables = null)
 	{
+		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Got a request to run a command: {Path.GetFileName(program)} {arguments}"));
 		StringBuilder stdout = new();
 		StringBuilder stderr = new();
 		Dictionary<string, string?> envVars = new()
@@ -79,6 +80,7 @@ public static class ShellMethods
 			throw new TimeoutException($"The process '{Path.GetFileName(program)}' timed out after {TimeSpan.FromMilliseconds(timeoutMilliseconds).Seconds} seconds.", e);
 		}
 
+		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Process '{Path.GetFileName(program)}' exited with code {process.ExitCode}."));
 		return new ShellResult
 		{
 			StandardOutput = stdout.ToString().Trim('\n'),

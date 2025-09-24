@@ -8,7 +8,7 @@ public sealed class LogEntry
 	// 1 byte: Stream ID
 	// 1 byte: Content Length
 	// 8 bytes: Time Written
-	// 16 bytes: Module Name
+	// 32 bytes: Module Name
 	// {Content Length} bytes: Content (Max 255 bytes/chars)
 
 	public LogEntry(StreamId? streamId = null, string? moduleName = null, string? content = null, DateTime? timeWritten = null)
@@ -45,9 +45,7 @@ public sealed class LogEntry
 				throw new ArgumentException("Module name cannot be null or whitespace.");
 			if (value.Length > 32) value = value[..32];
 
-			var potentialName = Encoding.UTF8.GetBytes(value);
-			if (value.Length < 32) Array.Resize(ref potentialName, 32);
-			_moduleNameBytes = potentialName;
+			_moduleNameBytes = Encoding.UTF8.GetBytes(value);
 		}
 	}
 
@@ -76,35 +74,37 @@ public sealed class LogEntry
 
 	public static LogEntry Parse(byte[] data)
 	{
-		if (data.Length < 26) throw new ArgumentOutOfRangeException(nameof(data), "Data is too short.");
+		if (data.Length < 42) throw new ArgumentOutOfRangeException(nameof(data), "Data is too short.");
 
 		var streamId = data[0];
-		var contentLength = BitConverter.ToUInt16(data.AsSpan(1, 2));
-		var timeWrittenRaw = BitConverter.ToInt64(data.AsSpan(3, 8));
-		var moduleName = data.AsSpan(11, 16).ToArray();
-		byte[] content = data[26..contentLength];
+		var contentLength = data[1];
+		var timeWrittenRaw = BitConverter.ToInt64(data.AsSpan(2, 8));
+		var moduleName = data.AsSpan(10, 32).ToArray();
+		string moduleNameString = Encoding.UTF8.GetString(moduleName).TrimEnd('\0');
+
+		byte[] content = data[42..(42 + contentLength)];
 
 		return new()
 		{
 			StreamIdInternal = streamId,
 			TimeWrittenBinary = timeWrittenRaw,
-			ModuleName = Encoding.UTF8.GetString(moduleName),
+			ModuleName = moduleNameString,
 			ContentBytes = content
 		};
 	}
 	public static LogEntry Parse(byte[] header, byte[] content)
 	{
-		if (header.Length < 26) throw new ArgumentOutOfRangeException(nameof(header), "Data is too short.");
+		if (header.Length < 42) throw new ArgumentOutOfRangeException(nameof(header), "Data is too short.");
 
 		var streamId = header[0];
-		var timeWrittenRaw = BitConverter.ToInt64(header.AsSpan(3, 8));
-		var moduleName = header.AsSpan(11, 16).ToArray();
+		var timeWrittenRaw = BitConverter.ToInt64(header.AsSpan(2, 8));
+		var moduleName = header.AsSpan(10, 32).ToArray();
 
 		return new()
 		{
 			StreamIdInternal = streamId,
 			TimeWrittenBinary = timeWrittenRaw,
-			ModuleName = Encoding.UTF8.GetString(moduleName),
+			ModuleName = Encoding.UTF8.GetString(moduleName).TrimEnd('\0'),
 			ContentBytes = content
 		};
 	}
@@ -113,12 +113,15 @@ public sealed class LogEntry
 	{
 		List<byte> byteList =
 		[
-			StreamIdInternal
+			StreamIdInternal,
+			(byte) Content.Length
 		];
 
-		byteList.AddRange((byte) Content.Length);
 		byteList.AddRange(BitConverter.GetBytes(TimeWrittenBinary));
-		byteList.AddRange(_moduleNameBytes);
+
+		var moduleNameBytes = _moduleNameBytes;
+		if (moduleNameBytes.Length < 32) Array.Resize(ref moduleNameBytes, 32);
+		byteList.AddRange(moduleNameBytes);
 		byteList.AddRange(ContentBytes);
 
 		return byteList.ToArray();
@@ -244,7 +247,7 @@ public static class Logs
 		public static async Task<LogEntry?> ReadEntry()
 		{
 			MemoryStream.Position = 0;
-			var entryHeader = new byte[26];
+			var entryHeader = new byte[42];
 			Console.WriteLine(MemoryStream.Length);
 			try
 			{

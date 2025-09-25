@@ -545,7 +545,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =
 // Power endpoints
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", async () =>
 {
-	Console.WriteLine("[INFO] Recieved poweroff request, attempting to shut down...");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Server Power", "Recieved poweroff request, attempting to shut down..."));
 	var operationShell = await ShellMethods.RunShell("sudo", "-n /sbin/poweroff");
 
 	// Realistically, execution shouldn't get this far.
@@ -568,7 +568,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", async () =>
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", async () =>
 {
-	Console.WriteLine("[INFO] Recieved restart request, attempting to restart...");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Server Power", "Recieved restart request, attempting to restart..."));
 	var operationShell = await ShellMethods.RunShell("sudo", "-n /sbin/reboot");
 
 	if (operationShell.IsSuccess) return Results.NoContent();
@@ -598,7 +598,6 @@ app.MapGet($"{baseDockerUrl}/getContainers", async (bool all = true) =>
 
 
 	return Results.Json(Docker.DockerContainers.ToDictionary(all));
-
 }).Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status200OK)
 	.WithSummary("Fetch all or only the currently active containers in the system.")
@@ -907,8 +906,6 @@ app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 
 	var dockerRequest = await Docker.SendRequest("containers/prune", "POST");
-
-	Console.WriteLine(dockerRequest.Body);
 
 	return dockerRequest.Status switch
 	{

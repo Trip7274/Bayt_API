@@ -74,9 +74,26 @@ public static class Docker
 
 		public static async Task UpdateDataIfNecessary()
 		{
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "GPU Fetch", "Checking for GPU data update..."));
 			if (!ShouldUpdate) return;
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "GPU Fetch", "Updating GPU data..."));
 
-			await UpdateData();
+			var localTask = UpdatingTask;
+			if (localTask is null)
+			{
+				lock (UpdatingLock)
+				{
+					UpdatingTask ??= UpdateData();
+					localTask = UpdatingTask;
+				}
+			}
+
+			await localTask;
+			lock (UpdatingLock)
+			{
+				UpdatingTask = null;
+			}
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "GPU Fetch", "GPU data updated."));
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary(bool getAllContainers = true)
@@ -116,6 +133,9 @@ public static class Docker
 		/// </summary>
 		public static bool ShouldUpdate =>
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+
+		private static Task? UpdatingTask;
+		private static readonly Lock UpdatingLock = new();
 	}
 
 	public sealed class DockerContainer

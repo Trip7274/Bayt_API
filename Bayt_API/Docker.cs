@@ -134,7 +134,7 @@ public static class Docker
 		public static bool ShouldUpdate =>
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 
-		private static Task? UpdatingTask;
+		private static Task? UpdatingTask { get; set; }
 		private static readonly Lock UpdatingLock = new();
 	}
 

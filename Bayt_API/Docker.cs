@@ -74,9 +74,9 @@ public static class Docker
 
 		public static async Task UpdateDataIfNecessary()
 		{
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "GPU Fetch", "Checking for GPU data update..."));
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Checking for Docker container data update..."));
 			if (!ShouldUpdate) return;
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "GPU Fetch", "Updating GPU data..."));
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Updating Docker container data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -93,7 +93,7 @@ public static class Docker
 			{
 				UpdatingTask = null;
 			}
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "GPU Fetch", "GPU data updated."));
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Docker container data updated."));
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary(bool getAllContainers = true)

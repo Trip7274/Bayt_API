@@ -46,7 +46,7 @@ public static class Docker
 	{
 		static DockerContainers()
 		{
-			var dockerRequest = SendRequest("containers/json").Result;
+			var dockerRequest = SendRequest("containers/json?all=true").Result;
 			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
 			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);
 

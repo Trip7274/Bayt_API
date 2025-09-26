@@ -1037,6 +1037,16 @@ app.MapPost($"{baseDockerUrl}/setContainerMetadata", async (string? containerId,
 	.WithTags("Docker")
 	.WithName("SetDockerContainerMetadata");
 
+// Docker images endpoints
+
+app.MapGet($"{baseDockerUrl}/images/getImages", async () =>
+{
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
+	await Docker.ImagesInfo.UpdateDataIfNecessary();
+
+	return Results.Json(Docker.ImagesInfo.ToDictionary());
+});
+
 if (Docker.IsDockerAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
 if (Docker.IsDockerComposeAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
@@ -1056,6 +1066,7 @@ else
 	if (Docker.IsDockerAvailable)
 	{
 		fetchTasks.Add(Task.Run(Docker.DockerContainers.UpdateDataIfNecessary));
+		fetchTasks.Add(Task.Run(Docker.ImagesInfo.UpdateDataIfNecessary));
 	}
 
 	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Init", "Running an initial fetch cycle..."));

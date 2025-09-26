@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Bayt_API;
 
@@ -144,15 +145,11 @@ public static class Docker
 		{
 			Id = dockerOutput.GetProperty(nameof(Id)).GetString() ?? throw new ArgumentException("Docker container ID is null.");
 
-			var labelsElement = dockerOutput.GetProperty("Labels");
+			_labels = dockerOutput.GetProperty("Labels").Deserialize<Dictionary<string, string?>>()!;
 
-			if (labelsElement.TryGetProperty("com.docker.compose.project.config_files", out var composePath) && File.Exists(composePath.GetString()))
+			if (_labels.TryGetValue("com.docker.compose.project.config_files", out string? composePath) && File.Exists(composePath))
 			{
-				ComposePath = composePath.GetString();
-			}
-			if (labelsElement.TryGetProperty("com.docker.compose.project.working_dir", out var workingPath))
-			{
-				WorkingPath = workingPath.GetString();
+				ComposePath = composePath;
 			}
 			if (ComposePath is not null)
 			{
@@ -162,17 +159,17 @@ public static class Docker
 			}
 
 			FillContainerMetadata();
-			GetContainerNames(dockerOutput, labelsElement);
-			GetContainerDescription(labelsElement);
-			GetContainerHrefs(labelsElement);
-			GetIconUrls(labelsElement);
+			GetContainerNames(dockerOutput);
+			ImageDescription = GetDescription(_labels);
+			GetHrefFromLabels();
+			IconUrls = GetIconUrls(_labels);
 
 			Image = dockerOutput.GetProperty(nameof(Image)).GetString() ?? throw new ArgumentException("Docker container image is null.");
 			ImageID = dockerOutput.GetProperty(nameof(ImageID)).GetString() ?? throw new ArgumentException("Docker container image ID is null.");
-			ImageUrl = GetImageUrl(labelsElement);
-			if (labelsElement.TryGetProperty("org.opencontainers.image.version", out var versionLabel))
+			ImageUrl = GetImageUrl(_labels);
+			if (_labels.TryGetValue("org.opencontainers.image.version", out var versionLabel))
 			{
-				ImageVersion = versionLabel.GetString();
+				ImageVersion = versionLabel;
 			}
 
 			Command = dockerOutput.GetProperty(nameof(Command)).GetString() ?? throw new ArgumentException("Docker container command is null.");
@@ -215,7 +212,6 @@ public static class Docker
 			{
 				{ nameof(Id), Id },
 				{ nameof(Names), Names },
-				{ nameof(Title), Title },
 
 				{ nameof(Image), Image },
 				{ nameof(ImageID), ImageID },
@@ -247,71 +243,6 @@ public static class Docker
 			};
 		}
 
-		private void GetIconUrls(JsonElement labelsElement)
-		{
-			List<string> iconUrls = [];
-			if (labelsElement.TryGetProperty("bayt.icon", out var iconElement))
-			{
-				var baytIconUrl = iconElement.GetString();
-				if (baytIconUrl is not null) iconUrls.Add(GetUrlFromRepos(baytIconUrl));
-			}
-			if (labelsElement.TryGetProperty("glance.icon", out iconElement))
-			{
-				var glanceIconUrl = iconElement.GetString();
-				if (glanceIconUrl is not null) iconUrls.Add(GetUrlFromRepos(glanceIconUrl));
-			}
-			if (labelsElement.TryGetProperty("com.docker.desktop.extension.icon", out iconElement))
-			{
-				var desktopIconUrl = iconElement.GetString();
-				if (desktopIconUrl is not null) iconUrls.Add(GetUrlFromRepos(desktopIconUrl));
-			}
-
-			if (iconUrls.Count == 0 || PreferredIconLink != GenericIconLink) IconUrls.Add(PreferredIconLink);
-			IconUrls.AddRange(iconUrls);
-
-			return;
-
-			string GetUrlFromRepos(string repoName)
-			{
-				if (repoName.StartsWith("http")) return repoName;
-				if (repoName.StartsWith("di:"))
-				{
-					repoName = repoName[3..];
-					return $"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/{repoName}.svg";
-				}
-				if (repoName.StartsWith("sh:"))
-				{
-					repoName = repoName[3..];
-					return $"https://cdn.jsdelivr.net/gh/selfhst/icons/png/{repoName}.png";
-				}
-				if (repoName.StartsWith("si:"))
-				{
-					repoName = repoName[3..];
-					return $"https://cdn.jsdelivr.net/npm/simple-icons@v15/icons/{repoName}.svg";
-				}
-				if (repoName.StartsWith("mdi:"))
-				{
-					repoName = repoName[4..];
-					return $"https://api.iconify.design/mdi/{repoName}.svg";
-				}
-
-				return repoName;
-			}
-		}
-		private static string? GetImageUrl(JsonElement labelsElement)
-		{
-			string? imageUrl = null;
-
-			if (labelsElement.TryGetProperty("org.opencontainers.image.url", out var imageUrlElement)
-			    || labelsElement.TryGetProperty("com.docker.extension.publisher-url", out imageUrlElement))
-			{
-				imageUrl = imageUrlElement.GetString();
-			}
-
-			if (imageUrl is not null && !imageUrl.StartsWith("http")) return null;
-
-			return imageUrl;
-		}
 		private static IPAddress GetIp(JsonElement networkSettingsElement, string networkName)
 		{
 			var machineLocalIp = StatsApi.GetLocalIpAddress();
@@ -324,75 +255,24 @@ public static class Docker
 			return ip is null ? machineLocalIp : IPAddress.Parse(ip);
 
 		}
-		private void GetContainerNames(JsonElement dockerOutput, JsonElement labelsElement)
+		private void GetContainerNames(JsonElement dockerOutput)
 		{
+			Names = GetNames(_labels, dockerOutput);
+
 			if (IsManaged && PrettyName is not null)
 			{
-				Names.Add(PrettyName);
+				Names = Names.Prepend(PrettyName).ToList();
 			}
-
-			foreach (var labelKvp in labelsElement.EnumerateObject())
-			{
-				switch (labelKvp.Name)
-				{
-					case "bayt.name":
-					case "glance.name":
-					case "homepage.name":
-						Names.Add(labelKvp.Value.GetString()!);
-						break;
-					case "org.opencontainers.image.title":
-						Title = labelKvp.Value.GetString();
-						if (Title is not null) Names.Add(Title);
-						break;
-				}
-			}
-
-			if (dockerOutput.TryGetProperty(nameof(Names), out var namesElement) && namesElement.GetArrayLength() > 0)
-			{
-				List<JsonElement> dockerNames = namesElement.EnumerateArray().ToList();
-				dockerNames.RemoveAll(name => name.GetString() is null);
-
-				// If we're going to have to use the Docker default name, let's clean it up first. (remove leading /, e.g. "/jellyfin" => "jellyfin")
-				var firstName = dockerNames.First().GetString();
-				if (Names.Count == 0 && firstName!.StartsWith('/'))
-				{
-					Names.Add(firstName[1..]);
-					dockerNames = dockerNames.Skip(1).ToList();
-				}
-
-				// Add the rest of the names, if any.
-				if (dockerNames.Count > 0)
-				{
-					Names.AddRange(dockerNames.Select(name => name.GetString()!));
-				}
-			}
-			Names = Names.Distinct().ToList();
 		}
-		private void GetContainerHrefs(JsonElement labelsElement)
+		private void GetHrefFromLabels()
 		{
-			if (IsManaged && WebpageLink is not null) return;
-			foreach (var labelKvp in labelsElement.EnumerateObject())
+			if (_labels.TryGetValue("bayt.url", out var href)
+			    || _labels.TryGetValue("glance.url", out href)
+			    || _labels.TryGetValue("homepage.instance.internal.href", out href))
 			{
-				WebpageLink = labelKvp.Name switch
-				{
-					"bayt.url" or "glance.url" or "homepage.instance.internal.href" => labelKvp.Value.GetString(),
-					_ => WebpageLink
-				};
+				WebpageLink = href;
 			}
 		}
-		private void GetContainerDescription(JsonElement labelsElement)
-		{
-			foreach (var labelKvp in labelsElement.EnumerateObject())
-			{
-				ImageDescription = labelKvp.Name switch
-				{
-					"bayt.description" or "glance.description" or "homepage.description"
-						or "org.opencontainers.image.description" => labelKvp.Value.GetString()!,
-					_ => ImageDescription
-				};
-			}
-		}
-
 		private void FillContainerMetadata()
 		{
 			if (!IsManaged) return;
@@ -473,7 +353,7 @@ public static class Docker
 
 		public string Id { get; }
 		public List<string> Names { get; private set; } = [];
-		public string? Title { get; private set; }
+		private readonly Dictionary<string, string> _labels;
 
 		public string Image { get; }
 		// ReSharper disable once InconsistentNaming
@@ -483,7 +363,6 @@ public static class Docker
 		public string? ImageDescription { get; private set; }
 
 		public string? ComposePath { get; }
-		public string? WorkingPath { get; }
 		public string Command { get; }
 		public DateTime Created { get; }
 		public long CreatedUnix { get; }
@@ -494,7 +373,7 @@ public static class Docker
 		public bool IsCompose { get; }
 		public bool IsManaged { get; }
 
-		public List<string> IconUrls { get; } = [];
+		public List<string> IconUrls { get; }
 
 		public IPAddress IpAddress { get; }
 
@@ -606,6 +485,257 @@ public static class Docker
 		public string Mode { get; } = mountEntry.GetProperty(nameof(Mode)).GetString() ?? throw new ArgumentException("Docker container's Mount Mode is null.");
 	}
 
+	public static class ImagesInfo
+	{
+		static ImagesInfo()
+		{
+			var dockerRequest = SendRequest("images/json").Result;
+			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
+			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);
+
+			foreach (var imageEntry in dockerOutput.EnumerateArray())
+			{
+				Images.Add(imageEntry.Deserialize<ImageInfo>()!);
+			}
+			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
+		}
+
+		public static async Task UpdateData()
+		{
+			var dockerRequest = await SendRequest("images/json");
+			if (!dockerRequest.IsSuccess) throw new Exception($"Docker request failed. ({dockerRequest.Status})\n Got body: {dockerRequest.Body}");
+
+			var dockerOutput = JsonSerializer.Deserialize<JsonElement>(dockerRequest.Body);
+
+			Images.Clear();
+			foreach (var imageEntry in dockerOutput.EnumerateArray())
+			{
+				Images.Add(imageEntry.Deserialize<ImageInfo>()!);
+			}
+			LastUpdate = DateTime.Now;
+		}
+
+		public static async Task UpdateDataIfNecessary()
+		{
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Checking for Docker image data update..."));
+			if (!ShouldUpdate) return;
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Updating Docker image data..."));
+
+			var localTask = UpdatingTask;
+			if (localTask is null)
+			{
+				lock (UpdatingLock)
+				{
+					UpdatingTask ??= UpdateData();
+					localTask = UpdatingTask;
+				}
+			}
+
+			await localTask;
+			lock (UpdatingLock)
+			{
+				UpdatingTask = null;
+			}
+			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Docker image data updated."));
+		}
+
+		public static Dictionary<string, dynamic?>[] ToDictionary()
+		{
+			List<Dictionary<string, dynamic?>> imagesList = [];
+
+			imagesList.AddRange(Images.Select(container => container.ToDictionary())
+				.Select(container => container.ToDictionary()));
+
+			return imagesList.ToArray();
+		}
+
+		public static List<ImageInfo> Images { get; } = [];
+
+		/// <summary>
+		/// The last time this was updated. Used internally.
+		/// </summary>
+		public static DateTime LastUpdate { get; private set; }
+
+		/// <summary>
+		/// Returns whether the current data is too stale and should be updated.
+		/// </summary>
+		public static bool ShouldUpdate =>
+			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+
+		private static Task? UpdatingTask { get; set; }
+		private static readonly Lock UpdatingLock = new();
+	}
+	public sealed class ImageInfo
+	{
+		public required string Id { get; init; }
+		public string ParentId { get; init; } = string.Empty;
+		public string[] RepoTags { get; init; } = [];
+
+		[JsonIgnore]
+		public DateTime Created => DateTimeOffset.FromUnixTimeSeconds(CreatedUnix).DateTime;
+
+		[JsonPropertyName("Created")]
+		public required long CreatedUnix { get; init; }
+		public long Size { get; init; }
+		public required Dictionary<string, string> Labels { get; init; }
+		public int Containers { get; init; }
+
+		// Bayt-specific
+
+		public List<string> Names => GetNames(Labels);
+		public string? Description => GetDescription(Labels);
+		public string? ImageUrl => GetImageUrl(Labels);
+		public List<string> IconUrls => GetIconUrls(Labels);
+		public string? ImageVersion => GetImageVersion(Labels);
+
+		public Dictionary<string, dynamic?> ToDictionary()
+		{
+			return new()
+			{
+				{ nameof(Id), Id },
+
+				{ nameof(Names), Names },
+				{ nameof(Description), Description },
+				{ nameof(ImageUrl), ImageUrl },
+				{ nameof(IconUrls), IconUrls },
+				{ nameof(ImageVersion), ImageVersion },
+
+				{ nameof(ParentId), ParentId },
+				{ nameof(RepoTags), RepoTags },
+
+				{ nameof(Created), Created },
+				{ nameof(CreatedUnix), CreatedUnix },
+				{ nameof(Size), Size },
+				{ nameof(Containers), Containers },
+
+				{ nameof(ImagesInfo.LastUpdate), ImagesInfo.LastUpdate.ToUniversalTime() }
+			};
+		}
+	}
+
+	private static List<string> GetNames(Dictionary<string, string> labelsDict, JsonElement? dockerOutput = null)
+	{
+		List<string> names = [];
+		foreach (var labelKvp in labelsDict)
+		{
+			switch (labelKvp.Key)
+			{
+				case "bayt.name":
+				case "glance.name":
+				case "homepage.name":
+				case "com.docker.compose.project":
+				case "org.opencontainers.image.title":
+					names.Add(labelKvp.Value);
+					break;
+			}
+		}
+
+		if (dockerOutput is not null && dockerOutput.Value.TryGetProperty(nameof(names), out var namesElement) && namesElement.GetArrayLength() > 0)
+		{
+			List<JsonElement> dockerNames = namesElement.EnumerateArray().ToList();
+			dockerNames.RemoveAll(name => name.GetString() is null);
+
+			// If we're going to have to use the Docker default name, let's clean it up first. (remove leading /, e.g. "/jellyfin" => "jellyfin")
+			var firstName = dockerNames.First().GetString();
+			if (names.Count == 0 && firstName!.StartsWith('/'))
+			{
+				names.Add(firstName[1..]);
+				dockerNames = dockerNames.Skip(1).ToList();
+			}
+
+			// Add the rest of the names, if any.
+			if (dockerNames.Count > 0)
+			{
+				names.AddRange(dockerNames.Select(name => name.GetString()!));
+			}
+		}
+		names = names.Distinct().ToList();
+
+		return names;
+	}
+	private static string? GetDescription(Dictionary<string, string> labelsDict)
+	{
+		if (labelsDict.TryGetValue("bayt.description", out var description)
+		    || labelsDict.TryGetValue("glance.description", out description)
+		    || labelsDict.TryGetValue("homepage.description", out description)
+		    || labelsDict.TryGetValue("org.opencontainers.image.description", out description))
+		{
+			return description;
+		}
+
+		return null;
+	}
+
+	private static List<string> GetIconUrls(Dictionary<string, string> labelsDict, string? preferredIconLink = null)
+	{
+		List<string> iconUrls = [];
+		foreach (var labelKvp in labelsDict)
+		{
+			switch (labelKvp.Key)
+			{
+				case "bayt.icon":
+				case "glance.icon":
+				case "com.docker.desktop.extension.icon":
+					iconUrls.Add(GetUrlFromRepos(labelKvp.Value));
+					break;
+			}
+		}
+
+		if (preferredIconLink is not null && (iconUrls.Count == 0 || preferredIconLink != GenericIconLink))
+			iconUrls.Add(GetUrlFromRepos(preferredIconLink));
+
+		return iconUrls;
+
+		string GetUrlFromRepos(string repoName)
+		{
+			if (repoName.StartsWith("http")) return repoName;
+			if (repoName.StartsWith("di:"))
+			{
+				repoName = repoName[3..];
+				return $"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/{repoName}.svg";
+			}
+			if (repoName.StartsWith("sh:"))
+			{
+				repoName = repoName[3..];
+				return $"https://cdn.jsdelivr.net/gh/selfhst/icons/png/{repoName}.png";
+			}
+			if (repoName.StartsWith("si:"))
+			{
+				repoName = repoName[3..];
+				return $"https://cdn.jsdelivr.net/npm/simple-icons@v15/icons/{repoName}.svg";
+			}
+			if (repoName.StartsWith("mdi:"))
+			{
+				repoName = repoName[4..];
+				return $"https://api.iconify.design/mdi/{repoName}.svg";
+			}
+
+			return repoName;
+		}
+	}
+
+	private static string? GetImageUrl(Dictionary<string, string> labelsDict)
+	{
+		if (labelsDict.TryGetValue("bayt.image.url", out var imageUrl) && imageUrl.StartsWith("http")
+			|| labelsDict.TryGetValue("org.opencontainers.image.url", out imageUrl) && imageUrl.StartsWith("http")
+			|| labelsDict.TryGetValue("org.opencontainers.image.source", out imageUrl) && imageUrl.StartsWith("http")
+		    || labelsDict.TryGetValue("com.docker.extension.publisher-url", out imageUrl) && imageUrl.StartsWith("http"))
+			return imageUrl;
+
+		return null;
+	}
+
+	private static string? GetImageVersion(Dictionary<string, string> labelsDict)
+	{
+		if (labelsDict.TryGetValue("bayt.version", out var version)
+		    || labelsDict.TryGetValue("org.opencontainers.image.version", out version))
+		{
+			return version;
+		}
+
+		return null;
+	}
+
 	public sealed record DockerResponse
 	{
 		public HttpStatusCode Status { get; init; }
@@ -617,6 +747,7 @@ public static class Docker
 	{
 		var handler = new SocketsHttpHandler
 		{
+			// ReSharper disable once UnusedParameter.Local
 			ConnectCallback = async (context, cancellationToken) =>
 			{
 				var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);

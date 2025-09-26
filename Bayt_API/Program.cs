@@ -591,7 +591,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", async () =>
 
 string baseDockerUrl = $"{ApiConfig.BaseApiUrlPath}/docker";
 
-app.MapGet($"{baseDockerUrl}/getContainers", async (bool all = true) =>
+app.MapGet($"{baseDockerUrl}/containers/getContainers", async (bool all = true) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	await Docker.DockerContainers.UpdateDataIfNecessary();
@@ -604,7 +604,7 @@ app.MapGet($"{baseDockerUrl}/getContainers", async (bool all = true) =>
 	.WithTags("Docker")
 	.WithName("GetDockerContainers");
 
-app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -631,7 +631,7 @@ app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("StartDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -658,7 +658,7 @@ app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("StopDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -683,7 +683,7 @@ app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("RestartDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -710,7 +710,7 @@ app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("KillDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string? containerId) =>
+app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -738,7 +738,7 @@ app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("DeleteDockerContainer");
 
-app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs)
+app.MapGet($"{baseDockerUrl}/containers/getContainerLogs", Docker.StreamDockerLogs)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
@@ -749,7 +749,7 @@ app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs)
 
 // Docker Compose endpoints
 
-app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =>
+app.MapGet($"{baseDockerUrl}/containers/getContainerCompose", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -780,7 +780,7 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 	.WithTags("Docker")
 	.WithName("GetDockerContainerCompose");
 
-app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
+app.MapPut($"{baseDockerUrl}/containers/setContainerCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
 {
 	// Request validation
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
@@ -835,7 +835,7 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 	.WithTags("Docker")
 	.WithName("SetDockerContainerCompose");
 
-app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/ownContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -869,7 +869,7 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("OwnDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
+app.MapDelete($"{baseDockerUrl}/containers/disownContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -901,7 +901,7 @@ app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("DisownDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
+app.MapDelete($"{baseDockerUrl}/containers/pruneContainers", async () =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 
@@ -922,7 +922,7 @@ app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
 	.WithTags("Docker")
 	.WithName("PruneDockerContainers");
 
-app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
+app.MapGet($"{baseDockerUrl}/containers/getContainerStats", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
@@ -949,7 +949,7 @@ app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("GetDockerContainerStats");
 
-app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, string? containerName, bool startContainer = true, bool deleteIfFailed = true) =>
+app.MapPost($"{baseDockerUrl}/containers/createContainer", async (HttpContext context, string? containerName, bool startContainer = true, bool deleteIfFailed = true) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	if (!Docker.IsDockerComposeAvailable) return Results.InternalServerError("Docker-Compose is not available on this system or the Docker integration was disabled.");
@@ -1013,7 +1013,7 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 	.WithTags("Docker")
 	.WithName("CreateDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/setContainerMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
+app.MapPost($"{baseDockerUrl}/containers/setContainerMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -1045,7 +1045,11 @@ app.MapGet($"{baseDockerUrl}/images/getImages", async () =>
 	await Docker.ImagesInfo.UpdateDataIfNecessary();
 
 	return Results.Json(Docker.ImagesInfo.ToDictionary());
-});
+}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Get list of Docker images on the system.")
+	.WithTags("Docker", "Docker Images")
+	.WithName("GetDockerImages");
 
 if (Docker.IsDockerAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
 if (Docker.IsDockerComposeAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));

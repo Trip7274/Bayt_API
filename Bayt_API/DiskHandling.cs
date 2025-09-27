@@ -346,12 +346,8 @@ public static partial class DiskHandling
 		if (scriptSupports.Contains(statName))
 		{
 			string scriptPath = $"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh";
-			var shellProcess = ShellMethods.RunShell(scriptPath, $"{statName} {devicePath}").Result;
-			if (shellProcess.ExitCode == 124)
-			{
-				throw new TimeoutException($"[ERROR] Timeout while running '{scriptPath} {statName}'!]");
-			}
-			else if (!shellProcess.IsSuccess)
+			var shellProcess = ShellMethods.RunShell(scriptPath, [statName, devicePath]).Result;
+			if (!shellProcess.IsSuccess)
 			{
 				throw new Exception($"Error while running '{scriptPath} {statName}'! (code: {shellProcess.ExitCode})");
 			}
@@ -377,7 +373,7 @@ public static partial class DiskHandling
 	private static string GetDevicePath(string mountPoint)
 	{
 		var regexMatch = DevicePathAndFileSystemRegex()
-			.Match(ShellMethods.RunShell("df", $"{mountPoint} -T").Result.StandardOutput);
+			.Match(ShellMethods.RunShell("df", [mountPoint, "-T"]).Result.StandardOutput);
 
 		if (regexMatch.Groups.Count != 3) throw new Exception($"Error while parsing device path for '{mountPoint}'!");
 
@@ -395,7 +391,7 @@ public static partial class DiskHandling
 	private static string GetDeviceFileSystem(string mountPoint)
 	{
 		var regexMatch = DevicePathAndFileSystemRegex()
-			.Match(ShellMethods.RunShell("df", $"{mountPoint} -T").Result.StandardOutput);
+			.Match(ShellMethods.RunShell("df", [mountPoint, "-T"]).Result.StandardOutput);
 
 		if (regexMatch.Groups.Count != 3) throw new Exception($"Error while parsing device path for '{mountPoint}'!");
 

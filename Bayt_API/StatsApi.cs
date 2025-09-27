@@ -1,8 +1,5 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection.PortableExecutable;
-using CliWrap;
-using CliWrap.Buffered;
 
 namespace Bayt_API;
 
@@ -14,7 +11,7 @@ public static class StatsApi
 
 	/// <summary>
 	/// General specs include generally static and general info about the system, or info about the system that's not inherent to Bayt.
-	/// Some of these *are* dynamic, but keep in mind that the constructor is only ran on start-up.
+	/// Some of these *are* dynamic, but keep in mind that the constructor only runs on start-up.
 	/// </summary>
 	public static class GeneralSpecs
 	{
@@ -22,10 +19,10 @@ public static class StatsApi
 		{
 			HostName = Environment.MachineName;
 			DistroName = ShellMethods
-				.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", "Distro.Name").Result.StandardOutput;
-			KernelName = ShellMethods.RunShell("uname", "-s").Result.StandardOutput;
-			KernelVersion = ShellMethods.RunShell("uname", "-r").Result.StandardOutput;
-			KernelArch = ShellMethods.RunShell("uname", "-m").Result.StandardOutput;
+				.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", ["Distro.Name"]).Result.StandardOutput;
+			KernelName = ShellMethods.RunShell("uname", ["-s"]).Result.StandardOutput;
+			KernelVersion = ShellMethods.RunShell("uname", ["-r"]).Result.StandardOutput;
+			KernelArch = ShellMethods.RunShell("uname", ["-m"]).Result.StandardOutput;
 		}
 
 		/// <summary>
@@ -77,7 +74,7 @@ public static class StatsApi
 	{
 		static CpuData()
 		{
-			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "Name").Result;
+			var rawOutput = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", ["Name"]).Result;
 			if (!rawOutput.IsSuccess)
 			{
 				throw new Exception($"Failed to get CPU name from getCpu.sh ({rawOutput.ExitCode}).");
@@ -164,7 +161,7 @@ public static class StatsApi
 			{
 				shellTimeout *= 10;
 			}
-			var rawOutput = await ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", "AllUtil", shellTimeout);
+			var rawOutput = await ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", ["AllUtil"], shellTimeout);
 			if (!rawOutput.IsSuccess)
 			{
 				throw new Exception($"Failed to get CPU data from getCpu.sh ({rawOutput.ExitCode}).");
@@ -289,7 +286,7 @@ public static class StatsApi
 				shellTimeout *= 10;
 			}
 
-			var rawOutput = await ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", "All", shellTimeout);
+			var rawOutput = await ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", ["All"], shellTimeout);
 			if (!rawOutput.IsSuccess)
 			{
 				throw new Exception($"Failed to get RAM data from getCpu.sh ({rawOutput.ExitCode})");
@@ -344,7 +341,8 @@ public static class StatsApi
 
 		using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
 		socket.Connect("1.1.1.1", 65530);
-		var endPoint = socket.LocalEndPoint as IPEndPoint ?? IPEndPoint.Parse(ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getNet.sh", "LocalAddress").Result.StandardOutput);
+		var endPoint = socket.LocalEndPoint as IPEndPoint ?? IPEndPoint.Parse(ShellMethods.RunShell(
+			$"{ApiConfig.BaseExecutablePath}/scripts/getNet.sh", ["LocalAddress"]).Result.StandardOutput);
 		localIp = endPoint.Address;
 
 		return localIp;

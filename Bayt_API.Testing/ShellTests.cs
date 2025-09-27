@@ -11,18 +11,24 @@ public class ShellTests
 	[Fact]
 	public async Task ShellStdout()
 	{
-		Assert.Equal("This is to test stdout", (await ShellMethods.RunShell("echo", "This is to test stdout")).StandardOutput.TrimEnd('\n'));
+		Assert.Equal("This is to test stdout", (await ShellMethods.RunShell("echo", ["This is to test stdout"])).StandardOutput);
 	}
 
 	[Fact]
 	public async Task ShellStderr()
 	{
-		Assert.Equal("This is to test stderr", (await ShellMethods.RunShell("sh", "-c \"echo 'This is to test stderr' >&2\"")).StandardError.TrimEnd('\n'));
+		Assert.Equal("This is to test stderr", (await ShellMethods.RunShell("sh",
+			["-c", "echo 'This is to test stderr' >&2"])).StandardError);
 	}
 
 	[Fact]
 	public async Task ShellTimeout()
 	{
-		await Assert.ThrowsAsync<TimeoutException>(() => ShellMethods.RunShell("sleep", "0.2", 150));
+		await Assert.ThrowsAsync<TimeoutException>(() => ShellMethods.RunShell("sleep", ["0.2"], 150, true));
+	}
+	[Fact]
+	public async Task NoShellTimeoutWhenRequested()
+	{
+		Assert.Equal(124, (await ShellMethods.RunShell("sleep", ["0.2"], 150, false)).ExitCode);
 	}
 }

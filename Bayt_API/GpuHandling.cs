@@ -137,11 +137,7 @@ public static class GpuHandling
 			}
 
 			var shellScriptProcess =
-					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", $"All {GpuId}", shellTimeout).Result;
-			if (shellScriptProcess.ExitCode == 124)
-			{
-				throw new TimeoutException($"Script timed out while getting GPU data for GPU '{GpuId}'.");
-			}
+					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", ["All", GpuId], shellTimeout).Result;
 
 			string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
 
@@ -215,11 +211,7 @@ public static class GpuHandling
 	{
 		static FullGpusData()
 		{
-			var gpuIdsProcess = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", "gpu_ids").Result;
-			if (gpuIdsProcess.ExitCode == 124)
-			{
-				throw new TimeoutException("Script timed out while getting GPU IDs.");
-			}
+			var gpuIdsProcess = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", ["gpu_ids"]).Result;
 
 			GpuIdList = gpuIdsProcess.StandardOutput.TrimEnd('\n').Split('\n');
 

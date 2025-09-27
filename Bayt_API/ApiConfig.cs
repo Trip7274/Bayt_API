@@ -511,11 +511,11 @@ public static class ApiConfig
 			{
 				PhysicalAddress physicalAddress;
 				var physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
-					$"PhysicalAddress {clientsToAdd.Key}").Result;
+					["PhysicalAddress", clientsToAdd.Key], throwIfTimedout: false).Result;
 
 				IPAddress subnetMask;
 				var subnetMaskProcess =
-					ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", "Netmask").Result;
+					ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", ["Netmask"], throwIfTimedout: false).Result;
 				if (subnetMaskProcess.ExitCode == 124 || physicalAddressProcess.ExitCode == 124)
 				{
 					Console.ForegroundColor = ConsoleColor.Yellow;

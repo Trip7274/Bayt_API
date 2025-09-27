@@ -42,11 +42,12 @@ public static class ShellMethods
 	/// <param name="program">The path to the program to execute.</param>
 	/// <param name="arguments">The command-line arguments to pass to the program.</param>
 	/// <param name="timeoutMilliseconds">The maximum time to wait for the process to exit, in milliseconds. Defaults to 5 seconds.</param>
+	/// <param name="throwIfTimedout">Whether to throw a <c>TimeoutException</c> if the process times out, or return a ShellResult object with a status code of 124. Defaults to true.</param>
 	/// <param name="environmentVariables">Environment variables to set for the specified process. These are applied over the Bayt API's env vars.</param>
 	/// <returns>A <see cref="ShellResult"/> containing the process output, error, and exit code. Will be null if the process timed out.</returns>
 	/// <exception cref="InvalidOperationException">Thrown if there is an error starting the process.</exception>
 	/// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
-	public static async Task<ShellResult?> RunShell(string program, string arguments = "", int timeoutMilliseconds = 5000, Dictionary<string, string?>? environmentVariables = null)
+	public static async Task<ShellResult> RunShell(string program, string[]? arguments = null, int timeoutMilliseconds = 5000, bool throwIfTimedout = true, Dictionary<string, string?>? environmentVariables = null)
 	{
 		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Got a request to run a command: {Path.GetFileName(program)} {arguments}"));
 		StringBuilder stdout = new();
@@ -63,11 +64,14 @@ public static class ShellMethods
 			}
 		}
 
-		CommandResult? process;
+		arguments ??= [];
+
+		var statusCode = -1;
+		CommandResult? process = null;
 		try
 		{
 			process = await Cli.Wrap(program)
-				.WithArguments(arguments.Split(' '))
+				.WithArguments(arguments)
 				.WithValidation(CommandResultValidation.None)
 				.WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdout))
 				.WithStandardErrorPipe(PipeTarget.ToStringBuilder(stderr))
@@ -77,15 +81,23 @@ public static class ShellMethods
 		}
 		catch (OperationCanceledException e)
 		{
-			throw new TimeoutException($"The process '{Path.GetFileName(program)}' timed out after {TimeSpan.FromMilliseconds(timeoutMilliseconds).Seconds} seconds.", e);
-		}
+			if (throwIfTimedout)
+			{
+				throw new TimeoutException(
+					$"The process '{Path.GetFileName(program)}' timed out after {TimeSpan.FromMilliseconds(timeoutMilliseconds).Seconds} seconds.",
+					e);
+			}
 
-		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Process '{Path.GetFileName(program)}' exited with code {process.ExitCode}."));
+			statusCode = 124; // The code is from the `timeout` command in the GNU coreutils.
+		}
+		if (statusCode == -1 && process is not null) statusCode = process.ExitCode;
+
+		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Process '{Path.GetFileName(program)}' exited with code {statusCode}."));
 		return new ShellResult
 		{
 			StandardOutput = stdout.ToString().Trim('\n'),
 			StandardError = stderr.ToString().Trim('\n'),
-			ExitCode = process.ExitCode
+			ExitCode = statusCode
 		};
 	}
 
@@ -104,7 +116,7 @@ public static class ShellMethods
 			throw new FileNotFoundException($"The file '{scriptPath}' does not exist or is not executable.");
 		}
 
-		var supportsShell = RunShell(scriptPath, "Meta.Supports").Result;
+		var supportsShell = RunShell(scriptPath, ["Meta.Supports"]).Result;
 		if (!supportsShell.IsSuccess)
 		{
 			throw new Exception($"The script '{scriptPath}' failed to execute. ({supportsShell.ExitCode})");
@@ -131,7 +143,7 @@ public static class ShellMethods
 			return false;
 		}
 
-		var supportsShell = RunShell(scriptPath, "Meta.Supports").Result;
+		var supportsShell = RunShell(scriptPath, ["Meta.Supports"]).Result;
 		if (!supportsShell.IsSuccess)
 		{
 			return false;

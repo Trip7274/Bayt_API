@@ -1,10 +1,9 @@
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using CliWrap;
 
 namespace Bayt_API;
 
-// This class was mostly written by Gemini. TODO: Rewrite this yourself.
 
 /// <summary>
 /// Represents the result of executing a shell command.
@@ -24,12 +23,15 @@ public class ShellResult
 	/// <summary>
 	/// Contains the exit code returned by the process.
 	/// </summary>
+	/// <remarks>
+	///	The status code will be 124 if the process timed out, and 0 if it completed successfully.
+	/// </remarks>
 	public int ExitCode { get; init; }
 
 	/// <summary>
 	/// Contains a value indicating whether the process completed successfully.
 	/// </summary>
-	public bool Success => ExitCode == 0;
+	public bool IsSuccess => ExitCode == 0;
 }
 
 public static class ShellMethods
@@ -39,129 +41,64 @@ public static class ShellMethods
 	/// </summary>
 	/// <param name="program">The path to the program to execute.</param>
 	/// <param name="arguments">The command-line arguments to pass to the program.</param>
-	/// <param name="timeoutMilliseconds">The maximum time to wait for the process to exit, in milliseconds.
-	/// Defaults to 1.5 seconds.</param>
-	/// <returns>A <see cref="ShellResult"/> containing the process output, error, and exit code.</returns>
+	/// <param name="timeoutMilliseconds">The maximum time to wait for the process to exit, in milliseconds. Defaults to 5 seconds.</param>
+	/// <param name="throwIfTimedout">Whether to throw a <c>TimeoutException</c> if the process times out, or return a ShellResult object with a status code of 124. Defaults to true.</param>
+	/// <param name="environmentVariables">Environment variables to set for the specified process. These are applied over the Bayt API's env vars.</param>
+	/// <returns>A <see cref="ShellResult"/> containing the process output, error, and exit code. Will be null if the process timed out.</returns>
 	/// <exception cref="InvalidOperationException">Thrown if there is an error starting the process.</exception>
 	/// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
-	public static ShellResult RunShell(string program, string arguments = "", int timeoutMilliseconds = 2500)
+	public static async Task<ShellResult> RunShell(string program, string[]? arguments = null, int timeoutMilliseconds = 5000, bool throwIfTimedout = true, Dictionary<string, string?>? environmentVariables = null)
 	{
-		using var process = new Process();
-		process.StartInfo = new ProcessStartInfo
-        {
-            FileName = program,
-            Arguments = arguments,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
-        };
+		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Got a request to run a command: {Path.GetFileName(program)} {arguments}"));
+		StringBuilder stdout = new();
+		StringBuilder stderr = new();
+		Dictionary<string, string?> envVars = new()
+		{
+			{ "BAYT_RUN", "1" }
+		};
+		if (environmentVariables != null)
+		{
+			foreach (var environmentVariable in environmentVariables)
+			{
+				envVars.Add(environmentVariable.Key, environmentVariable.Value);
+			}
+		}
 
-        var outputBuilder = new StringBuilder();
-        var errorBuilder = new StringBuilder();
+		arguments ??= [];
 
-        // Use AutoResetEvent to signal when streams have finished closing
-        using var outputWaitHandle = new AutoResetEvent(false);
-        using var errorWaitHandle = new AutoResetEvent(false);
+		var statusCode = -1;
+		CommandResult? process = null;
+		try
+		{
+			process = await Cli.Wrap(program)
+				.WithArguments(arguments)
+				.WithValidation(CommandResultValidation.None)
+				.WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdout))
+				.WithStandardErrorPipe(PipeTarget.ToStringBuilder(stderr))
+				.WithWorkingDirectory(Directory.GetCurrentDirectory())
+				.WithEnvironmentVariables(envVars)
+				.ExecuteAsync(new CancellationTokenSource(timeoutMilliseconds).Token);
+		}
+		catch (OperationCanceledException e)
+		{
+			if (throwIfTimedout)
+			{
+				throw new TimeoutException(
+					$"The process '{Path.GetFileName(program)}' timed out after {TimeSpan.FromMilliseconds(timeoutMilliseconds).Seconds} seconds.",
+					e);
+			}
 
-        // Assign handlers using local functions
-        process.OutputDataReceived += ProcessOutputDataReceived;
-        process.ErrorDataReceived += ProcessErrorDataReceived;
+			statusCode = 124; // The code is from the `timeout` command in the GNU coreutils.
+		}
+		if (statusCode == -1 && process is not null) statusCode = process.ExitCode;
 
-        try
-        {
-            process.Start();
-        }
-        catch (Exception ex)
-        {
-            // Wrap other potential exceptions during process start
-            throw new InvalidOperationException($"Failed to start process '{program}'. See inner exception.", ex);
-        }
-
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        // Wait for the process to exit and for the stream handlers to signal completion
-        bool processExited = process.WaitForExit(timeoutMilliseconds);
-        bool outputStreamClosed = outputWaitHandle.WaitOne(timeoutMilliseconds); // Consider a shorter/separate timeout?
-        bool errorStreamClosed = errorWaitHandle.WaitOne(timeoutMilliseconds);  // Consider a shorter/separate timeout?
-
-        if (processExited && outputStreamClosed && errorStreamClosed)
-        {
-            // Process completed normally
-            return new ShellResult
-            {
-                StandardOutput = outputBuilder.ToString().TrimEnd('\n'),
-                StandardError = errorBuilder.ToString().TrimEnd('\n'),
-                ExitCode = process.ExitCode // Get the actual exit code
-            };
-        }
-        // Timeout occurred
-        KillProcessSafe(process, program); // Attempt to kill the lingering process
-
-        // Construct a meaningful timeout message
-        string timeoutMessage = $"Process '{program} {arguments}' timed out after {timeoutMilliseconds} ms.";
-        if (!processExited) timeoutMessage += " Process did not exit.";
-        if (!outputStreamClosed) timeoutMessage += " Output stream reading did not complete.";
-        if (!errorStreamClosed) timeoutMessage += " Error stream reading did not complete.";
-        timeoutMessage += $"\nOutput captured: '{outputBuilder}'.\nError captured: '{errorBuilder}'.";
-
-        throw new TimeoutException(timeoutMessage);
-
-        // --- Local Handler Methods ---
-        void ProcessOutputDataReceived(object sender, DataReceivedEventArgs e) =>
-            HandleStreamData(e, outputBuilder, outputWaitHandle);
-
-        void ProcessErrorDataReceived(object sender, DataReceivedEventArgs e) =>
-            HandleStreamData(e, errorBuilder, errorWaitHandle);
-
-        static void HandleStreamData(DataReceivedEventArgs e, StringBuilder builder, AutoResetEvent waitHandle)
-        {
-            if (e.Data == null)
-            {
-                // End of stream
-                try
-                {
-                    waitHandle.Set(); // Signal that this stream is done
-                }
-                catch (ObjectDisposedException)
-                {
-                    // Ignore if the handle was already disposed (e.g., due to timeout/cleanup)
-                    Debug.WriteLine("WaitHandle disposed before stream handler could signal completion.");
-                }
-            }
-            else
-            {
-                // Append data. Lock for potential concurrent writes, although unlikely for standard handlers.
-                lock (builder)
-                {
-                    builder.AppendLine(e.Data);
-                }
-            }
-        }
-
-        // --- Helper to safely kill the process ---
-        static void KillProcessSafe(Process process, string programName)
-        {
-             try
-             {
-	             // Check HasExited before attempting to kill to avoid exceptions
-	             if (process.HasExited) return;
-
-	             Debug.WriteLine($"Process '{programName}' timed out or streams did not close. Attempting to kill.");
-                 process.Kill(true); // Kill process and its children
-                 // Optionally wait a very short time for the kill operation
-                 // process.WaitForExit(500);
-                 Debug.WriteLine($"Process '{programName}' kill signal sent.");
-             }
-             catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException)
-             {
-                 // Log if killing failed (e.g., the process already exited or access denied)
-                 Debug.WriteLine($"Failed to kill process '{programName}' after timeout: {ex.Message}");
-             }
-        }
+		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Process '{Path.GetFileName(program)}' exited with code {statusCode}."));
+		return new ShellResult
+		{
+			StandardOutput = stdout.ToString().Trim('\n'),
+			StandardError = stderr.ToString().Trim('\n'),
+			ExitCode = statusCode
+		};
 	}
 
 
@@ -179,8 +116,8 @@ public static class ShellMethods
 			throw new FileNotFoundException($"The file '{scriptPath}' does not exist or is not executable.");
 		}
 
-		var supportsShell = RunShell(scriptPath, "Meta.Supports");
-		if (!supportsShell.Success)
+		var supportsShell = RunShell(scriptPath, ["Meta.Supports"]).Result;
+		if (!supportsShell.IsSuccess)
 		{
 			throw new Exception($"The script '{scriptPath}' failed to execute. ({supportsShell.ExitCode})");
 		}
@@ -206,8 +143,8 @@ public static class ShellMethods
 			return false;
 		}
 
-		var supportsShell = RunShell(scriptPath, "Meta.Supports");
-		if (!supportsShell.Success)
+		var supportsShell = RunShell(scriptPath, ["Meta.Supports"]).Result;
+		if (!supportsShell.IsSuccess)
 		{
 			return false;
 		}

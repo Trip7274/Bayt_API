@@ -10,32 +10,39 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+Logs.StreamWrittenTo += Logs.EchoLogs;
 
-Console.WriteLine($"[INFO] Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list");
+Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list"));
 builder.WebHost.ConfigureKestrel(opts => opts.Listen(IPAddress.Loopback, ApiConfig.NetworkPort));
 
 if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 {
 	var localIp = StatsApi.GetLocalIpAddress();
 
-	Console.WriteLine($"[INFO] Adding URL '{localIp}:{ApiConfig.NetworkPort}' to listen list");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL '{localIp}:{ApiConfig.NetworkPort}' to listen list"));
 	builder.WebHost.ConfigureKestrel(opts => opts.Listen(localIp, ApiConfig.NetworkPort));
 }
 
 if (Environment.GetEnvironmentVariable("BAYT_DISABLE_SOCK") != "1")
 {
 	if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
-	Console.WriteLine($"[INFO] Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list"));
 	builder.WebHost.ConfigureKestrel(opts => opts.ListenUnixSocket(ApiConfig.UnixSocketPath));
 }
 
-Console.ForegroundColor = ConsoleColor.Gray;
-Console.WriteLine($"""
-                   [INFO] Loaded configuration from: '{ApiConfig.ConfigFilePath}'
-                   [INFO] Loaded clientData folder: '{ApiConfig.ApiConfiguration.PathToDataFolder}'
-                   [INFO] Loaded containers folder: '{ApiConfig.ApiConfiguration.PathToComposeFolder}'
-                   """);
-Console.ResetColor();
+
+Logs.LogStream.Write(new LogEntry(StreamId.Notice, "Configuration",
+	$"Loaded configuration from: '{ApiConfig.ConfigFilePath}'"));
+
+Logs.LogStream.Write(new LogEntry(StreamId.Notice, "Client Data",
+	$"Loaded clientData from: '{ApiConfig.ApiConfiguration.PathToDataFolder}'"));
+
+if (Docker.IsDockerComposeAvailable)
+{
+	Logs.LogStream.Write(new LogEntry(StreamId.Notice, "Containers",
+		$"Loaded containers from: '{ApiConfig.ApiConfiguration.PathToComposeFolder}'"));
+}
+
 
 var app = builder.Build();
 
@@ -49,10 +56,8 @@ app.UseHttpsRedirection();
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
-	Console.ForegroundColor = ConsoleColor.Yellow;
-	Console.WriteLine($"[WARNING] Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like.\n" +
-	                  "Here be dragons, as this implementation is only targeted and supported for Unix-like systems.");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "Init",
+		$"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like. This is unsupported."));
 }
 
 
@@ -82,6 +87,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 		{
 			return Results.BadRequest("No stats were requested.");
 		}
+		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GetStats", $"Got a request for: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
 
 		// Request checks done
 
@@ -175,6 +181,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 				}
 			}
 		}
+		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GetStats", $"Sent off the response with {responseDictionary.Count} fields."));
 		return Results.Json(responseDictionary);
 	}).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
@@ -536,12 +543,14 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =
 
 
 // Power endpoints
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", () =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", async () =>
 {
-	Console.WriteLine("[INFO] Recieved poweroff request, attempting to shut down...");
-	var operationShell = ShellMethods.RunShell("sudo", "-n /sbin/poweroff");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Server Power", "Recieved poweroff request, attempting to shut down..."));
+	var operationShell = await ShellMethods.RunShell("sudo", ["-n", "/sbin/poweroff"]);
 
-	if (operationShell.Success) return Results.NoContent();
+	// Realistically, execution shouldn't get this far.
+
+	if (operationShell.IsSuccess) return Results.NoContent();
 
 	Dictionary<string, string> errorMessage = new()
 	{
@@ -557,12 +566,12 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", () =>
 	.WithTags("Power")
 	.WithName("ShutdownServer");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", () =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", async () =>
 {
-	Console.WriteLine("[INFO] Recieved restart request, attempting to restart...");
-	var operationShell = ShellMethods.RunShell("sudo", "-n /sbin/reboot");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Server Power", "Recieved restart request, attempting to restart..."));
+	var operationShell = await ShellMethods.RunShell("sudo", ["-n", "/sbin/reboot"]);
 
-	if (operationShell.Success) return Results.NoContent();
+	if (operationShell.IsSuccess) return Results.NoContent();
 
 	Dictionary<string, string> errorMessage = new()
 	{
@@ -582,21 +591,20 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", () =>
 
 string baseDockerUrl = $"{ApiConfig.BaseApiUrlPath}/docker";
 
-app.MapGet($"{baseDockerUrl}/getContainers", async (bool all = true) =>
+app.MapGet($"{baseDockerUrl}/containers/getContainers", async (bool all = true) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	await Docker.DockerContainers.UpdateDataIfNecessary();
 
 
 	return Results.Json(Docker.DockerContainers.ToDictionary(all));
-
 }).Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status200OK)
 	.WithSummary("Fetch all or only the currently active containers in the system.")
 	.WithTags("Docker")
 	.WithName("GetDockerContainers");
 
-app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -623,7 +631,7 @@ app.MapPost($"{baseDockerUrl}/startContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("StartDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -650,7 +658,7 @@ app.MapPost($"{baseDockerUrl}/stopContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("StopDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -675,7 +683,7 @@ app.MapPost($"{baseDockerUrl}/restartContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("RestartDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -702,7 +710,7 @@ app.MapPost($"{baseDockerUrl}/killContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("KillDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string? containerId) =>
+app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
 	if (requestValidation is not null) return requestValidation;
@@ -730,7 +738,7 @@ app.MapDelete($"{baseDockerUrl}/deleteContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("DeleteDockerContainer");
 
-app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs)
+app.MapGet($"{baseDockerUrl}/containers/getContainerLogs", Docker.StreamDockerLogs)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
@@ -741,7 +749,7 @@ app.MapGet($"{baseDockerUrl}/getContainerLogs", Docker.StreamDockerLogs)
 
 // Docker Compose endpoints
 
-app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =>
+app.MapGet($"{baseDockerUrl}/containers/getContainerCompose", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -772,7 +780,7 @@ app.MapGet($"{baseDockerUrl}/getContainerCompose", async (string? containerId) =
 	.WithTags("Docker")
 	.WithName("GetDockerContainerCompose");
 
-app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
+app.MapPut($"{baseDockerUrl}/containers/setContainerCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
 {
 	// Request validation
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
@@ -827,7 +835,7 @@ app.MapPut($"{baseDockerUrl}/setContainerCompose", async (HttpContext context, s
 	.WithTags("Docker")
 	.WithName("SetDockerContainerCompose");
 
-app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/ownContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -861,7 +869,7 @@ app.MapPost($"{baseDockerUrl}/ownContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("OwnDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
+app.MapDelete($"{baseDockerUrl}/containers/disownContainer", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -893,13 +901,11 @@ app.MapDelete($"{baseDockerUrl}/disownContainer", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("DisownDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
+app.MapDelete($"{baseDockerUrl}/containers/pruneContainers", async () =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 
 	var dockerRequest = await Docker.SendRequest("containers/prune", "POST");
-
-	Console.WriteLine(dockerRequest.Body);
 
 	return dockerRequest.Status switch
 	{
@@ -916,7 +922,7 @@ app.MapDelete($"{baseDockerUrl}/pruneContainers", async () =>
 	.WithTags("Docker")
 	.WithName("PruneDockerContainers");
 
-app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
+app.MapGet($"{baseDockerUrl}/containers/getContainerStats", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
@@ -943,7 +949,7 @@ app.MapGet($"{baseDockerUrl}/getContainerStats", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("GetDockerContainerStats");
 
-app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, string? containerName, bool startContainer = true, bool deleteIfFailed = true) =>
+app.MapPost($"{baseDockerUrl}/containers/createContainer", async (HttpContext context, string? containerName, bool startContainer = true, bool deleteIfFailed = true) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	if (!Docker.IsDockerComposeAvailable) return Results.InternalServerError("Docker-Compose is not available on this system or the Docker integration was disabled.");
@@ -974,20 +980,20 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 
 	if (!startContainer) return Results.NoContent();
 
-	var composeShell = ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} up -d");
+	var composeShell = await ShellMethods.RunShell("docker-compose", ["-f", yamlFilePath, "up", "-d"]);
 
-	if (!composeShell.Success && deleteIfFailed)
+	if (!composeShell.IsSuccess && deleteIfFailed)
 	{
 		// In case the docker-compose file left any services running
-		ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} down");
-		ShellMethods.RunShell("docker-compose", $"-f {yamlFilePath} rm");
+		await ShellMethods.RunShell("docker-compose", ["-f", yamlFilePath, "down"]);
+		await ShellMethods.RunShell("docker-compose", ["-f", yamlFilePath, "rm"]);
 
 		Directory.Delete(composePath, true);
 		return Results.InternalServerError($"Non-zero exit code from starting the container. Container was deleted. " +
 		                                   $"Stdout: {composeShell.StandardOutput} " +
 		                                   $"Stderr: {composeShell.StandardError}");
 	}
-	if (!composeShell.Success)
+	if (!composeShell.IsSuccess)
 	{
 		return Results.InternalServerError($"Non-zero exit code from starting the container. " +
 		                                   $"Stdout: {composeShell.StandardOutput} " +
@@ -1007,7 +1013,7 @@ app.MapPost($"{baseDockerUrl}/createContainer", async (HttpContext context, stri
 	.WithTags("Docker")
 	.WithName("CreateDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/setContainerMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
+app.MapPost($"{baseDockerUrl}/containers/setContainerMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -1031,11 +1037,25 @@ app.MapPost($"{baseDockerUrl}/setContainerMetadata", async (string? containerId,
 	.WithTags("Docker")
 	.WithName("SetDockerContainerMetadata");
 
-if (Docker.IsDockerAvailable) Console.WriteLine("[INFO] Docker is available. Docker endpoints will be available.");
-if (Docker.IsDockerComposeAvailable) Console.WriteLine("[INFO] Docker-Compose is available. Docker-Compose endpoints will be available.");
+// Docker images endpoints
+
+app.MapGet($"{baseDockerUrl}/images/getImages", async () =>
+{
+	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
+	await Docker.ImagesInfo.UpdateDataIfNecessary();
+
+	return Results.Json(Docker.ImagesInfo.ToDictionary());
+}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Get list of Docker images on the system.")
+	.WithTags("Docker", "Docker Images")
+	.WithName("GetDockerImages");
+
+if (Docker.IsDockerAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
+if (Docker.IsDockerComposeAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
-	Console.WriteLine("[INFO] Skipping first fetch cycle. This may cause the first request to be slow.");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Skipping first fetch cycle. This may cause the first request to be slow."));
 }
 else
 {
@@ -1050,14 +1070,13 @@ else
 	if (Docker.IsDockerAvailable)
 	{
 		fetchTasks.Add(Task.Run(Docker.DockerContainers.UpdateDataIfNecessary));
+		fetchTasks.Add(Task.Run(Docker.ImagesInfo.UpdateDataIfNecessary));
 	}
 
-	Console.WriteLine("[INFO] Preparing a few things...");
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Init", "Running an initial fetch cycle..."));
 	await Task.WhenAll(fetchTasks);
 
-	Console.ForegroundColor = ConsoleColor.Green;
-	Console.WriteLine("[OK] Fetch cycle complete. Starting API...");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Ok, "Init", "Fetch cycle complete. Starting API..."));
 }
 
 try
@@ -1066,22 +1085,16 @@ try
 }
 catch (SocketException e) when (e.Message == "Cannot assign requested address")
 {
-	Console.ForegroundColor = ConsoleColor.Red;
-	Console.WriteLine(
-		"[FATAL] Something went wrong while binding to one of the targetted IP addresses. " +
-		"Make sure the targetted IP address is valid.");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+		"Something went wrong while binding to one of the targetted IP addresses. Make sure the targetted IP address is valid."));
 }
 catch (SocketException e) when (e.Message == "Permission denied")
 {
-	Console.ForegroundColor = ConsoleColor.Red;
-	Console.WriteLine("[FATAL] The current user does not have permission to bind to one of the IP addresses or ports.");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+		"The current user does not have permission to bind to one of the IP addresses or ports."));
 }
 catch (IOException e) when (e.InnerException is not null && e.InnerException.Message == "Address already in use")
 {
-	Console.ForegroundColor = ConsoleColor.Red;
-	Console.WriteLine(
-		$"[FATAL] Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running.");
-	Console.ResetColor();
+	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+		$"Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running."));
 }

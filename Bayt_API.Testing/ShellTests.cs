@@ -3,26 +3,32 @@ namespace Bayt_API.Testing;
 public class ShellTests
 {
 	[Fact]
-	public void ShellExitCode()
+	public async Task ShellExitCode()
 	{
-		Assert.True(ShellMethods.RunShell("true").Success);
+		Assert.True((await ShellMethods.RunShell("true")).IsSuccess);
 	}
 
 	[Fact]
-	public void ShellStdout()
+	public async Task ShellStdout()
 	{
-		Assert.Equal("This is to test stdout", ShellMethods.RunShell("echo", "This is to test stdout").StandardOutput.TrimEnd('\n'));
+		Assert.Equal("This is to test stdout", (await ShellMethods.RunShell("echo", ["This is to test stdout"])).StandardOutput);
 	}
 
 	[Fact]
-	public void ShellStderr()
+	public async Task ShellStderr()
 	{
-		Assert.Equal("This is to test stderr", ShellMethods.RunShell("sh", "-c \"echo 'This is to test stderr' >&2\"").StandardError.TrimEnd('\n'));
+		Assert.Equal("This is to test stderr", (await ShellMethods.RunShell("sh",
+			["-c", "echo 'This is to test stderr' >&2"])).StandardError);
 	}
 
 	[Fact]
-	public void ShellTimeout()
+	public async Task ShellTimeout()
 	{
-		Assert.Throws<TimeoutException>(() => ShellMethods.RunShell("sleep", "0.2", 150));
+		await Assert.ThrowsAsync<TimeoutException>(() => ShellMethods.RunShell("sleep", ["0.2"], 150, true));
+	}
+	[Fact]
+	public async Task NoShellTimeoutWhenRequested()
+	{
+		Assert.Equal(124, (await ShellMethods.RunShell("sleep", ["0.2"], 150, false)).ExitCode);
 	}
 }

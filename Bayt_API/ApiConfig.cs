@@ -35,6 +35,11 @@ public static class ApiConfig
 	/// </summary>
 	public static readonly Stopwatch BaytStartStopwatch = Stopwatch.StartNew();
 
+	/// <summary>
+	/// Indicates how verbose the API should be. 0-7, with 7 being the most verbose. Tries to use the env var <c>BAYT_VERBOSITY</c> first, then falls back to 6.
+	/// </summary>
+	public static readonly byte VerbosityLevel = (byte) (byte.TryParse(Environment.GetEnvironmentVariable("BAYT_VERBOSITY"), out var verbosityLevel) ? verbosityLevel : 6);
+
 	// Paths and config-specific stuff from here on out
 
 	/// <summary>
@@ -172,6 +177,14 @@ public static class ApiConfig
 		public static bool DockerIntegrationEnabled { get; private set; } = true;
 
 		/// <summary>
+		/// Whether to keep 65,535 bytes of logs, or 6,553,500 (100x) bytes. Useful for debugging but will use more RAM (~20MBs+)
+		/// </summary>
+		/// <remarks>
+		/// Defaults to false.
+		/// </remarks>
+		public static bool KeepMoreLogs { get; private set; } = false;
+
+		/// <summary>
 		/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
 		/// </summary>
 		/// <remarks>
@@ -211,6 +224,7 @@ public static class ApiConfig
 				{ nameof(PathToDataFolder), PathToDataFolder },
 				{ nameof(PathToComposeFolder), PathToComposeFolder },
 				{ nameof(DockerIntegrationEnabled), DockerIntegrationEnabled },
+				{ nameof(KeepMoreLogs), KeepMoreLogs },
 				{ nameof(WatchedMounts), WatchedMounts },
 				{ nameof(WolClients), WolClients }
 			};
@@ -239,6 +253,7 @@ public static class ApiConfig
 			PathToDataFolder = loadedDict.TryGetProperty(nameof(PathToDataFolder), out var pathToDataFolder) ? pathToDataFolder.GetString() ?? PathToDataFolder : PathToDataFolder;
 			PathToComposeFolder = loadedDict.TryGetProperty(nameof(PathToComposeFolder), out var pathToComposeFolder) ? pathToComposeFolder.GetString() ?? PathToComposeFolder : PathToComposeFolder;
 			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
+			KeepMoreLogs = loadedDict.TryGetProperty(nameof(KeepMoreLogs), out var keepMoreLogs) ? keepMoreLogs.GetBoolean() : KeepMoreLogs;
 
 			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
 			{
@@ -495,14 +510,28 @@ public static class ApiConfig
 			foreach (var clientsToAdd in clients)
 			{
 				PhysicalAddress physicalAddress;
+				var physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
+					["PhysicalAddress", clientsToAdd.Key], throwIfTimedout: false).Result;
+
 				IPAddress subnetMask;
+				var subnetMaskProcess =
+					ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", ["Netmask"], throwIfTimedout: false).Result;
+				if (subnetMaskProcess.ExitCode == 124 || physicalAddressProcess.ExitCode == 124)
+				{
+					Console.ForegroundColor = ConsoleColor.Yellow;
+					Console.WriteLine($"[WARNING] Failed to get physical address for {clientsToAdd.Key} ('{clientsToAdd.Value}'), skipping.");
+					Console.ResetColor();
+					continue;
+				}
+
 				try
 				{
-					physicalAddress = PhysicalAddress.Parse(ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", $"PhysicalAddress {clientsToAdd.Key}").StandardOutput);
-					subnetMask = IPAddress.Parse(ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", "Netmask").StandardOutput);
+					physicalAddress = PhysicalAddress.Parse(physicalAddressProcess.StandardOutput);
+					subnetMask = IPAddress.Parse(subnetMaskProcess.StandardOutput);
 				}
 				catch (FormatException)
 				{
+					// TODO: Let the client know that the IP address is invalid. The client also doesn't need to add multiple clients at once.
 					Console.ForegroundColor = ConsoleColor.Yellow;
 					Console.WriteLine($"[WARNING] Failed to get physical address for {clientsToAdd.Key} ('{clientsToAdd.Value}'), skipping.");
 					Console.ResetColor();

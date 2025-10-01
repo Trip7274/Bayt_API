@@ -266,6 +266,8 @@ public static class Docker
 		}
 		private void GetHrefFromLabels()
 		{
+			if (_labels is null) return;
+
 			if (_labels.TryGetValue("bayt.url", out var href)
 			    || _labels.TryGetValue("glance.url", out href)
 			    || _labels.TryGetValue("homepage.instance.internal.href", out href))
@@ -353,7 +355,7 @@ public static class Docker
 
 		public string Id { get; }
 		public List<string> Names { get; private set; } = [];
-		private readonly Dictionary<string, string> _labels;
+		private readonly Dictionary<string, string>? _labels;
 
 		public string Image { get; }
 		// ReSharper disable once InconsistentNaming
@@ -543,8 +545,7 @@ public static class Docker
 		{
 			List<Dictionary<string, dynamic?>> imagesList = [];
 
-			imagesList.AddRange(Images.Select(container => container.ToDictionary())
-				.Select(container => container.ToDictionary()));
+			imagesList.AddRange(Images.Select(container => container.ToDictionary()));
 
 			return imagesList.ToArray();
 		}
@@ -577,16 +578,16 @@ public static class Docker
 		[JsonPropertyName("Created")]
 		public required long CreatedUnix { get; init; }
 		public long Size { get; init; }
-		public required Dictionary<string, string> Labels { get; init; }
+		public Dictionary<string, string>? Labels { get; init; }
 		public int Containers { get; init; }
 
 		// Bayt-specific
 
-		public List<string> Names => GetNames(Labels);
+		public List<string> Names => GetNames(Labels, repoTags:RepoTags);
 		public string? Description => GetDescription(Labels);
 		public string? ImageUrl => GetImageUrl(Labels);
 		public List<string> IconUrls => GetIconUrls(Labels);
-		public string? ImageVersion => GetImageVersion(Labels);
+		public string? ImageVersion => GetImageVersion(Labels, RepoTags);
 
 		public Dictionary<string, dynamic?> ToDictionary()
 		{
@@ -613,20 +614,23 @@ public static class Docker
 		}
 	}
 
-	private static List<string> GetNames(Dictionary<string, string> labelsDict, JsonElement? dockerOutput = null)
+	private static List<string> GetNames(Dictionary<string, string>? labelsDict, JsonElement? dockerOutput = null, string[]? repoTags = null)
 	{
 		List<string> names = [];
-		foreach (var labelKvp in labelsDict)
+		if (labelsDict is not null)
 		{
-			switch (labelKvp.Key)
+			foreach (var labelKvp in labelsDict)
 			{
-				case "bayt.name":
-				case "glance.name":
-				case "homepage.name":
-				case "com.docker.compose.project":
-				case "org.opencontainers.image.title":
-					names.Add(labelKvp.Value);
-					break;
+				switch (labelKvp.Key)
+				{
+					case "bayt.name":
+					case "glance.name":
+					case "homepage.name":
+					case "com.docker.compose.project":
+					case "org.opencontainers.image.title":
+						names.Add(labelKvp.Value);
+						break;
+				}
 			}
 		}
 
@@ -649,12 +653,28 @@ public static class Docker
 				names.AddRange(dockerNames.Select(name => name.GetString()!));
 			}
 		}
+
+		if (repoTags is not null && repoTags.Length > 0)
+		{
+			var nameToAdd = repoTags.First();
+			nameToAdd = nameToAdd.Split(':').First();
+
+			names.Add(nameToAdd);
+		}
+
+		// If no names have been found yet, try to get the base image name at the very least.
+		if (labelsDict is not null && names.Count == 0 && labelsDict.TryGetValue("org.opencontainers.image.ref.name", out var baseImageName))
+		{
+			names.Add(baseImageName);
+		}
+
 		names = names.Distinct().ToList();
 
 		return names;
 	}
-	private static string? GetDescription(Dictionary<string, string> labelsDict)
+	private static string? GetDescription(Dictionary<string, string>? labelsDict)
 	{
+		if (labelsDict is null) return null;
 		if (labelsDict.TryGetValue("bayt.description", out var description)
 		    || labelsDict.TryGetValue("glance.description", out description)
 		    || labelsDict.TryGetValue("homepage.description", out description)
@@ -666,8 +686,9 @@ public static class Docker
 		return null;
 	}
 
-	private static List<string> GetIconUrls(Dictionary<string, string> labelsDict, string? preferredIconLink = null)
+	private static List<string> GetIconUrls(Dictionary<string, string>? labelsDict, string? preferredIconLink = null)
 	{
+		if (labelsDict is null) return [];
 		List<string> iconUrls = [];
 		foreach (var labelKvp in labelsDict)
 		{
@@ -714,8 +735,10 @@ public static class Docker
 		}
 	}
 
-	private static string? GetImageUrl(Dictionary<string, string> labelsDict)
+	private static string? GetImageUrl(Dictionary<string, string>? labelsDict)
 	{
+		if (labelsDict is null) return null;
+
 		if (labelsDict.TryGetValue("bayt.image.url", out var imageUrl) && imageUrl.StartsWith("http")
 			|| labelsDict.TryGetValue("org.opencontainers.image.url", out imageUrl) && imageUrl.StartsWith("http")
 			|| labelsDict.TryGetValue("org.opencontainers.image.source", out imageUrl) && imageUrl.StartsWith("http")
@@ -725,15 +748,21 @@ public static class Docker
 		return null;
 	}
 
-	private static string? GetImageVersion(Dictionary<string, string> labelsDict)
+	private static string? GetImageVersion(Dictionary<string, string>? labelsDict, string[]? repoTags = null)
 	{
-		if (labelsDict.TryGetValue("bayt.version", out var version)
-		    || labelsDict.TryGetValue("org.opencontainers.image.version", out version))
+		if (labelsDict is not null)
 		{
-			return version;
+			if (labelsDict.TryGetValue("bayt.version", out var version)
+			    || labelsDict.TryGetValue("org.opencontainers.image.version", out version))
+			{
+				return version;
+			}
 		}
 
-		return null;
+		if (repoTags is null || repoTags.Length <= 0 || !repoTags[0].Contains(':')) return null;
+
+		var repoTagVersion = repoTags[0].Split(':').Last();
+		return repoTagVersion;
 	}
 
 	public sealed record DockerResponse

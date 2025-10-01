@@ -4,7 +4,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Bayt_API;
 
@@ -572,11 +571,7 @@ public static class Docker
 		public string ParentId { get; init; } = string.Empty;
 		public string[] RepoTags { get; init; } = [];
 
-		[JsonIgnore]
-		public DateTime Created => DateTimeOffset.FromUnixTimeSeconds(CreatedUnix).DateTime;
-
-		[JsonPropertyName("Created")]
-		public required long CreatedUnix { get; init; }
+		public required long Created { get; init; }
 		public long Size { get; init; }
 		public Dictionary<string, string>? Labels { get; init; }
 		public int Containers { get; init; }
@@ -605,7 +600,6 @@ public static class Docker
 				{ nameof(RepoTags), RepoTags },
 
 				{ nameof(Created), Created },
-				{ nameof(CreatedUnix), CreatedUnix },
 				{ nameof(Size), Size },
 				{ nameof(Containers), Containers },
 

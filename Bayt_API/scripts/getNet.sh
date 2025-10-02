@@ -23,7 +23,7 @@ case "$STAT" in
 	"PhysicalAddress")
 		[ "$IPADDR" = "" ] && echo null && exit 02
 
-		if [ "$IPADDR" = "$LOCALADDR" ]; then
+		if [ "$IPADDR" = "$LOCALADDR" ] || [ "$IPADDR" = "127.0.0.1" ] || [ "$IPADDR" = "localhost" ]; then
 		    PHYSICALADDR="$(ifconfig "$NETDEV" | grep -oP "ether\s+\K[0-9|a-f]{2}:[0-9|a-f]{2}:[0-9|a-f]{2}:[0-9|a-f]{2}:[0-9|a-f]{2}:[0-9|a-f]{2}")"
 
 		else

@@ -107,12 +107,20 @@ public static class Docker
 			return containersList.ToArray();
 		}
 
+		/// <summary>
+		/// Returns the standard format of a container's metadata file. Each field can be customized but defaults to null
+		/// </summary>
+		/// <param name="prettyName">The pretty name for the container</param>
+		/// <param name="note">The field of Notes for the container</param>
+		/// <param name="preferredIconLink">The preferred icon link for the container. Should be a valid link starting with <c>http(s)://</c></param>
+		/// <param name="webpageLink">The URL pointing at the container's web UI, if applicable.</param>
+		/// <returns>A Dictionary that should be serialized to JSON before being saved to the container's metadata file.</returns>
 		public static Dictionary<string, string?> GetDefaultMetadata(string? prettyName = null, string? note = null, string? preferredIconLink = null, string? webpageLink = null)
 		{
 			return new()
 			{
 				{ "_comment", "This file indicates that this container is managed by Bayt and contains some details about the container. You are free to edit or delete it. It is okay for some to be null." },
-				{ "_types", "All of the keys are strings that can be null. (string? type)" },
+				{ "_types", "All of the values are strings that can be null. (string? type)" },
 
 				{ nameof(DockerContainer.PrettyName), prettyName },
 				{ nameof(DockerContainer.Note), note },

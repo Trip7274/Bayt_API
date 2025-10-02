@@ -21,6 +21,7 @@ please do help out if you have the experience!)
 	- [X] Shutdown and restart endpoints
 	- [X] Arbitrary data exchange endpoints for things like client-wide configs
 	- [ ] Docker container management endpoints
+    - [ ] Docker image management endpoints
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions
 	- [ ] Silo arbitrary data folder to each client

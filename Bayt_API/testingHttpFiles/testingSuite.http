@@ -130,6 +130,99 @@ Content-Type: application/json
 	})
 %}
 
+### GetWolClientsFirst Test
+@IP_TO_USE = 127.0.0.1
+< {%
+	client.global.set("startTime", Date.now());
+%}
+# First, get a value to make sure the add operation ACTUALLY added something
+GET {{Bayt_API_HostAddress}}/GetWolClients/
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 200, "Response status is not 200");
+		client.assert(response.body !== "", "Response json is empty");
+
+		if (timeToRespond > 175) {
+			console.log(`Response time might be too long. Expected < 175ms`);
+		}
+	})
+
+	client.global.set("firstWolCheck", Object.keys(response.body).length);
+%}
+
+### AddTestWolClient Test
+< {%
+	client.global.set("startTime", Date.now());
+%}
+# Add the test client
+POST {{Bayt_API_HostAddress}}/AddWolClient?clientAddress={{IP_TO_USE}}&clientLabel=Testing PC
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 204, "Response status is not 204");
+		client.assert(response.body === "" || response.body === null, "Response json is not empty");
+
+		if (timeToRespond > 175) {
+			console.log(`Response time might be too long. Expected < 175ms`);
+		}
+	})
+ %}
+
+### GetWolClientsSecond Check
+< {%
+	client.global.set("startTime", Date.now());
+%}
+# Check again to make sure the last request actually succeeded
+GET {{Bayt_API_HostAddress}}/GetWolClients?thing{{firstWolCheck}}
+
+> {%
+	client.test("Request executed successfully", function () {
+		const timeToRespond = Date.now() - client.global.get("startTime");
+		console.log(`Response execution time: ${timeToRespond}ms`);
+
+		client.assert(response.status === 200, "Response status is not 200");
+		client.assert(response.body !== "", "Response json is empty");
+
+		if (timeToRespond > 175) {
+			console.log(`Response time might be too long. Expected < 175ms`);
+		}
+
+		let firstWolCheck = client.global.get("firstWolCheck");
+		client.assert(firstWolCheck + 1 === Object.keys(response.body).length, `Adding the client didn't work (${firstWolCheck} vs ${Object.keys(response.body).length})`);
+	})
+ %}
+
+### RemoveWolClient Test
+< {%
+    client.global.set("startTime", Date.now());
+%}
+DELETE {{Bayt_API_HostAddress}}/RemoveWolClient?clientAddress={{IP_TO_USE}}
+
+> {%
+    client.test("Request executed successfully", function () {
+        const timeToRespond = Date.now() - client.global.get("startTime");
+        console.log(`Response execution time: ${timeToRespond}ms`);
+
+        client.assert(response.status === 204, "Response status is not 204");
+        client.assert(response.body === "" || response.body === null, "Response json is not empty");
+
+        if (timeToRespond > 175) {
+            console.log(`Response time might be too long. Expected < 175ms`);
+        }
+
+        let firstWolCheck = client.global.get("firstWolCheck");
+        client.assert(firstWolCheck === Object.keys(response.body).length, "Deleting the client didn't work");
+    })
+%}
+
+
 ### setData Test
 < {%
 	client.global.set("startTime", Date.now());

@@ -1,26 +1,13 @@
-@IP_TO_USE = 192.168.1.1
+@IP_TO_USE = 127.0.0.1
 
 ### Add a WoL client
-POST {{Bayt_API_HostAddress}}/AddWolClient/
-Accept: application/json
-Content-Type: application/json
-
-{
-    "{{IP_TO_USE}}": "Testing PC"
-}
+POST {{Bayt_API_HostAddress}}/AddWolClient?clientAddress={{IP_TO_USE}}&clientLabel=Testing PC
 
 ### Delete a specific WoL client
-DELETE {{Bayt_API_HostAddress}}/RemoveWolClients/
-Accept: application/json
-Content-Type: application/json
-
-{
-    "IPs": ["{{IP_TO_USE}}"]
-}
+DELETE {{Bayt_API_HostAddress}}/RemoveWolClient?clientAddress={{IP_TO_USE}}
 
 ### Get all the WoL clients
 GET {{Bayt_API_HostAddress}}/GetWolClients/
-Accept: application/json
 
 ### Wake a specific client
 POST {{Bayt_API_HostAddress}}/WakeWolClient/?ipAddress={{IP_TO_USE}}

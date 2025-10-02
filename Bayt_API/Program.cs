@@ -193,19 +193,9 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 
 // API Config management endpoints
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", async (HttpContext context) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", ([FromBody] Dictionary<string, dynamic> newConfigs) =>
 {
 	// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
-
-	Dictionary<string, dynamic> newConfigs;
-	try
-	{
-		newConfigs = await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, dynamic>>(context) ?? [];
-	}
-	catch (BadHttpRequestException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
 
 	ApiConfig.ApiConfiguration.EditConfig(newConfigs);
 
@@ -250,18 +240,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 	.WithName("GetMountsList");
 
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", ([FromBody] Dictionary<string, string?> mountPoints) =>
 {
-	Dictionary<string, string?> mountPoints;
-	try
-	{
-		mountPoints = await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string?>>(context) ?? [];
-	}
-	catch (BadHttpRequestException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-
 	foreach (var mountPoint in mountPoints.Where(mountPoint => !Directory.Exists(mountPoint.Key)))
 	{
 		mountPoints.Remove(mountPoint.Key);
@@ -284,16 +264,16 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", async (HttpContext context)
 	.WithName("AddMounts");
 
 
-app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext context) =>
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", ([FromBody] Dictionary<string, List<string>> mountPointsFull) =>
 {
 	List<string> mountPoints;
 	try
 	{
-		mountPoints = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context) ?? new() {{"Mounts", []}})["Mounts"];
+		mountPoints = mountPointsFull.First(mountPoint => mountPoint.Key == "Mounts").Value;
 	}
-	catch (BadHttpRequestException e)
+	catch (InvalidOperationException)
 	{
-		return Results.BadRequest(e.Message);
+		return Results.BadRequest("List must contain a 'Mounts' key.");
 	}
 
 	if (mountPoints.Count == 0)
@@ -301,7 +281,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext con
 		return Results.BadRequest("List must contain more than 0 elements.");
 	}
 
-	ApiConfig.ApiConfiguration.RemoveMountpoint(mountPoints);
+	ApiConfig.ApiConfiguration.RemoveMountpoints(mountPoints);
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status400BadRequest)
@@ -315,69 +295,44 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", async (HttpContext con
 
 // WoL endpoints
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", async (HttpContext context) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", (string clientAddress, string clientLabel) =>
 {
-	Dictionary<string, string> clientsRaw;
-	try
-	{
-		clientsRaw = await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, string>>(context) ?? [];
-	}
-	catch (BadHttpRequestException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
+	if (string.IsNullOrWhiteSpace(clientLabel) || !IPAddress.TryParse(clientAddress, out _))
+		return Results.BadRequest("Invalid IP address or missing label.");
 
-	Dictionary<string, string> clients = [];
-	if (clientsRaw.Count == 0)
-	{
-		return Results.BadRequest("List must contain more than 0 elements.");
-	}
+	var addOperation = ApiConfig.ApiConfiguration.AddWolClient(clientAddress, clientLabel);
+	if (addOperation[0] == 0 && addOperation[1] == 0) return Results.NoContent();
 
-	foreach (var clientKvp in clientsRaw.Where(clientKvp => IPAddress.TryParse(clientKvp.Key, out _) && clientKvp.Value != ""))
-	{
-		clients.TryAdd(clientKvp.Key, clientKvp.Value);
-	}
 
-	if (clients.Count == 0)
-	{
-		return Results.BadRequest("List evaluated down to 0 valid elements.");
-	}
+	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "AddWolClient",
+		$"Failed to add client {clientAddress} ({clientLabel}) to the list of clients. Either the script ./getNet.sh timed out, or failed. ({addOperation[0]}, {addOperation[1]})"));
+	return Results.InternalServerError("Failed to add the client to the list of clients. Either the script ./getNet.sh timed out, or failed.");
 
-	ApiConfig.ApiConfiguration.AddWolClient(clients);
-
-	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)
+	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status400BadRequest)
-	.WithSummary("Save one or more WoL clients to this Bayt instance. Both fields are required, and cannot be empty.")
-	.WithDescription("Format: { '${IPv4Address}': '${Label}' }. Expected to be in the body of the request.")
+	.WithSummary("Save a WoL client to this Bayt instance. Both fields are required, and cannot be empty.")
 	.WithTags("Wake-on-LAN")
-	.WithName("AddWolClients");
+	.WithName("AddWolClient");
 
-app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClients", async (HttpContext context) =>
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClient", (string clientAddress) =>
 {
-	List<string> ipAddrs;
-	try
-	{
-		ipAddrs = (await RequestChecking.ValidateAndDeserializeJsonBody<Dictionary<string, List<string>>>(context) ?? new() {{"IPs", []}})["IPs"];
-	}
-	catch (BadHttpRequestException e)
-	{
-		return Results.BadRequest(e.Message);
-	}
-	if (ipAddrs.Count == 0)
-	{
-		return Results.BadRequest("IP address list must contain at least 1 element.");
-	}
+	if (string.IsNullOrWhiteSpace(clientAddress) || !IPAddress.TryParse(clientAddress, out _))
+		return Results.BadRequest("Invalid or missing IP address.");
 
-	ApiConfig.ApiConfiguration.RemoveWolClient(ipAddrs);
+	var removeOperation = ApiConfig.ApiConfiguration.RemoveWolClient(clientAddress);
+	if (removeOperation == 0) return Results.NoContent();
 
-	return Results.NoContent();
+
+	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "RemoveWolClient",
+		$"Failed to remove client {clientAddress} from the list of clients. Either the script ./getNet.sh timed out, or failed. ({removeOperation})"));
+	return Results.InternalServerError("Failed to remove the client from the list of clients. Either the script ./getNet.sh timed out, or failed.");
 }).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status204NoContent)
-	.WithSummary("Remove one or more saved WoL clients from this Bayt instance.")
-	.WithDescription("Format: { 'IPs': ['${IPv4Address1}', '${IPv4Address2}', '...'] }. Expected to be in the body of the request.")
+	.WithSummary("Remove a saved WoL clients from this Bayt instance.")
 	.WithTags("Wake-on-LAN")
-	.WithName("RemoveWolClients");
+	.WithName("RemoveWolClient");
 
 app.MapGet($"{ApiConfig.BaseApiUrlPath}/GetWolClients", () =>
 		Results.Json(ApiConfig.ApiConfiguration.WolClients))
@@ -388,12 +343,11 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/GetWolClients", () =>
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string? ipAddress) =>
 {
-	if (ipAddress is null || !IPAddress.TryParse(ipAddress, out _))
-	{
+	if (string.IsNullOrWhiteSpace(ipAddress) || !IPAddress.TryParse(ipAddress, out _))
 		return Results.BadRequest("ipAddress must be a valid IPv4 address.");
-	}
+
 	var clientToWake =
-		ApiConfig.ApiConfiguration.WolClientsClass!.Find(client =>
+		ApiConfig.ApiConfiguration.WolClientsClass?.Find(client =>
 			client.IpAddress.ToString() == ipAddress);
 	if (clientToWake is null)
 	{
@@ -516,7 +470,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", (string? folderName, str
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =>
 {
-	if (folderName is null) return Results.BadRequest("Folder name must be specified.");
+	if (string.IsNullOrWhiteSpace(folderName)) return Results.BadRequest("Folder name must be specified.");
 
 	try
 	{

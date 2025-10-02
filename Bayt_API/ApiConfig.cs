@@ -361,7 +361,7 @@ public static class ApiConfig
 		/// </param>
 		/// <exception cref="ArgumentException">One of the requested parameters is blocked.</exception>
 		/// <seealso cref="AddMountpoint"/>
-		/// <seealso cref="RemoveMountpoint"/>
+		/// <seealso cref="RemoveMountpoints"/>
 		public static void EditConfig(Dictionary<string, dynamic> newProps)
 		{
 			if (newProps.Count == 0) return;
@@ -447,7 +447,7 @@ public static class ApiConfig
 		/// Remove a list of mountpoints from the configuration, both live and in-disk.
 		/// </summary>
 		/// <param name="mountPoints">The list of mountpoint's paths (Dict keys) to remove</param>
-		public static void RemoveMountpoint(List<string> mountPoints)
+		public static void RemoveMountpoints(List<string> mountPoints)
 		{
 			if (mountPoints.Count == 0) return;
 
@@ -503,77 +503,64 @@ public static class ApiConfig
 		/// <summary>
 		/// Append a WoL client to the configuration. Updates the live and in-disk configuration.
 		/// </summary>
-		/// <param name="clients">Dictionary with the format <c>{ "IPv4 Address": "Label" }</c></param>
-		public static void AddWolClient(Dictionary<string, string> clients)
+		/// <param name="clientAddress">The IP Address of the client to add.</param>
+		/// <param name="clientLabel">The label for the client to add.</param>
+		public static int[] AddWolClient(string clientAddress, string clientLabel)
 		{
+			var physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
+				["PhysicalAddress", clientAddress], throwIfTimedout: false).Result;
 
-			foreach (var clientsToAdd in clients)
+			var subnetMaskProcess =
+				ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", ["Netmask"], throwIfTimedout: false).Result;
+
+			if (!subnetMaskProcess.IsSuccess || !IPAddress.TryParse(subnetMaskProcess.StandardOutput, out var subnetMask)
+			                                 || !physicalAddressProcess.IsSuccess
+			                                 || !PhysicalAddress.TryParse(physicalAddressProcess.StandardOutput, out var physicalAddress))
 			{
-				PhysicalAddress physicalAddress;
-				var physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
-					["PhysicalAddress", clientsToAdd.Key], throwIfTimedout: false).Result;
-
-				IPAddress subnetMask;
-				var subnetMaskProcess =
-					ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", ["Netmask"], throwIfTimedout: false).Result;
-				if (subnetMaskProcess.ExitCode == 124 || physicalAddressProcess.ExitCode == 124)
-				{
-					Console.ForegroundColor = ConsoleColor.Yellow;
-					Console.WriteLine($"[WARNING] Failed to get physical address for {clientsToAdd.Key} ('{clientsToAdd.Value}'), skipping.");
-					Console.ResetColor();
-					continue;
-				}
-
-				try
-				{
-					physicalAddress = PhysicalAddress.Parse(physicalAddressProcess.StandardOutput);
-					subnetMask = IPAddress.Parse(subnetMaskProcess.StandardOutput);
-				}
-				catch (FormatException)
-				{
-					// TODO: Let the client know that the IP address is invalid. The client also doesn't need to add multiple clients at once.
-					Console.ForegroundColor = ConsoleColor.Yellow;
-					Console.WriteLine($"[WARNING] Failed to get physical address for {clientsToAdd.Key} ('{clientsToAdd.Value}'), skipping.");
-					Console.ResetColor();
-					continue;
-				}
-
-				WolClients.TryAdd(physicalAddress.ToString(), new()
-				{
-					{ "Name", clientsToAdd.Value },
-					{ "IpAddress", clientsToAdd.Key },
-					{ "SubnetMask", subnetMask.ToString() },
-					{ "BroadcastAddress", null }
-				});
+				return [subnetMaskProcess.ExitCode, physicalAddressProcess.ExitCode];
 			}
 
+			WolClients.TryAdd(physicalAddress.ToString(), new()
+			{
+				{ "Name", clientLabel },
+				{ "IpAddress", clientAddress },
+				{ "SubnetMask", subnetMask.ToString() },
+				{ "BroadcastAddress", null }
+			});
+
 			SaveConfig();
+			LoadWolClientsList();
+			return [0, 0];
 		}
 
 		/// <summary>
-		/// Remove a specific client or list of clients from the current configuration. Updates the live and in-disk configuration.
+		/// Remove a specific client from the current configuration. Updates the live and in-disk configuration.
 		/// </summary>
-		/// <param name="clients">List of local IP Addresses to remove.</param>
-		public static void RemoveWolClient(List<string> clients)
+		/// <param name="clientAddress">Local IP Address of the client to remove.</param>
+		public static int RemoveWolClient(string clientAddress)
 		{
-			foreach (var configKvp in from clientIpAddr in clients from configKvp in WolClients where configKvp.Value["IpAddress"] == clientIpAddr select configKvp)
-			{
-				WolClients.Remove(configKvp.Key);
-			}
+			var physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
+				["PhysicalAddress", clientAddress], throwIfTimedout: false).Result;
+			if (physicalAddressProcess.ExitCode == 124 || !PhysicalAddress.TryParse(physicalAddressProcess.StandardOutput, out var physicalAddress))
+				return physicalAddressProcess.ExitCode;
 
+			WolClients.Remove(physicalAddress.ToString());
+			LoadWolClientsList();
 			SaveConfig();
+			return 0;
 		}
 
 		/// <summary>
 		/// Update or "fill in" the broadcast address of a specific WolClient and reload the live and in-disk configuration.
 		/// </summary>
-		/// <param name="wolClient">WolClient objket</param>
-		/// <param name="newBroadcastAddress"></param>
+		/// <param name="wolClient">WolClient object</param>
+		/// <param name="newBroadcastAddress">The broadcast address to fill in</param>
 		internal static void UpdateBroadcastAddress(WolHandling.WolClient wolClient, string newBroadcastAddress)
 		{
 			WolClients[wolClient.PhysicalAddress.ToString()]["BroadcastAddress"] = newBroadcastAddress;
 
 			SaveConfig();
+			LoadWolClientsList();
 		}
 	}
 }

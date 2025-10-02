@@ -5,42 +5,6 @@ namespace Bayt_API;
 
 public static class RequestChecking
 {
-	public static async Task<T?> ValidateAndDeserializeJsonBody<T>(HttpContext context, bool throwOnEmptyBody = true)
-	{
-		if (context.Request.ContentType != "application/json" && throwOnEmptyBody)
-		{
-			throw new BadHttpRequestException(
-				$"Content-Type is not 'application/json'. Current Content-Type header: '{context.Request.ContentType}'.");
-		}
-
-		string requestBody;
-		using (var reader = new StreamReader(context.Request.Body))
-		{
-			requestBody = await reader.ReadToEndAsync();
-		}
-
-		switch (throwOnEmptyBody)
-		{
-			case true when string.IsNullOrWhiteSpace(requestBody):
-				throw new BadHttpRequestException("Request body is empty.");
-			case false when string.IsNullOrWhiteSpace(requestBody):
-				throw new EndOfStreamException(
-					"The code should handle this."); // This is REALLY janky and kinda contradictory
-		}
-
-		T? deserializedBody;
-		try
-		{
-			deserializedBody = JsonSerializer.Deserialize<T>(requestBody);
-		}
-		catch (JsonException e)
-		{
-			throw new BadHttpRequestException($"Was unable to process request JSON. Error message: {e.Message}");
-		}
-
-		return deserializedBody;
-	}
-
 	///  <summary>
 	///  Ensures that the given container ID is not null, is longer than 12 characters, and Docker is available on this system. This is used to de-duplicate code from Docker endpoints.
 	///  </summary>

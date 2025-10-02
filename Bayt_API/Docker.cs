@@ -11,6 +11,9 @@ public static class Docker
 {
 	public static bool IsDockerAvailable => File.Exists("/var/run/docker.sock") && ApiConfig.ApiConfiguration.DockerIntegrationEnabled;
 
+	/// <summary>
+	/// Returns whether Docker-Compose is available.
+	/// </summary>
 	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
 	public static bool IsDockerComposeAvailable
 	{
@@ -40,8 +43,14 @@ public static class Docker
 		}
 	}
 
+	/// <summary>
+	/// The default icon to use if a container doesn't have a preferred icon.
+	/// </summary>
 	private const string GenericIconLink = "https://api.iconify.design/mdi/cube-outline.svg";
 
+	/// <summary>
+	/// Provides methods and properties for interacting with the system's Docker containers.
+	/// </summary>
 	public static class DockerContainers
 	{
 		static DockerContainers()
@@ -57,6 +66,10 @@ public static class Docker
 			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
+		/// <summary>
+		/// Fetches the current container list from Docker and updates the <see cref="Containers"/> list.
+		/// </summary>
+		/// <exception cref="Exception">Something went wrong trying to communicate with the Docker daemon.</exception>
 		public static async Task UpdateData()
 		{
 			var dockerRequest = await SendRequest("containers/json?all=true");
@@ -72,6 +85,18 @@ public static class Docker
 			LastUpdate = DateTime.Now;
 		}
 
+		/// <summary>
+		/// Contains the task currently updating the data. Null if no update is currently in progress.
+		/// </summary>
+		private static Task? UpdatingTask { get; set; }
+		/// <summary>
+		/// Used to prevent multiple threads from updating the data at the same time.
+		/// </summary>
+		private static readonly Lock UpdatingLock = new();
+
+		/// <summary>
+		/// Check if the container data is too old and needs to be updated. If so, update it.
+		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
 			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Checking for Docker container data update..."));
@@ -96,6 +121,11 @@ public static class Docker
 			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Docker container data updated."));
 		}
 
+		/// <summary>
+		/// Formats all the Docker containers into an array of Dictionaries.
+		/// </summary>
+		/// <param name="getAllContainers">Whether to include non-running containers. Defaults to include all containers.</param>
+		/// <returns>an array of Dictionary{string, dynamic?} objects.</returns>
 		public static Dictionary<string, dynamic?>[] ToDictionary(bool getAllContainers = true)
 		{
 			List<Dictionary<string, dynamic?>> containersList = [];
@@ -108,11 +138,11 @@ public static class Docker
 		}
 
 		/// <summary>
-		/// Returns the standard format of a container's metadata file. Each field can be customized but defaults to null
+		/// Returns the standard format of a container's metadata file. Each field can be customized but defaults to null.
 		/// </summary>
-		/// <param name="prettyName">The pretty name for the container</param>
-		/// <param name="note">The field of Notes for the container</param>
-		/// <param name="preferredIconLink">The preferred icon link for the container. Should be a valid link starting with <c>http(s)://</c></param>
+		/// <param name="prettyName">The pretty name for the container.</param>
+		/// <param name="note">The field of Notes for the container.</param>
+		/// <param name="preferredIconLink">The preferred icon link for the container. Should be a valid link starting with <c>http(s)://</c>.</param>
 		/// <param name="webpageLink">The URL pointing at the container's web UI, if applicable.</param>
 		/// <returns>A Dictionary that should be serialized to JSON before being saved to the container's metadata file.</returns>
 		public static Dictionary<string, string?> GetDefaultMetadata(string? prettyName = null, string? note = null, string? preferredIconLink = null, string? webpageLink = null)
@@ -129,6 +159,10 @@ public static class Docker
 			};
 		}
 
+		/// <summary>
+		/// Contains all the system's Docker containers.
+		/// </summary>
+		/// <seealso cref="UpdateDataIfNecessary"/>
 		public static List<DockerContainer> Containers { get; } = [];
 
 		/// <summary>
@@ -141,9 +175,6 @@ public static class Docker
 		/// </summary>
 		public static bool ShouldUpdate =>
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
-
-		private static Task? UpdatingTask { get; set; }
-		private static readonly Lock UpdatingLock = new();
 	}
 
 	public sealed class DockerContainer

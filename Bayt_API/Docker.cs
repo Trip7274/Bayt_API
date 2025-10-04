@@ -209,8 +209,7 @@ public static class Docker
 
 			Command = dockerOutput.GetProperty(nameof(Command)).GetString() ?? throw new ArgumentException("Docker container command is null.");
 
-			CreatedUnix = dockerOutput.GetProperty(nameof(Created)).GetInt64();
-			Created = DateTimeOffset.FromUnixTimeSeconds(CreatedUnix).DateTime.ToUniversalTime();
+			Created = dockerOutput.GetProperty(nameof(Created)).GetInt64();
 
 			State = dockerOutput.GetProperty(nameof(State)).GetString() ?? throw new ArgumentException("Docker container state is null.");
 			Status = dockerOutput.GetProperty(nameof(Status)).GetString() ?? throw new ArgumentException("Docker container status is null.");
@@ -256,7 +255,6 @@ public static class Docker
 
 				{ nameof(Command), Command },
 				{ nameof(Created), Created },
-				{ nameof(CreatedUnix), CreatedUnix },
 
 				{ nameof(State), State },
 				{ nameof(Status), Status },
@@ -449,8 +447,7 @@ public static class Docker
 
 		public string? ComposePath { get; }
 		public string Command { get; }
-		public DateTime Created { get; }
-		public long CreatedUnix { get; }
+		public long Created { get; }
 
 		public string State { get; }
 		public string Status { get; }

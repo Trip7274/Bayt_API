@@ -195,6 +195,7 @@ public static class Docker
 				var composeDirectory = Path.GetDirectoryName(ComposePath);
 				IsManaged = composeDirectory is not null && File.Exists(Path.Combine(composeDirectory, ".BaytMetadata.json"));
 			}
+			Image = dockerOutput.GetProperty(nameof(Image)).GetString() ?? throw new ArgumentException("Docker container image is null.");
 
 			FillContainerMetadata();
 			GetContainerNames(dockerOutput);
@@ -202,13 +203,9 @@ public static class Docker
 			GetHrefFromLabels();
 			IconUrls = GetIconUrls(_labels);
 
-			Image = dockerOutput.GetProperty(nameof(Image)).GetString() ?? throw new ArgumentException("Docker container image is null.");
 			ImageID = dockerOutput.GetProperty(nameof(ImageID)).GetString() ?? throw new ArgumentException("Docker container image ID is null.");
 			ImageUrl = GetImageUrl(_labels);
-			if (_labels.TryGetValue("org.opencontainers.image.version", out var versionLabel))
-			{
-				ImageVersion = versionLabel;
-			}
+			ImageVersion = GetImageVersion(_labels, [Image]);
 
 			Command = dockerOutput.GetProperty(nameof(Command)).GetString() ?? throw new ArgumentException("Docker container command is null.");
 
@@ -295,7 +292,7 @@ public static class Docker
 		}
 		private void GetContainerNames(JsonElement dockerOutput)
 		{
-			Names = GetNames(_labels, dockerOutput);
+			Names = GetNames(_labels, dockerOutput, [Image]);
 
 			if (IsManaged && PrettyName is not null)
 			{
@@ -420,7 +417,7 @@ public static class Docker
 		public string NetworkMode { get; }
 		public List<PortBinding> PortBindings { get; } = [];
 		public List<MountBinding> MountBindings { get; } = [];
-		public ContainerStats Stats => new(Id);
+		public ContainerStats? Stats => State == "running" ? new(Id) : null;
 
 		public string? PrettyName { get; private set; }
 		public string? Note { get; private set; }

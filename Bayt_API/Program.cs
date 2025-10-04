@@ -890,10 +890,9 @@ app.MapGet($"{baseDockerUrl}/containers/getContainerStats", async (string? conta
 	{
 		return Results.NotFound($"Container with ID '{containerId}' was not found.");
 	}
-	if (targetContainer.ComposePath is null)
-		return Results.NotFound($"Container with ID '{containerId}' does not have a compose file.");
 
-	return Results.Json(targetContainer.Stats.ToDictionary());
+	return targetContainer.Stats is not null ? Results.Json(targetContainer.Stats.ToDictionary())
+		: Results.BadRequest($"This container is not running. ({targetContainer.State})");
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
 	.Produces(StatusCodes.Status500InternalServerError)

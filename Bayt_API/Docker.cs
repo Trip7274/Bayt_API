@@ -280,13 +280,18 @@ public static class Docker
 		{
 			var machineLocalIp = StatsApi.GetLocalIpAddress();
 
-			if (!networkSettingsElement.GetProperty("Networks").GetProperty(networkName).TryGetProperty("IPAddress", out var ipElement)
-			    || string.IsNullOrEmpty(ipElement.GetString())) return machineLocalIp;
+			var containerNetworkId = networkSettingsElement.GetProperty("Networks").GetProperty(networkName).GetProperty("NetworkID").GetString()!;
+			var networkInfoRequest = SendRequest($"/networks/{containerNetworkId}").Result;
+			if (!networkInfoRequest.IsSuccess) return machineLocalIp;
+
+			var networkInfoJson = JsonSerializer.Deserialize<JsonElement>(networkInfoRequest.Body);
+			var networkSubnetCidr = networkInfoJson.GetProperty("IPAM").GetProperty("Config").EnumerateArray().First().GetProperty("Subnet").GetString() ?? "0.0.0.0/0";
+
+			var containerIpAddress = IPAddress.Parse(networkSettingsElement.GetProperty("Networks").GetProperty(networkName).GetProperty("IPAddress").GetString() ?? "0.0.0.0");
 
 
-			var ip = ipElement.GetString();
-			return ip is null ? machineLocalIp : IPAddress.Parse(ip);
-
+			var subnetNetwork = IPNetwork.Parse(networkSubnetCidr);
+			return subnetNetwork.Contains(containerIpAddress) ? machineLocalIp : containerIpAddress;
 		}
 		private void GetContainerNames(JsonElement dockerOutput)
 		{

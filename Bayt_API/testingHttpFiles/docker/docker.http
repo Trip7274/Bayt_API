@@ -1,30 +1,32 @@
-# Please make sure the environment file (http-client.env.json) is setup for your test containter's ID
-# {{Docker_BaseAddress}} Should be {{Bayt_API_HostAddress}}, but with `/docker` appended. (e.g., "http://localhost:5899/api/v0/docker")
-# {{DockerContainerId}} Should be at least the first 12 characters of your test container's ID
+# This should be at least the first 12 characters of your test container's ID
+@DockerContainerId = b9f527ef289e8fbefca759226b74ccab7362a67fc0c5f599c9f8cb5140b57617
 
 ### Fetch current Docker containers
-GET {{Docker_BaseAddress}}/containers/getContainers/
+GET {{Bayt_API_HostAddress}}/docker/containers/getContainers
 
 ### Start a docker container
-POST {{Docker_BaseAddress}}/containers/startContainer?containerId={{DockerContainerId}}
+POST {{Bayt_API_HostAddress}}/docker/containers/startContainer?containerId={{DockerContainerId}}
 
 ### Stop a docker container
-POST {{Docker_BaseAddress}}/containers/stopContainer?containerId={{DockerContainerId}}
+POST {{Bayt_API_HostAddress}}/docker/containers/stopContainer?containerId={{DockerContainerId}}
 
 ### Kill a docker container
-POST {{Docker_BaseAddress}}/containers/killContainer?containerId={{DockerContainerId}}
+POST {{Bayt_API_HostAddress}}/docker/containers/killContainer?containerId={{DockerContainerId}}
 
 ### Fetch a specific container's compose file
-GET {{Docker_BaseAddress}}/containers/getContainerCompose?containerId={{DockerContainerId}}
+GET {{Bayt_API_HostAddress}}/docker/containers/getContainerCompose?containerId={{DockerContainerId}}
 
 ### Disown a container
-DELETE {{Docker_BaseAddress}}/containers/disownContainer?containerId={{DockerContainerId}}
+DELETE {{Bayt_API_HostAddress}}/docker/containers/disownContainer?containerId={{DockerContainerId}}
 
 ### Own a container
-POST {{Docker_BaseAddress}}/containers/ownContainer?containerId={{DockerContainerId}}
+POST {{Bayt_API_HostAddress}}/docker/containers/ownContainer?containerId={{DockerContainerId}}
 
 ### Prune containers
-DELETE {{Docker_BaseAddress}}/containers/pruneContainers
+DELETE {{Bayt_API_HostAddress}}/docker/containers/pruneContainers
 
 ### Get a container's stats
-GET {{Docker_BaseAddress}}/containers/getContainerStats?containerId={{DockerContainerId}}
+GET {{Bayt_API_HostAddress}}/docker/containers/getContainerStats?containerId={{DockerContainerId}}
+
+### Fetch the system's available Docker Images
+GET {{Bayt_API_HostAddress}}/docker/images/getImages/

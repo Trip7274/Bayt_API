@@ -657,6 +657,44 @@ app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? cont
 	.WithTags("Docker")
 	.WithName("DeleteDockerContainer");
 
+app.MapPost($"{baseDockerUrl}/containers/pauseContainer", async (string? containerId) =>
+	{
+		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
+		if (requestValidation is not null) return requestValidation;
+
+		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
+
+		return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
+			: Results.StatusCode((int) await targetContainer.Pause());
+	}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status304NotModified)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Issues a command to pause a specific Docker container.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
+	.WithName("PauseDockerContainer");
+
+app.MapPost($"{baseDockerUrl}/containers/resumeContainer", async (string? containerId) =>
+	{
+		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
+		if (requestValidation is not null) return requestValidation;
+
+		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
+
+		return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
+			: Results.StatusCode((int) await targetContainer.Unpause());
+	}).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status304NotModified)
+	.Produces(StatusCodes.Status204NoContent)
+	.WithSummary("Issues a command to resume a specific Docker container.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithTags("Docker")
+	.WithName("ResumeDockerContainer");
+
 app.MapGet($"{baseDockerUrl}/containers/getContainerLogs", Docker.StreamDockerLogs)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status400BadRequest)

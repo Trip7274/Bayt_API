@@ -3,28 +3,28 @@
 # {{DockerContainerId}} Should be at least the first 12 characters of your test container's ID
 
 ### Fetch current Docker containers
-GET {{Docker_BaseAddress}}/getContainers/
+GET {{Docker_BaseAddress}}/containers/getContainers/
 
 ### Start a docker container
-POST {{Docker_BaseAddress}}/startContainer?containerId={{DockerContainerId}}
+POST {{Docker_BaseAddress}}/containers/startContainer?containerId={{DockerContainerId}}
 
 ### Stop a docker container
-POST {{Docker_BaseAddress}}/stopContainer?containerId={{DockerContainerId}}
+POST {{Docker_BaseAddress}}/containers/stopContainer?containerId={{DockerContainerId}}
 
 ### Kill a docker container
-POST {{Docker_BaseAddress}}/killContainer?containerId={{DockerContainerId}}
+POST {{Docker_BaseAddress}}/containers/killContainer?containerId={{DockerContainerId}}
 
 ### Fetch a specific container's compose file
-GET {{Docker_BaseAddress}}/getContainerCompose?containerId={{DockerContainerId}}
+GET {{Docker_BaseAddress}}/containers/getContainerCompose?containerId={{DockerContainerId}}
 
 ### Disown a container
-DELETE {{Docker_BaseAddress}}/disownContainer?containerId={{DockerContainerId}}
+DELETE {{Docker_BaseAddress}}/containers/disownContainer?containerId={{DockerContainerId}}
 
 ### Own a container
-POST {{Docker_BaseAddress}}/ownContainer?containerId={{DockerContainerId}}
+POST {{Docker_BaseAddress}}/containers/ownContainer?containerId={{DockerContainerId}}
 
 ### Prune containers
-DELETE {{Docker_BaseAddress}}/pruneContainers
+DELETE {{Docker_BaseAddress}}/containers/pruneContainers
 
 ### Get a container's stats
-GET {{Docker_BaseAddress}}/getContainerStats?containerId={{DockerContainerId}}
+GET {{Docker_BaseAddress}}/containers/getContainerStats?containerId={{DockerContainerId}}

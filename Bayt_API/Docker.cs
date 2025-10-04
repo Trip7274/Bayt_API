@@ -363,6 +363,7 @@ public static class Docker
 		public async Task<HttpStatusCode> Pause()
 		{
 			if (State is "paused") return HttpStatusCode.NotModified;
+			if (State is not "running") return HttpStatusCode.Conflict;
 			var dockerRequest = await SendRequest($"containers/{Id}/pause", "POST");
 			return dockerRequest.Status;
 		}

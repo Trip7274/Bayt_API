@@ -336,6 +336,53 @@ public static class Docker
 			}
 		}
 
+		public async Task<HttpStatusCode> Start()
+		{
+			if (State is "running") return HttpStatusCode.NotModified;
+			var dockerRequest = await SendRequest($"containers/{Id}/start", "POST");
+			return dockerRequest.Status;
+		}
+		public async Task<HttpStatusCode> Restart()
+		{
+			if (State is "restarting") return HttpStatusCode.NotModified;
+			var dockerRequest = await SendRequest($"containers/{Id}/restart", "POST");
+			return dockerRequest.Status;
+		}
+		public async Task<HttpStatusCode> Stop()
+		{
+			if (State is "exited") return HttpStatusCode.NotModified;
+			var dockerRequest = await SendRequest($"containers/{Id}/stop", "POST");
+			return dockerRequest.Status;
+		}
+		public async Task<HttpStatusCode> Kill()
+		{
+			if (State is "exited") return HttpStatusCode.NotModified;
+			var dockerRequest = await SendRequest($"containers/{Id}/kill", "POST");
+			return dockerRequest.Status;
+		}
+		public async Task<HttpStatusCode> Pause()
+		{
+			if (State is "paused") return HttpStatusCode.NotModified;
+			var dockerRequest = await SendRequest($"containers/{Id}/pause", "POST");
+			return dockerRequest.Status;
+		}
+		public async Task<HttpStatusCode> Unpause()
+		{
+			if (State is not "paused") return HttpStatusCode.NotModified;
+			var dockerRequest = await SendRequest($"containers/{Id}/unpause", "POST");
+			return dockerRequest.Status;
+		}
+		public async Task<HttpStatusCode> Delete(bool deleteCompose = false, bool removeVolumes = false)
+		{
+			if (State is not "exited") return HttpStatusCode.Conflict;
+			var dockerRequest = await SendRequest($"containers/{Id}?v={removeVolumes}", "DELETE");
+			if (deleteCompose && dockerRequest.IsSuccess && ComposePath is not null)
+			{
+				Directory.Delete(Path.GetDirectoryName(ComposePath)!, true);
+			}
+			return dockerRequest.Status;
+		}
+
 		public static readonly List<string> SupportedLabels = [nameof(PrettyName), nameof(Note), nameof(PreferredIconLink), nameof(WebpageLink)];
 		public async Task<bool> SetContainerMetadata(Dictionary<string, string?> props)
 		{

@@ -560,21 +560,13 @@ app.MapGet($"{baseDockerUrl}/containers/getContainers", async (bool all = true) 
 
 app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
 	if (requestValidation is not null) return requestValidation;
 
-	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/start", "POST");
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
 
-	return dockerRequest.Status switch
-	{
-		HttpStatusCode.NoContent => Results.NoContent(),
-		HttpStatusCode.NotModified => Results.StatusCode(StatusCodes.Status304NotModified),
-		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		HttpStatusCode.InternalServerError => Results.InternalServerError(
-			$"Docker returned an error while starting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
-		_ => Results.InternalServerError(
-			$"Docker returned an unknown error while starting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
-	};
+	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
+		: Results.StatusCode((int) await targetContainer.Start());
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
@@ -587,21 +579,13 @@ app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? contain
 
 app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
 	if (requestValidation is not null) return requestValidation;
 
-	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/stop", "POST");
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
 
-	return dockerRequest.Status switch
-	{
-		HttpStatusCode.NoContent => Results.NoContent(),
-		HttpStatusCode.NotModified => Results.StatusCode(StatusCodes.Status304NotModified),
-		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		HttpStatusCode.InternalServerError => Results.InternalServerError(
-			$"Docker returned an error while stopping container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
-		_ => Results.InternalServerError(
-			$"Docker returned an unknown error while stopping container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
-	};
+	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
+		: Results.StatusCode((int) await targetContainer.Stop());
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
@@ -614,23 +598,17 @@ app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containe
 
 app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
 	if (requestValidation is not null) return requestValidation;
 
-	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/restart", "POST");
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
 
-	return dockerRequest.Status switch
-	{
-		HttpStatusCode.NoContent => Results.NoContent(),
-		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		HttpStatusCode.InternalServerError => Results.InternalServerError(
-			$"Docker returned an error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
-		_ => Results.InternalServerError(
-			$"Docker returned an unknown error while restarting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
-	};
+	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
+		: Results.StatusCode((int) await targetContainer.Restart());
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status304NotModified)
 	.Produces(StatusCodes.Status204NoContent)
 	.WithSummary("Issues a command to restart a specific Docker container.")
 	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
@@ -639,56 +617,43 @@ app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? conta
 
 app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
 	if (requestValidation is not null) return requestValidation;
 
-	var dockerRequest = await Docker.SendRequest($"containers/{containerId}/kill", "POST");
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
 
-	return dockerRequest.Status switch
-	{
-		HttpStatusCode.NoContent => Results.NoContent(),
-		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		HttpStatusCode.Conflict => Results.Conflict($"Container with ID '{containerId}' was not running."),
-		HttpStatusCode.InternalServerError => Results.InternalServerError(
-			$"Docker returned an error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
-		_ => Results.InternalServerError(
-			$"Docker returned an unknown error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
-	};
+	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
+		: Results.StatusCode((int) await targetContainer.Kill());
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
 	.Produces(StatusCodes.Status409Conflict)
+	.Produces(StatusCodes.Status304NotModified)
 	.Produces(StatusCodes.Status204NoContent)
 	.WithSummary("Issues a command to kill a specific Docker container.")
 	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 	.WithTags("Docker")
 	.WithName("KillDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? containerId) =>
+app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? containerId, bool removeCompose = false, bool removeVolumes = false) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, false);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
 	if (requestValidation is not null) return requestValidation;
 
-	var dockerRequest = await Docker.SendRequest($"containers/{containerId}", "DELETE");
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
 
-	return dockerRequest.Status switch
-	{
-		HttpStatusCode.NoContent => Results.NoContent(),
-		HttpStatusCode.BadRequest => Results.BadRequest($"Docker returned a bad parameter error while deleting container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
-		HttpStatusCode.NotFound => Results.NotFound($"Container with ID '{containerId}' was not found."),
-		HttpStatusCode.Conflict => Results.Conflict($"There was a conflict deleting container with ID '{containerId}'. Make sure it's off."),
-		HttpStatusCode.InternalServerError => Results.InternalServerError(
-			$"Docker returned an error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}"),
-		_ => Results.InternalServerError(
-			$"Docker returned an unknown error while killing container with ID '{containerId}'. ({dockerRequest.Status})\nBody: {dockerRequest.Body}")
-	};
+	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
+		: Results.StatusCode((int) await targetContainer.Delete(removeCompose, removeVolumes));
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
 	.Produces(StatusCodes.Status409Conflict)
 	.Produces(StatusCodes.Status204NoContent)
-	.WithSummary("Issues a command to delete a specific Docker container. Does not include the compose file, if applicable.")
-	.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
+	.WithSummary("Issues a command to delete a specific Docker container.")
+	.WithDescription("containerId must contain at least the first 12 characters of the container's ID. " +
+	                 "removeCompose will delete the entire compose directory if true, " +
+	                 "and removeVolumes will remove all anonymous volumes associated with the container if true. " +
+	                 "Both default to false.")
 	.WithTags("Docker")
 	.WithName("DeleteDockerContainer");
 

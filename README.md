@@ -50,7 +50,7 @@ but the default scripts require the following, depending on your GPU:
 - AMD GPU Systems:
 	- `amdgpu_top` (Currently requires a build that contains the commit [04983eb](https://github.com/Umio-Yasuno/amdgpu_top/commit/04983ebf5563982c9d685e587a8a1f2a48252811). Either compile manually or use the [amdgpu_top-git](https://aur.archlinux.org/packages/amdgpu_top-git) AUR package)
 
-Along with utilites you probably already have, such as `bash`, (GNU) `grep`, `head`, `jq`, and `df`.
+Along with utilites you probably already have, such as `bash`, (GNU) `grep`, `head`, `jq`, `net-tools`, and `df`.
 
 ---
 I mainly test this on CachyOS (Arch-based) and a plain Fedora server, but I do try to use as many distro-agnostic features as I can in the default scripts.

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 logHelper() {
 	# Expects $1 to be the message itself.
@@ -24,13 +24,14 @@ logHelper() {
     	PREFIX="[INFO]"
     ;;
 	esac
-	printf "$PREFIX %s\033[0m\n" "$1"
+	printf "$PREFIX %s\e[0m\n" "$1"
 }
 
-printf "We're sorry to see you go! If you're having any issues, do feel free to report them in our GitHub repo!\nThis script will reverse everything that SetupBayt.sh set up."
+printf "We're sorry to see you go! If you're having any issues, do feel free to report them in our GitHub repo! (https://github.com/Trip7274/Bayt_API)\nThis script will reverse everything that \e[3;36mSetupBayt.sh\e[0m set up.\n\n"
 if [ "$SETUP_NOCONFIRM" != "1" ]; then
-    printf "This process is \e[0;33muser-specific\033[0m. This means that '%s' may not be the only user with permissions setup.\nTo check for all users, make sure the directory '/etc/sudoers.d/' is cleared of any files \e[4;37mstarting with the characters '10-BaytApi-[user]'\033[0m.\nPress enter to continue, or Ctrl+C to cancel\n" "$USER"
+    printf "This process is \e[0;33muser-specific\e[0m. This means that '\e[0;32m%s\e[0m' may not be the only user with permissions setup.\nTo check for all users, make sure the directory '/etc/sudoers.d/' is cleared of any files \e[4;37mstarting with the characters '10-BaytApi-[user]'\e[0m.\nPress enter to continue, or Ctrl+C to cancel\n" "$USER"
 	read -r _
+	printf "\n"
 fi
 
 logHelper "Checking if the user has any special permissions set"

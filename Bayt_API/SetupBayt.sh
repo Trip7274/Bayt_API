@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 logHelper() {
 	# Expects $1 to be the message itself.
@@ -24,7 +24,7 @@ logHelper() {
     	PREFIX="[INFO]"
     ;;
 	esac
-	printf "$PREFIX %s\033[0m\n" "$1"
+	printf "$PREFIX %s\e[0m\n" "$1"
 }
 checkSudoers() {
 	# $1 is expected to be the file's path
@@ -35,10 +35,11 @@ checkSudoers() {
     fi
 }
 
-printf "Welcome! This script will ensure your system environment is ready to use as many of Bayt's features as possible.\nEverything that will be done here is entirely reversible using CleanupBayt.sh in case you change your mind.\n\n"
+printf "Welcome! This script will ensure your system environment is ready to use as many of Bayt's features as possible.\nEverything that will be done here is entirely reversible using \e[3;36mCleanupBayt.sh\e[0m in case you change your mind.\n\n"
 if [ "$SETUP_NOCONFIRM" != "1" ]; then
-    printf "This process is \e[0;33muser-specific\033[0m. Are you sure you want to set Bayt up for the user '\e[0;32m%s\033[0m'?\nDo note that \e[4;37mthis will allow the user to shutdown and reboot this machine at will\033[0m.\nPress enter to continue, or Ctrl+C to cancel\n" "$USER"
+    printf "This process is \e[0;33muser-specific\e[0m. Are you sure you want to set Bayt up for the user '\e[0;32m%s\e[0m'?\nDo note that \e[4;37mthis will allow the user to shutdown and reboot this machine at will\e[0m.\nPress enter to continue, or Ctrl+C to cancel\n" "$USER"
 	read -r _
+	printf "\n"
 fi
 
 logHelper "Checking if the user has the required permissions..."
@@ -61,7 +62,7 @@ fi
 
 
 printf "\n"
-logHelper "Permission checks done, running checks for GPU dependencies..."
+logHelper "Permission checks done, now running checks for dependencies..."
 
 gpuList="$(lspci | grep ' VGA ' | grep -oE "(NVIDIA)?(AMD)?(Intel)?")"
 
@@ -94,5 +95,17 @@ if echo "$gpuList" | grep -q "Intel"; then
     	logHelper "intel_gpu_top was detected!" "OK"
     fi
 fi
+
+printf "\n"
+
+logHelper "Checking for net-tools..."
+if ! ifconfig -V > /dev/null; then
+    	logHelper "net-tools check failed. Make sure it's installed (We only really need the ifconfig command)" "WARNING"
+    	logHelper "Bayt will run without this, but you may encounter issues when trying to add some WoL clients." "WARNING"
+    else
+    	logHelper "net-tools was detected!" "OK"
+fi
+
+printf "\n"
 
 logHelper "You should now be able to run Bayt using this user. Enjoy!" "OK"

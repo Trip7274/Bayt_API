@@ -560,7 +560,7 @@ app.MapGet($"{baseDockerUrl}/containers/getContainers", async (bool all = true) 
 
 app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
@@ -579,7 +579,7 @@ app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? contain
 
 app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
@@ -598,7 +598,7 @@ app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containe
 
 app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
@@ -617,7 +617,7 @@ app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? conta
 
 app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containerId) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
@@ -637,7 +637,7 @@ app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containe
 
 app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? containerId, bool removeCompose = false, bool removeVolumes = false) =>
 {
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
@@ -659,7 +659,7 @@ app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? cont
 
 app.MapPost($"{baseDockerUrl}/containers/pauseContainer", async (string? containerId) =>
 	{
-		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
+		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 		if (requestValidation is not null) return requestValidation;
 
 		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
@@ -678,7 +678,7 @@ app.MapPost($"{baseDockerUrl}/containers/pauseContainer", async (string? contain
 
 app.MapPost($"{baseDockerUrl}/containers/resumeContainer", async (string? containerId) =>
 	{
-		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true);
+		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 		if (requestValidation is not null) return requestValidation;
 
 		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);

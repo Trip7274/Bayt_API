@@ -32,11 +32,11 @@ public static class RequestChecking
 
 		if (!Docker.IsDockerAvailable)
 		{
-			return Results.InternalServerError("Docker is not available on this system.");
+			return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 		}
 		if (checkCompose && !Docker.IsDockerComposeAvailable)
 		{
-			return Results.InternalServerError("Docker-Compose is not available on this system.");
+			return Results.InternalServerError("Docker-Compose is not available on this system or the Docker integration was disabled.");
 		}
 
 		if (updateContainers) await Docker.DockerContainers.UpdateDataIfNecessary();

@@ -122,10 +122,9 @@ public static class Docker
 		}
 
 		/// <summary>
-		/// Formats all the Docker containers into an array of Dictionaries.
+		/// Fetches all the Docker containers into an array of Dictionaries.
 		/// </summary>
 		/// <param name="getAllContainers">Whether to include non-running containers. Defaults to include all containers.</param>
-		/// <returns>an array of Dictionary{string, dynamic?} objects.</returns>
 		public static Dictionary<string, dynamic?>[] ToDictionary(bool getAllContainers = true)
 		{
 			List<Dictionary<string, dynamic?>> containersList = [];
@@ -177,6 +176,9 @@ public static class Docker
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
 	}
 
+	/// <summary>
+	/// Represents a Docker container on the system. Provides info and some basic controls.
+	/// </summary>
 	public sealed class DockerContainer
 	{
 		public DockerContainer(JsonElement dockerOutput)
@@ -195,17 +197,17 @@ public static class Docker
 				var composeDirectory = Path.GetDirectoryName(ComposePath);
 				IsManaged = composeDirectory is not null && File.Exists(Path.Combine(composeDirectory, ".BaytMetadata.json"));
 			}
-			Image = dockerOutput.GetProperty(nameof(Image)).GetString() ?? throw new ArgumentException("Docker container image is null.");
+			ImageName = dockerOutput.GetProperty("Image").GetString() ?? throw new ArgumentException("Docker container image is null.");
 
 			FillContainerMetadata();
 			GetContainerNames(dockerOutput);
 			ImageDescription = GetDescription(_labels);
 			GetHrefFromLabels();
-			IconUrls = GetIconUrls(_labels);
+			IconUrls = GetIconUrls(_labels, PreferredIconLink);
 
 			ImageID = dockerOutput.GetProperty(nameof(ImageID)).GetString() ?? throw new ArgumentException("Docker container image ID is null.");
 			ImageUrl = GetImageUrl(_labels);
-			ImageVersion = GetImageVersion(_labels, [Image]);
+			ImageVersion = GetImageVersion(_labels, [ImageName]);
 
 			Command = dockerOutput.GetProperty(nameof(Command)).GetString() ?? throw new ArgumentException("Docker container command is null.");
 
@@ -234,12 +236,15 @@ public static class Docker
 				}
 			}
 		}
+		/// <summary>
+		/// Fetch this DockerContainer object as a Dictionary. Used to serialize to JSON.
+		/// </summary>
 		public Dictionary<string, dynamic?> ToDictionary()
 		{
 			List<Dictionary<string, dynamic?>> portBindings = [];
 			portBindings.AddRange(PortBindings.Select(portBinding => portBinding.ToDictionary()));
 
-			List<Dictionary<string, string>> mountBindings = [];
+			List<Dictionary<string, string?>> mountBindings = [];
 			mountBindings.AddRange(MountBindings.Select(mountBinding => mountBinding.ToDictionary()));
 
 			return new()
@@ -247,7 +252,7 @@ public static class Docker
 				{ nameof(Id), Id },
 				{ nameof(Names), Names },
 
-				{ nameof(Image), Image },
+				{ nameof(ImageName), ImageName },
 				{ nameof(ImageID), ImageID },
 				{ nameof(ImageUrl), ImageUrl },
 				{ nameof(ImageVersion), ImageVersion },
@@ -264,7 +269,7 @@ public static class Docker
 
 				{ nameof(IconUrls), IconUrls },
 
-				{ nameof(IpAddress), IpAddress.ToString() },
+				{ nameof(IpAddress), IpAddress?.ToString() },
 				{ nameof(NetworkMode), NetworkMode },
 				{ nameof(PortBindings), portBindings },
 				{ nameof(MountBindings), mountBindings },
@@ -276,32 +281,60 @@ public static class Docker
 			};
 		}
 
-		private static IPAddress GetIp(JsonElement networkSettingsElement, string networkName)
+		/// <summary>
+		/// Tries to fetch the container's specific IP Address, using the machine's local IP Address as a fallback in case it's a loopback address. (fetched using <see cref="StatsApi.GetLocalIpAddress"/>)
+		/// </summary>
+		/// <param name="networkSettingsElement">The <c>NetworkSettings</c> property of the Docker daemon's output (regarding this specific container)</param>
+		/// <param name="networkMode">The container's network name (or HostConfig -> NetworkMode)</param>
+		/// <returns>The container's IP address, usually the machine's local IP address in case the Docker's returned IP address is a loopback address.</returns>
+		private static IPAddress? GetIp(JsonElement networkSettingsElement, string networkMode)
 		{
+			if (networkMode == "none") return null;
+
 			var machineLocalIp = StatsApi.GetLocalIpAddress();
+			if (networkMode == "host") return machineLocalIp;
 
-			var containerNetworkId = networkSettingsElement.GetProperty("Networks").GetProperty(networkName).GetProperty("NetworkID").GetString()!;
-			var networkInfoRequest = SendRequest($"/networks/{containerNetworkId}").Result;
-			if (!networkInfoRequest.IsSuccess) return machineLocalIp;
+			try
+			{
+				var containerNetworkId = networkSettingsElement.GetProperty("Networks").GetProperty(networkMode).GetProperty("NetworkID").GetString();
+				var networkInfoRequest = SendRequest($"/networks/{containerNetworkId}").Result;
+				if (!networkInfoRequest.IsSuccess) return machineLocalIp;
 
-			var networkInfoJson = JsonSerializer.Deserialize<JsonElement>(networkInfoRequest.Body);
-			var networkSubnetCidr = networkInfoJson.GetProperty("IPAM").GetProperty("Config").EnumerateArray().First().GetProperty("Subnet").GetString() ?? "0.0.0.0/0";
+				var networkInfoJson = JsonSerializer.Deserialize<JsonElement>(networkInfoRequest.Body);
+				var networkSubnetCidr = networkInfoJson.GetProperty("IPAM").GetProperty("Config").EnumerateArray().First().GetProperty("Subnet").GetString() ?? throw new NullReferenceException();
 
-			var containerIpAddress = IPAddress.Parse(networkSettingsElement.GetProperty("Networks").GetProperty(networkName).GetProperty("IPAddress").GetString() ?? "0.0.0.0");
+				var containerIpString = networkSettingsElement.GetProperty("Networks").GetProperty(networkMode).GetProperty("IPAddress")
+					.GetString();
+				ArgumentException.ThrowIfNullOrWhiteSpace(containerIpString);
+				var containerIpAddress = IPAddress.Parse(containerIpString);
 
 
-			var subnetNetwork = IPNetwork.Parse(networkSubnetCidr);
-			return subnetNetwork.Contains(containerIpAddress) ? machineLocalIp : containerIpAddress;
+				var subnetNetwork = IPNetwork.Parse(networkSubnetCidr);
+				return subnetNetwork.Contains(containerIpAddress) ? machineLocalIp : containerIpAddress;
+			}
+			catch (Exception e) when(e is NullReferenceException or ArgumentException)
+			{
+				return machineLocalIp;
+			}
 		}
+		/// <summary>
+		/// Extracts and assigns container names from the provided Docker output. Considers the user's preferred name, if any.
+		/// </summary>
+		/// <param name="dockerOutput">The JSON data representing the Docker container fetched from the Docker daemon.</param>
 		private void GetContainerNames(JsonElement dockerOutput)
 		{
-			Names = GetNames(_labels, dockerOutput, [Image]);
+			Names = GetNames(_labels, dockerOutput, [ImageName]);
 
 			if (IsManaged && PrettyName is not null)
 			{
 				Names = Names.Prepend(PrettyName).ToList();
 			}
 		}
+		/// <summary>
+		/// Extracts the URL pointing to the container's webpage from the container's labels, if any. Sets <see cref="DockerContainer.WebpageLink"/>.
+		/// <br/><br/>
+		/// The checked keys are "bayt.url", "glance.url", and "homepage.instance.internal.href", in that order of priority.
+		/// </summary>
 		private void GetHrefFromLabels()
 		{
 			if (_labels is null) return;
@@ -313,6 +346,11 @@ public static class Docker
 				WebpageLink = href;
 			}
 		}
+		/// <summary>
+		/// Fetches the user's specified <see cref="PrettyName"/>, <see cref="Note"/>, <see cref="WebpageLink"/>,
+		/// and <see cref="PreferredIconLink"/> for this container. Ran in the constructor.
+		/// </summary>
+		/// <exception cref="Exception">The metadata file exists, but Bayt was unable to deserialize the JSON. Make sure it's valid.</exception>
 		private void FillContainerMetadata()
 		{
 			if (!IsManaged) return;
@@ -328,41 +366,56 @@ public static class Docker
 				PreferredIconLink = currentMetadata[nameof(PreferredIconLink)] ?? PreferredIconLink;
 				WebpageLink = currentMetadata[nameof(WebpageLink)];
 			}
-			catch (KeyNotFoundException e)
+			catch (KeyNotFoundException)
 			{
-				Console.ForegroundColor = ConsoleColor.Red;
-				Console.WriteLine("[ERROR] Couldn't process the metadata file for a Docker container. Please make sure it is valid JSON and contains all the required keys.");
-				Console.WriteLine($"\tContainer ID: {Id}");
-				Console.WriteLine($"\tError message: {e.Message}");
-				Console.WriteLine($"\tMetadata File: {composeMetadataPath}");
-				Console.ResetColor();
+				Logs.LogStream.Write(new LogEntry(StreamId.Error, "Docker Container Init", $"The metadata file for a Docker container seems like invalid JSON. (ID: {Id[..16]})"));
 			}
 		}
 
+		/// <summary>
+		/// Send the command to start this container.
+		/// </summary>
+		/// <returns>The result of the command.</returns>
 		public async Task<HttpStatusCode> Start()
 		{
 			if (State is "running") return HttpStatusCode.NotModified;
 			var dockerRequest = await SendRequest($"containers/{Id}/start", "POST");
 			return dockerRequest.Status;
 		}
+		/// <summary>
+		/// Send the command to restart this container.
+		/// </summary>
+		/// <returns>The result of the command.</returns>
 		public async Task<HttpStatusCode> Restart()
 		{
 			if (State is "restarting") return HttpStatusCode.NotModified;
 			var dockerRequest = await SendRequest($"containers/{Id}/restart", "POST");
 			return dockerRequest.Status;
 		}
+		/// <summary>
+		/// Send the command to stop this container.
+		/// </summary>
+		/// <returns>The result of the command.</returns>
 		public async Task<HttpStatusCode> Stop()
 		{
 			if (State is "exited") return HttpStatusCode.NotModified;
 			var dockerRequest = await SendRequest($"containers/{Id}/stop", "POST");
 			return dockerRequest.Status;
 		}
+		/// <summary>
+		/// Send the command to kill this container.
+		/// </summary>
+		/// <returns>The result of the command.</returns>
 		public async Task<HttpStatusCode> Kill()
 		{
 			if (State is "exited") return HttpStatusCode.NotModified;
 			var dockerRequest = await SendRequest($"containers/{Id}/kill", "POST");
 			return dockerRequest.Status;
 		}
+		/// <summary>
+		/// Send the command to pause this container.
+		/// </summary>
+		/// <returns>The result of the command.</returns>
 		public async Task<HttpStatusCode> Pause()
 		{
 			if (State is "paused") return HttpStatusCode.NotModified;
@@ -370,12 +423,22 @@ public static class Docker
 			var dockerRequest = await SendRequest($"containers/{Id}/pause", "POST");
 			return dockerRequest.Status;
 		}
+		/// <summary>
+		/// Send the command to unpause/resume this container.
+		/// </summary>
+		/// <returns>The result of the command.</returns>
 		public async Task<HttpStatusCode> Unpause()
 		{
 			if (State is not "paused") return HttpStatusCode.NotModified;
 			var dockerRequest = await SendRequest($"containers/{Id}/unpause", "POST");
 			return dockerRequest.Status;
 		}
+		/// <summary>
+		/// Send the command to delete this container. Optionally deletes the container's volumes and compose directory.
+		/// </summary>
+		/// <param name="deleteCompose">Please do be careful using this. It will recursively delete the parent directory of the compose file (<c>~/composeFolder/docker-compose.yml</c> would delete <c>~/composeFolder</c>)</param>
+		/// <param name="removeVolumes">Delete the anonymous volumes used by the container.</param>
+		/// <returns>The result of the command.</returns>
 		public async Task<HttpStatusCode> Delete(bool deleteCompose = false, bool removeVolumes = false)
 		{
 			if (State is not "exited") return HttpStatusCode.Conflict;
@@ -388,6 +451,12 @@ public static class Docker
 		}
 
 		public static readonly List<string> SupportedLabels = [nameof(PrettyName), nameof(Note), nameof(PreferredIconLink), nameof(WebpageLink)];
+		/// <summary>
+		/// Provides logic to modify a container's metadata.
+		/// </summary>
+		/// <param name="props">A dictionary with one of the keys <see cref="PrettyName"/>, <see cref="Note"/>, <see cref="WebpageLink"/>, or <see cref="PreferredIconLink"/> and their new values.</param>
+		/// <returns>Whether anything was actually modified or not.</returns>
+		/// <exception cref="Exception">Failed to deserialize the metadata file. Probably due to malformed JSON.</exception>
 		public async Task<bool> SetContainerMetadata(Dictionary<string, string?> props)
 		{
 			if (!IsManaged) return false;
@@ -401,28 +470,28 @@ public static class Docker
 			{
 				switch (prop.Key)
 				{
-					case nameof(PrettyName):
+					case nameof(PrettyName) when PrettyName != prop.Value:
 					{
 						PrettyName = prop.Value;
 						currentMetadata[nameof(PrettyName)] = prop.Value;
 						changedAnything = true;
 						break;
 					}
-					case nameof(Note):
+					case nameof(Note) when Note != prop.Value:
 					{
 						Note = prop.Value;
 						currentMetadata[nameof(Note)] = prop.Value;
 						changedAnything = true;
 						break;
 					}
-					case nameof(PreferredIconLink):
+					case nameof(PreferredIconLink) when PreferredIconLink != prop.Value:
 					{
 						PreferredIconLink = prop.Value ?? GenericIconLink;
 						currentMetadata[nameof(PreferredIconLink)] = prop.Value;
 						changedAnything = true;
 						break;
 					}
-					case nameof(WebpageLink):
+					case nameof(WebpageLink) when WebpageLink != prop.Value:
 					{
 						WebpageLink = prop.Value;
 						currentMetadata[nameof(WebpageLink)] = prop.Value;
@@ -440,41 +509,123 @@ public static class Docker
 		}
 
 		public string Id { get; }
+		/// <summary>
+		/// The possible names of the container. In order of priority/confidence
+		/// </summary>
+		/// <remarks>
+		/// In the case of a managed container, this includes the user's preferred name as the first entry.
+		/// </remarks>
+		/// <seealso cref="Docker.GetNames"/>
 		public List<string> Names { get; private set; } = [];
 		private readonly Dictionary<string, string>? _labels;
 
-		public string Image { get; }
+		public string ImageName { get; }
 		// ReSharper disable once InconsistentNaming
 		public string ImageID { get; }
+		/// <summary>
+		/// The URL pointing to the image's public homepage (GitHub link, Docker Hub link, etc.).
+		/// </summary>
+		/// <seealso cref="Docker.GetImageUrl"/>
 		public string? ImageUrl { get; }
+		/// <summary>
+		/// The version of the image.
+		/// </summary>
+		/// <remarks>
+		///	In cases where the container's labels don't specify a version, Bayt will try to infer it from the image's name. (e.g. "bayt/bayt:latest" -> "latest")
+		/// </remarks>
+		/// <seealso cref="Docker.GetImageVersion"/>
 		public string? ImageVersion { get;  }
+		/// <summary>
+		/// The friendly description of the image.
+		/// </summary>
+		/// <seealso cref="Docker.GetDescription"/>
 		public string? ImageDescription { get; private set; }
 
+		/// <summary>
+		/// The (abs.) path to the Docker compose file that created this container. If null, it means the container is not a Docker compose container.
+		/// </summary>
 		public string? ComposePath { get; }
+
+		/// <summary>
+		/// The command used to start the Docker container (internally).
+		/// </summary>
 		public string Command { get; }
+		/// <summary>
+		/// The Unix timestamp of when the container was created.
+		/// </summary>
 		public long Created { get; }
 
+		/// <summary>
+		/// Represents the container's current state.
+		/// </summary>
+		/// <remarks>
+		///	Enum of "created", "running", "paused", "restarting", "exited", "removing", or "dead".
+		/// </remarks>
 		public string State { get; }
+		/// <summary>
+		/// Additional human-readable status of this container (e.g., <c>Exit 0</c>)
+		/// </summary>
 		public string Status { get; }
 
+		/// <summary>
+		/// Whether the container is a Docker compose container.
+		/// </summary>
 		public bool IsCompose { get; }
+		/// <summary>
+		/// Whether the container is managed by Bayt. If false, the user did not allow Bayt to manage this container and thus it should not be modified.
+		/// </summary>
 		public bool IsManaged { get; }
 
+		/// <summary>
+		/// List of URLs pointing to the container's icon. Resolved using the container's labels, if any.
+		/// </summary>
+		/// <remarks>
+		///	Ordered by priority/confidence.
+		/// </remarks>
+		/// <seealso cref="Docker.GetIconUrls"/>
 		public List<string> IconUrls { get; }
 
-		public IPAddress IpAddress { get; }
+		/// <summary>
+		/// The IP address assigned to the Docker container. Null if the container's <see cref="NetworkMode"/> is none.
+		/// </summary>
+		public IPAddress? IpAddress { get; }
 
+		/// <summary>
+		/// Networking mode (<c>host</c>, <c>none</c>, <c>container:{id}</c>) or name of the primary network the container is using.
+		/// </summary>
 		public string NetworkMode { get; }
 		public List<PortBinding> PortBindings { get; } = [];
 		public List<MountBinding> MountBindings { get; } = [];
+		/// <summary>
+		/// Fetches the container's current metrics (CPU, Memory, and Network usage).
+		/// </summary>
+		/// <remarks>
+		///	This does take a second or so to fetch, mostly on the Docker daemon's side.
+		/// </remarks>
 		public ContainerStats? Stats => State == "running" ? new(Id) : null;
 
+		/// <summary>
+		/// The user's preferred name for this container. Fetched from the container's metadata.
+		/// </summary>
 		public string? PrettyName { get; private set; }
+
+		/// <summary>
+		/// The user-set note for this container. Fetched from the container's metadata.
+		/// </summary>
 		public string? Note { get; private set; }
+		/// <summary>
+		/// The user's preferred icon link for this container. Fetched from the container's metadata.
+		/// </summary>
 		public string PreferredIconLink { get; private set; } = GenericIconLink;
+		/// <summary>
+		/// The user-set webpage/web UI link for this container. Fetched from the container's metadata.
+		/// </summary>
 		public string? WebpageLink { get; private set; }
 	}
 
+	/// <summary>
+	/// Represents a Docker container's metrics.
+	/// </summary>
 	public sealed class ContainerStats
 	{
 		public ContainerStats(string containerId)
@@ -509,7 +660,10 @@ public static class Docker
 			RecievedNetworkBytes = networkEntry.GetProperty("rx_bytes").GetUInt64();
 			SentNetworkBytes = networkEntry.GetProperty("tx_bytes").GetUInt64();
 		}
-
+		/// <summary>
+		/// Fetch this ContainerStats object as a Dictionary. Used to serialize to JSON.
+		/// </summary>
+		/// <returns>Dictionary representation of this ContainerStats object.</returns>
 		public Dictionary<string, dynamic> ToDictionary()
 		{
 			return new()
@@ -524,18 +678,46 @@ public static class Docker
 			};
 		}
 
+		/// <summary>
+		/// Percentage of CPU usage by this container.
+		/// </summary>
 		public float CpuUtilizationPerc { get; }
+		/// <summary>
+		/// Bytes of memory used by this container.
+		/// </summary>
 		public ulong UsedMemory { get; }
+		/// <summary>
+		/// Total bytes of memory usable to this container.
+		/// </summary>
 		public ulong TotalMemory { get; }
+		/// <summary>
+		/// Gets the bytes of memory available to this container.
+		/// </summary>
 		public ulong AvailableMemory => TotalMemory - UsedMemory;
+		/// <summary>
+		/// Gets the percentage of memory used by this container.
+		/// </summary>
 		public float UsedMemoryPercent => TotalMemory == 0 ? 0 : MathF.Round((float) UsedMemory / TotalMemory * 100, 2);
 
+		/// <summary>
+		/// Total bytes of network traffic received by this container.
+		/// </summary>
 		public ulong RecievedNetworkBytes { get; }
+		/// <summary>
+		/// Total bytes of network traffic sent by this container.
+		/// </summary>
 		public ulong SentNetworkBytes { get; }
 	}
 
+	/// <summary>
+	/// Represents a single port binding of a Docker container.
+	/// </summary>
+	/// <param name="portEntry">One of the "Ports" field's entries from the Docker daemon's output about a single container.</param>
 	public sealed class PortBinding(JsonElement portEntry)
 	{
+		/// <summary>
+		/// Fetch this PortBinding object as a Dictionary. Used to serialize to JSON.
+		/// </summary>
 		public Dictionary<string, dynamic?> ToDictionary()
 		{
 			return new()
@@ -547,15 +729,34 @@ public static class Docker
 			};
 		}
 
+		/// <summary>
+		/// Host IP address that the container's port is mapped to.
+		/// </summary>
 		public string? IpAddress { get; } = portEntry.TryGetProperty("IP", out var ipAddr) ? ipAddr.GetString() : null;
-		public ushort? PrivatePort { get; } = portEntry.TryGetProperty(nameof(PrivatePort), out var privatePort) ? privatePort.GetUInt16() : null;
+		/// <summary>
+		/// Port exposed on the container.
+		/// </summary>
+		public ushort PrivatePort { get; } = portEntry.GetProperty(nameof(PrivatePort)).GetUInt16();
+		/// <summary>
+		/// Port exposed on the host
+		/// </summary>
 		public ushort? PublicPort { get; } = portEntry.TryGetProperty(nameof(PublicPort), out var publicPort) ? publicPort.GetUInt16() : null;
-		public string? Type { get; } = portEntry.TryGetProperty(nameof(Type), out var bindingType) ? bindingType.GetString() : null;
+		/// <summary>
+		/// Enum of "tcp", "udp", or "sctp".
+		/// </summary>
+		public string Type { get; } = portEntry.GetProperty(nameof(Type)).GetString()!;
 	}
 
+	/// <summary>
+	/// Represents a single mount binding of a Docker container.
+	/// </summary>
+	/// <param name="mountEntry">One of the "Mounts" field's entries from the Docker daemon's output about a single container.</param>
 	public sealed class MountBinding(JsonElement mountEntry)
 	{
-		public Dictionary<string, string> ToDictionary()
+		/// <summary>
+		/// Fetch this MountBinding object as a Dictionary. Used to serialize to JSON.
+		/// </summary>
+		public Dictionary<string, string?> ToDictionary()
 		{
 			return new()
 			{
@@ -566,12 +767,29 @@ public static class Docker
 			};
 		}
 
-		public string Type { get; } = mountEntry.GetProperty(nameof(Type)).GetString() ?? throw new ArgumentException("Docker container's Mount is null.");
-		public string Source { get; } = mountEntry.GetProperty(nameof(Source)).GetString() ?? throw new ArgumentException("Docker container's Mount Source is null.");
-		public string Destination { get; } = mountEntry.GetProperty(nameof(Destination)).GetString() ?? throw new ArgumentException("Docker container's Mount Destination is null.");
-		public string Mode { get; } = mountEntry.GetProperty(nameof(Mode)).GetString() ?? throw new ArgumentException("Docker container's Mount Mode is null.");
+		/// <summary>
+		/// Enum of "bind", "volume", "image", "tmpfs", "npipe", or "cluster".
+		/// </summary>
+		/// <seealso href="https://docs.docker.com/reference/api/engine/version/v1.51/#tag/Container/operation/ContainerList">Docker API docs for more details.</seealso>
+		public string Type { get; } = mountEntry.GetProperty(nameof(Type)).GetString()!;
+		/// <summary>
+		/// Location of the mount on the host. If the <see cref="Type"/> is "volume", this is the name of the volume.
+		/// </summary>
+		public string? Source => Type == "volume" ? mountEntry.GetProperty("Name").GetString() : mountEntry.GetProperty(nameof(Source)).GetString();
+		/// <summary>
+		/// The path relative to the container root where the <see cref="Source"/> is mounted inside the container.
+		/// </summary>
+		public string Destination { get; } = mountEntry.GetProperty(nameof(Destination)).GetString()!;
+
+		/// <summary>
+		/// Access permissions of the mount. "ro" for read-only, "rw" for read-write, or "z" for private.
+		/// </summary>
+		public string Mode { get; } = mountEntry.GetProperty(nameof(Mode)).GetString()!;
 	}
 
+	/// <summary>
+	/// Provides methods and properties for interacting with the system's Docker images.
+	/// </summary>
 	public static class ImagesInfo
 	{
 		static ImagesInfo()
@@ -587,6 +805,10 @@ public static class Docker
 			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
 		}
 
+		/// <summary>
+		/// Fetches the current image list from Docker and updates the <see cref="Images"/> list.
+		/// </summary>
+		/// <exception cref="Exception">Something went wrong trying to communicate with the Docker daemon.</exception>
 		public static async Task UpdateData()
 		{
 			var dockerRequest = await SendRequest("images/json");
@@ -602,6 +824,19 @@ public static class Docker
 			LastUpdate = DateTime.Now;
 		}
 
+
+		/// <summary>
+		/// Contains the task currently updating the data. Null if no update is currently in progress.
+		/// </summary>
+		private static Task? UpdatingTask { get; set; }
+		/// <summary>
+		/// Used to prevent multiple threads from updating the data at the same time.
+		/// </summary>
+		private static readonly Lock UpdatingLock = new();
+
+		/// <summary>
+		/// Check if the image list is too old and needs to be updated. If so, update it.
+		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
 			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Checking for Docker image data update..."));
@@ -626,6 +861,9 @@ public static class Docker
 			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Docker image data updated."));
 		}
 
+		/// <summary>
+		/// Fetches all the Docker images into an array of Dictionaries.
+		/// </summary>
 		public static Dictionary<string, dynamic?>[] ToDictionary()
 		{
 			List<Dictionary<string, dynamic?>> imagesList = [];
@@ -635,6 +873,10 @@ public static class Docker
 			return imagesList.ToArray();
 		}
 
+		/// <summary>
+		/// Contains all the system's Docker images.
+		/// </summary>
+		/// <seealso cref="UpdateDataIfNecessary"/>
 		public static List<ImageInfo> Images { get; } = [];
 
 		/// <summary>
@@ -647,29 +889,70 @@ public static class Docker
 		/// </summary>
 		public static bool ShouldUpdate =>
 			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
-
-		private static Task? UpdatingTask { get; set; }
-		private static readonly Lock UpdatingLock = new();
 	}
+	/// <summary>
+	/// Represents a Docker image on the system. Provides info about the image.
+	/// </summary>
 	public sealed class ImageInfo
 	{
 		public required string Id { get; init; }
-		public string ParentId { get; init; } = string.Empty;
+		/// <summary>
+		/// ID of the parent image. If none exists, this'll be an empty string.
+		/// </summary>
+		public required string ParentId { get; init; }
+		/// <summary>
+		///	List of image names/tags in the local image cache that reference this image.
+		/// </summary>
 		public string[] RepoTags { get; init; } = [];
 
+		/// <summary>
+		/// Unix timestamp of when this image was created.
+		/// </summary>
 		public required long Created { get; init; }
+		/// <summary>
+		/// Total size of the image including all layers it is composed of.
+		/// </summary>
 		public long Size { get; init; }
 		public Dictionary<string, string>? Labels { get; init; }
+		/// <summary>
+		/// Total number of containers that use this image.
+		/// </summary>
 		public int Containers { get; init; }
 
 		// Bayt-specific
 
+		/// <summary>
+		/// The possible names of this image. In order of priority/confidence
+		/// </summary>
+		/// <seealso cref="Docker.GetNames"/>
 		public List<string> Names => GetNames(Labels, repoTags:RepoTags);
+		/// <summary>
+		/// The friendly description of this image.
+		/// </summary>
+		/// <seealso cref="Docker.GetDescription"/>
 		public string? Description => GetDescription(Labels);
+		/// <summary>
+		/// The URL pointing to this image's public homepage (GitHub link, Docker Hub link, etc.).
+		/// </summary>
+		/// <seealso cref="Docker.GetImageUrl"/>
 		public string? ImageUrl => GetImageUrl(Labels);
+		/// <summary>
+		/// List of URLs pointing to this image's icon. Resolved using the image's labels, if any. Ordered by priority/confidence.
+		/// </summary>
+		/// <seealso cref="Docker.GetIconUrls"/>
 		public List<string> IconUrls => GetIconUrls(Labels);
+		/// <summary>
+		/// The version of this image.
+		/// </summary>
+		/// <remarks>
+		///	In cases where the image's labels don't specify a version, Bayt will try to infer it from the the first <see cref="RepoTags"/> element. (e.g. "bayt/bayt:latest" -> "latest")
+		/// </remarks>
+		/// <seealso cref="Docker.GetImageVersion"/>
 		public string? ImageVersion => GetImageVersion(Labels, RepoTags);
 
+		/// <summary>
+		/// Fetch this ImageInfo object as a Dictionary. Used to serialize to JSON.
+		/// </summary>
 		public Dictionary<string, dynamic?> ToDictionary()
 		{
 			return new()
@@ -694,6 +977,13 @@ public static class Docker
 		}
 	}
 
+	/// <summary>
+	/// Extracts a list of possible names for a container or image based on the provided labels, Docker output, or repository tags. At least one of these must be provided.
+	/// </summary>
+	/// <param name="labelsDict">A dictionary containing labels associated with the container or image, typically extracted from the Docker daemon's output.</param>
+	/// <param name="dockerOutput">A JSON element containing output details from Docker that may hold additional name information.</param>
+	/// <param name="repoTags">An array of repository tags to derive names from, typically useful for images.</param>
+	/// <returns>A distinct and ordered list of names corresponding to the container or image, in order of priority/confidence.</returns>
 	private static List<string> GetNames(Dictionary<string, string>? labelsDict, JsonElement? dockerOutput = null, string[]? repoTags = null)
 	{
 		List<string> names = [];
@@ -752,6 +1042,11 @@ public static class Docker
 
 		return names;
 	}
+	/// <summary>
+	/// Tries to retrieve a friendly description of the Docker image from its labels.
+	/// </summary>
+	/// <param name="labelsDict">A dictionary containing labels associated with the container or image, typically extracted from the Docker daemon's output.</param>
+	/// <returns>A string representing the image description if a valid description label is found; otherwise, null.</returns>
 	private static string? GetDescription(Dictionary<string, string>? labelsDict)
 	{
 		if (labelsDict is null) return null;
@@ -766,24 +1061,35 @@ public static class Docker
 		return null;
 	}
 
+	/// <summary>
+	/// Retrieves a list of icon URLs based on the provided label dictionary and an optional preferred icon link. Falls back to <see cref="GenericIconLink"/> if no icon links are found.
+	/// </summary>
+	/// <param name="labelsDict">A dictionary containing labels associated with the container or image, typically extracted from the Docker daemon's output.</param>
+	/// <param name="preferredIconLink">An optional preferred icon link to use first.</param>
+	/// <returns>A list of absolute icon URLs.</returns>
 	private static List<string> GetIconUrls(Dictionary<string, string>? labelsDict, string? preferredIconLink = null)
 	{
-		if (labelsDict is null) return [];
 		List<string> iconUrls = [];
-		foreach (var labelKvp in labelsDict)
+		if (preferredIconLink is not null) iconUrls.Add(GetUrlFromRepos(preferredIconLink));
+		if (labelsDict is not null)
 		{
-			switch (labelKvp.Key)
+			foreach (var labelKvp in labelsDict)
 			{
-				case "bayt.icon":
-				case "glance.icon":
-				case "com.docker.desktop.extension.icon":
-					iconUrls.Add(GetUrlFromRepos(labelKvp.Value));
-					break;
+				switch (labelKvp.Key)
+				{
+					case "bayt.icon":
+					case "glance.icon":
+					case "com.docker.desktop.extension.icon":
+						iconUrls.Add(GetUrlFromRepos(labelKvp.Value));
+						break;
+				}
 			}
 		}
 
-		if (preferredIconLink is not null && (iconUrls.Count == 0 || preferredIconLink != GenericIconLink))
-			iconUrls.Add(GetUrlFromRepos(preferredIconLink));
+		if (iconUrls.Count == 0)
+		{
+			iconUrls.Add(GenericIconLink);
+		}
 
 		return iconUrls;
 
@@ -815,6 +1121,11 @@ public static class Docker
 		}
 	}
 
+	/// <summary>
+	/// Retrieves the URL pointing to the image's public homepage (e.g., GitHub link, Docker Hub link) from the given labels dictionary.
+	/// </summary>
+	/// <param name="labelsDict">A dictionary containing labels associated with the container or image, typically extracted from the Docker daemon's output.</param>
+	/// <returns>A string representing the image's public URL if found and starting with "http"; otherwise, null.</returns>
 	private static string? GetImageUrl(Dictionary<string, string>? labelsDict)
 	{
 		if (labelsDict is null) return null;
@@ -828,6 +1139,18 @@ public static class Docker
 		return null;
 	}
 
+	/// <summary>
+	/// Tries to retrieve the version of the image from the given labels dictionary.
+	/// </summary>
+	/// <param name="labelsDict">
+	/// A dictionary containing labels associated with the container or image, typically extracted from the Docker daemon's output.
+	/// </param>
+	/// <param name="repoTags">
+	/// An optional array of repository tags for the image (or the image's name). Used as a fallback to infer the version if labels do not contain version information.
+	/// </param>
+	/// <returns>
+	/// The version of the image as a string, or null if no version information can be determined.
+	/// </returns>
 	private static string? GetImageVersion(Dictionary<string, string>? labelsDict, string[]? repoTags = null)
 	{
 		if (labelsDict is not null)
@@ -845,13 +1168,29 @@ public static class Docker
 		return repoTagVersion;
 	}
 
+	/// <summary>
+	/// Represents the response from a Docker API request, containing status, success state, and response body.
+	/// </summary>
 	public sealed record DockerResponse
 	{
+		/// <summary>
+		/// The request's status code.
+		/// </summary>
 		public HttpStatusCode Status { get; init; }
+		/// <summary>
+		/// Whether the request was successful.
+		/// </summary>
 		public bool IsSuccess { get; init; }
+		/// <summary>
+		/// The request's body text.
+		/// </summary>
 		public string Body { get; init; } = "";
 	}
 
+	/// <summary>
+	/// Creates and returns an instance of <see cref="HttpClient"/> configured to communicate with the Docker socket.
+	/// </summary>
+	/// <returns>An <see cref="HttpClient"/> instance configured to use a Unix domain socket for communication.</returns>
 	private static HttpClient GetDockerClient()
 	{
 		var handler = new SocketsHttpHandler
@@ -948,11 +1287,23 @@ public static class Docker
 		}
 	}
 
+	/// <summary>
+	/// Sends a request to the Docker Daemon API using the specified path, HTTP method, and optional content, and retrieves the response.
+	/// </summary>
+	/// <param name="path">The path to query the Docker API on.</param>
+	/// <param name="method">The HTTP method to use for the request. Supported methods are "GET", "POST", and "DELETE". ["GET"].</param>
+	/// <param name="content">The optional content to include in the request body, only used for "POST" requests. [""]</param>
+	/// <returns>A <see cref="DockerResponse"/> with the response details, contained in a Task.</returns>
+	/// <exception cref="FileNotFoundException">Thrown if the Docker socket is not available or the Docker daemon is not running.</exception>
+	/// <exception cref="ArgumentException">Thrown if the HTTP method provided is not "GET", "POST", or "DELETE".</exception>
+	/// <exception cref="Exception">Thrown if the Docker socket is not readable or writable.</exception>
 	public static async Task<DockerResponse> SendRequest(string path, string method = "GET", string content = "")
 	{
 		if (path.StartsWith('/')) path = path[1..];
-		if (!IsDockerAvailable) throw new FileNotFoundException("Docker socket not found. " +
-		                                                         "Double check that the Docker daemon is running and that the socket is accessible.");
+		if (!IsDockerAvailable)
+			throw new FileNotFoundException("Docker socket not found, or the Docker integration was disabled. " +
+			                                "Ensure that the Docker daemon is running and that the socket is accessible, " +
+			                                "along with that the Docker integration is enabled.");
 
 		var client = GetDockerClient();
 		var clientResponse = method switch

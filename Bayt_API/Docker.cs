@@ -868,33 +868,32 @@ public static class Docker
 		return new HttpClient(handler);
 	}
 
-	public static async Task StreamDockerLogs(string? containerId, bool? stdout, bool? stderr, bool? timestamps, HttpContext context)
+	/// <summary>
+	/// Streams Docker logs for the specified container, writing the logs to the HTTP response in real-time.
+	/// </summary>
+	/// <param name="context">The HTTP context used to write the logs to the response.</param>
+	/// <param name="containerId">The ID of the Docker container for which logs should be streamed. Must include at least the first 12 characters.</param>
+	/// <param name="stdout">Indicates whether standard output logs should be included in the stream.</param>
+	/// <param name="stderr">Indicates whether standard error logs should be included in the stream.</param>
+	/// <param name="timestamps">Indicates whether log timestamps should be included in the stream.</param>
+	/// <returns>A task that represents the asynchronous operation of streaming logs to the HTTP response.</returns>
+	public static async Task StreamDockerLogs(HttpContext context, string? containerId, bool stdout = true, bool stderr = true, bool timestamps = false)
 	{
+		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+		if (requestValidation is not null)
+		{
+			await requestValidation.ExecuteAsync(context);
+			await context.Response.CompleteAsync();
+			return;
+		}
 		var response = context.Response;
-		if (containerId is null || containerId.Length < 12)
-		{
-			response.StatusCode = 400;
-			response.ContentType = "text/plain";
-			await response.WriteAsync("At least the first 12 characters of he container ID must be specified.", context.RequestAborted);
-			return;
-		}
-		if (!IsDockerAvailable)
-		{
-			response.StatusCode = 500;
-			return;
-		}
-		await DockerContainers.UpdateDataIfNecessary();
 
 		if (DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
 		{
 			response.StatusCode = 404;
+			await response.WriteAsync("Container not found.", context.RequestAborted);
+			await context.Response.CompleteAsync();
 			return;
-		}
-		if (stdout is null && stderr is null && timestamps is null)
-		{
-			stdout = true;
-			stderr = true;
-			timestamps = false;
 		}
 
 		response.ContentType = "text/event-stream";
@@ -906,8 +905,17 @@ public static class Docker
 
 		try
 		{
-			await using var stream = await client.GetStreamAsync($"/containers/{containerId}/logs?stdout={stdout}&stderr={stderr}&timestamps={timestamps}&follow=true");
-			if (!stream.CanRead) throw new Exception("Docker UNIX socket is not readable.");
+			await using var stream = await client.GetStreamAsync(
+				$"/containers/{containerId}/logs?stdout={stdout}&stderr={stderr}&timestamps={timestamps}&follow=true");
+			if (!stream.CanRead)
+			{
+				response.StatusCode = 500;
+				response.ContentType = "text/plain";
+				await response.Body.WriteAsync("Unable to read from the Docker socket."u8.ToArray(),
+					context.RequestAborted);
+				await response.CompleteAsync();
+				return;
+			}
 
 			byte[] logHeader = new byte[8];
 
@@ -929,11 +937,14 @@ public static class Docker
 		}
 		catch (Exception e)
 		{
-			response.StatusCode = 500;
-			await response.WriteAsync("data: There was an error fetching the logs. The details will follow.", context.RequestAborted);
+			await response.WriteAsync("data: There was an error fetching the logs. The details will follow.\n\n", context.RequestAborted);
 			await response.Body.FlushAsync(context.RequestAborted);
-			await response.WriteAsync($"data: Error message:{e.Message}", context.RequestAborted);
+			await response.WriteAsync($"data: {e.Message}\n\n", context.RequestAborted);
 			await response.Body.FlushAsync(context.RequestAborted);
+		}
+		finally
+		{
+			await response.CompleteAsync();
 		}
 	}
 

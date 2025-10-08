@@ -196,6 +196,7 @@ public enum StreamId : byte
 
 public static class Logs
 {
+	private static readonly Lock LogLock = new();
 	private static readonly int MaxBytesLength = ApiConfig.ApiConfiguration.KeepMoreLogs ? ushort.MaxValue * 100 : ushort.MaxValue;
 	public static event EventHandler<LogEntry>? StreamWrittenTo;
 
@@ -292,46 +293,49 @@ public static class Logs
 	{
 		if (ApiConfig.VerbosityLevel < logEntry.StreamIdInternal) return;
 
-		switch (logEntry.StreamId)
+		lock (LogLock)
 		{
-			case StreamId.Fatal:
+			switch (logEntry.StreamId)
 			{
-				Console.ForegroundColor = ConsoleColor.Black;
-				Console.BackgroundColor = ConsoleColor.DarkRed;
-				break;
-			}
-			case StreamId.Error:
-			{
-				Console.ForegroundColor = ConsoleColor.Red;
-				break;
-			}
-			case StreamId.Warning:
-			{
-				Console.ForegroundColor = ConsoleColor.Yellow;
-				break;
-			}
-			case StreamId.Notice:
-			{
-				Console.ForegroundColor = ConsoleColor.Gray;
-				break;
-			}
-			case StreamId.Ok:
-			{
-				Console.ForegroundColor = ConsoleColor.Green;
-				break;
-			}
-			case StreamId.Verbose:
-			{
-				Console.ForegroundColor = ConsoleColor.DarkGray;
-				break;
-			}
+				case StreamId.Fatal:
+				{
+					Console.ForegroundColor = ConsoleColor.Black;
+					Console.BackgroundColor = ConsoleColor.DarkRed;
+					break;
+				}
+				case StreamId.Error:
+				{
+					Console.ForegroundColor = ConsoleColor.Red;
+					break;
+				}
+				case StreamId.Warning:
+				{
+					Console.ForegroundColor = ConsoleColor.Yellow;
+					break;
+				}
+				case StreamId.Notice:
+				{
+					Console.ForegroundColor = ConsoleColor.Gray;
+					break;
+				}
+				case StreamId.Ok:
+				{
+					Console.ForegroundColor = ConsoleColor.Green;
+					break;
+				}
+				case StreamId.Verbose:
+				{
+					Console.ForegroundColor = ConsoleColor.DarkGray;
+					break;
+				}
 
-			default:
-			case StreamId.Info:
-			case StreamId.None:
-				break;
+				default:
+				case StreamId.Info:
+				case StreamId.None:
+					break;
+			}
+			Console.WriteLine(logEntry.ToString());
+			Console.ResetColor();
 		}
-		Console.WriteLine(logEntry.ToString());
-		Console.ResetColor();
 	}
 }

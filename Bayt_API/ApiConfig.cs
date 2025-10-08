@@ -116,8 +116,12 @@ public static class ApiConfig
 	{
 		static ApiConfiguration()
 		{
+			Logs.StreamWrittenTo += Logs.EchoLogs;
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Logging", "Registered logging callback."));
+
 			if (!Directory.Exists(BaseConfigPath))
 			{
+				Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Config", "Base config directory does not exist, creating..."));
 				Directory.CreateDirectory(BaseConfigPath);
 				File.WriteAllText(Path.Combine(BaseConfigPath, "README"), "This folder is where the configs for the Bayt API are stored.\n" +
 				                                                          "More info: https://github.com/Trip7274/Bayt_API");
@@ -238,7 +242,7 @@ public static class ApiConfig
 		}
 
 		/// <summary>
-		/// Checks the corresponding in-disk configuration file for corruption or incompleteness and syncs the live configuration with it.
+		/// Checks the corresponding in-disk configuration file for corruption or incompleteness and loads it.
 		/// </summary>
 		public static void LoadConfig()
 		{
@@ -257,11 +261,33 @@ public static class ApiConfig
 
 			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
 			{
-				WatchedMounts = JsonSerializer.Deserialize<Dictionary<string, string>>(watchedMounts.ToString()) ?? WatchedMounts;
+				try
+				{
+					WatchedMounts = watchedMounts.Deserialize<Dictionary<string, string>>() ?? WatchedMounts;
+				}
+				catch (JsonException e)
+				{
+					// Technically could recover from this by regenerating the config, but I don't wanna reset the user's entire config every time they mess up their JSON.
+					Logs.LogStream.Write(new(StreamId.Fatal, "Watched Mounts Load",
+						"Failed to load a mount entry from the configuration file. Please ensure the JSON is valid."));
+					Logs.LogStream.Write(new(StreamId.Fatal, "Watched Mounts Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
+					throw new Exception();
+				}
 			}
 			if (loadedDict.TryGetProperty(nameof(WolClients), out var wolClients))
 			{
-				WolClients = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string?>>>(wolClients.ToString()) ?? WolClients;
+				try
+				{
+					WolClients = wolClients.Deserialize<Dictionary<string, Dictionary<string, string?>>>() ?? WolClients;
+				}
+				catch (JsonException e)
+				{
+					// Technically could recover from this by regenerating the config, but I don't wanna reset the user's entire config every time they mess up their JSON.
+					Logs.LogStream.Write(new(StreamId.Fatal, "WoL Load",
+						"Failed to load the list of WoL clients from the configuration file. Please ensure the JSON is valid."));
+					Logs.LogStream.Write(new(StreamId.Fatal, "WoL Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
+					throw new Exception();
+				}
 			}
 
 			LoadWolClientsList();
@@ -304,10 +330,8 @@ public static class ApiConfig
 					Directory.CreateDirectory(PathToComposeFolder);
 					File.WriteAllText(Path.Combine(PathToComposeFolder, "README"), defaultReadmeContent);
 				}
-				if (ValidateConfigSyntax())
-				{
-					return;
-				}
+				if (ValidateConfigSyntax()) return;
+
 
 				if (File.Exists($"{ConfigFilePath}.old"))
 				{
@@ -315,7 +339,10 @@ public static class ApiConfig
 				}
 				File.Move(ConfigFilePath, $"{ConfigFilePath}.old");
 			}
-			Console.WriteLine("[INFO] Configuration file seems to be invalid or non-existent, regenerating...");
+			else
+			{
+				Logs.LogStream.Write(new LogEntry(StreamId.Info, "Config", "Couldn't find the configuration file. A new one will be generated."));
+			}
 
 			SaveConfig();
 		}
@@ -332,18 +359,15 @@ public static class ApiConfig
 
 				if (jsonDocument.TryGetProperty(nameof(ConfigVersion), out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() > ApiVersion)
 				{
-					Console.ForegroundColor = ConsoleColor.Yellow;
-					Console.WriteLine($"[WARNING] Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons.");
-					Console.ResetColor();
+					Logs.LogStream.Write(new(StreamId.Warning, "Config", $"Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons."));
 				}
 
 				return jsonDocument.TryGetProperty(nameof(ConfigVersion), out configVersion) && configVersion.ValueKind == JsonValueKind.Number;
 			}
 			catch (JsonException exception)
 			{
-				Console.ForegroundColor = ConsoleColor.Red;
-				Console.WriteLine($"[ERROR] Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}.\nWill regenerate.");
-				Console.ResetColor();
+				Logs.LogStream.Write(new(StreamId.Error, "Config", $"Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}."));
+				Logs.LogStream.Write(new(StreamId.Error, "Config", $"Your configuration will be regenerated. You can find your old configuration in {ConfigFilePath}.old"));
 				return false;
 			}
 		}
@@ -500,10 +524,10 @@ public static class ApiConfig
 				}
 				catch (Exception e)
 				{
-					wolClientDict.Value.TryGetValue("Name", out var name);
-					Console.ForegroundColor = ConsoleColor.Red;
-					Console.WriteLine($"[ERROR] Failed to load a WoL client from the configuration file. Detected name: '{name ?? "(unable to fetch name)"}' Skipping.\nError: {e.Message}\nStack trace: {e.StackTrace}");
-					Console.ResetColor();
+					var name = wolClientDict.Value.GetValueOrDefault("Name");
+					Logs.LogStream.Write(new(StreamId.Error, "WoL Init",
+						$"Failed to load a WoL client from the configuration file. Detected name: {name ?? "(unable to fetch name)"} Skipping."));
+					Logs.LogStream.Write(new(StreamId.Error, "WoL Init", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
 				}
 			}
 

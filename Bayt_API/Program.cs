@@ -10,7 +10,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-Logs.StreamWrittenTo += Logs.EchoLogs;
 
 Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list"));
 builder.WebHost.ConfigureKestrel(opts => opts.Listen(IPAddress.Loopback, ApiConfig.NetworkPort));
@@ -1029,10 +1028,10 @@ else
 		fetchTasks.Add(Task.Run(Docker.ImagesInfo.UpdateDataIfNecessary));
 	}
 
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Init", "Running an initial fetch cycle..."));
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Init", "Running an initial fetch cycle..."));
 	await Task.WhenAll(fetchTasks);
 
-	Logs.LogStream.Write(new LogEntry(StreamId.Ok, "Init", "Fetch cycle complete. Starting API..."));
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Init", "Fetch cycle complete. Starting API..."));
 }
 
 try

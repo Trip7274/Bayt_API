@@ -330,13 +330,12 @@ public static class StatsApi
 			if (IPAddress.TryParse(Environment.GetEnvironmentVariable("BAYT_LOCALIP"), out var localIpParsed))
 			{
 				localIp = localIpParsed;
-				Console.WriteLine($"[INFO] Using BAYT_LOCALIP environment variable to override detected IP address: '{localIp}'");
+				Logs.LogStream.Write(new(StreamId.Info, "Network Initalization", $"Using BAYT_LOCALIP environment variable to override detected IP address: '{localIp}'"));
 				return localIp;
 			}
 
-			Console.ForegroundColor = ConsoleColor.Yellow;
-			Console.WriteLine($"[WARNING] BAYT_LOCALIP environment variable is set to '{Environment.GetEnvironmentVariable("BAYT_LOCALIP")}', but it doesn't appear to be a valid IP address. Falling back to default selection.");
-			Console.ResetColor();
+			Logs.LogStream.Write(new (StreamId.Warning, "Network Initalization",
+				$"BAYT_LOCALIP environment variable is set to '{Environment.GetEnvironmentVariable("BAYT_LOCALIP")}', but it doesn't appear to be a valid IP address."));
 		}
 
 		using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);

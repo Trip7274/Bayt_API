@@ -385,79 +385,75 @@ public static class ApiConfig
 		/// Provides edit access to the configuration, both live and in-disk.
 		/// </summary>
 		/// <remarks>
-		///	Changing <c>WatchedMounts</c> or the <c>ConfigVersion</c> properties are blocked from this method. Use the appropriate methods for that.
+		///	Changes to the <see cref="WatchedMounts"/>, <see cref="WolClients"/>, <see cref="WolClientsClass"/>,
+		/// or the <see cref="ConfigVersion"/> properties are ignored by this method. Use the appropriate methods for that.
 		/// </remarks>
 		/// <param name="newProps">
 		///	Configs to edit. In the format: <c>{ "BackendName": "Test" }</c>
 		/// </param>
-		/// <exception cref="ArgumentException">One of the requested parameters is blocked.</exception>
 		/// <seealso cref="AddMountpoint"/>
 		/// <seealso cref="RemoveMountpoints"/>
-		public static void EditConfig(Dictionary<string, dynamic> newProps)
+		/// <seealso cref="AddWolClient"/>
+		/// <seealso cref="RemoveWolClient"/>
+		/// <returns>Whether the method actually changed any configs.</returns>
+		public static bool EditConfig(Dictionary<string, dynamic> newProps)
 		{
-			if (newProps.Count == 0) return;
+			Logs.LogStream.Write(new(StreamId.Verbose, "Config Edit", $"Config Edit Requested: {string.Join(", ", newProps.Keys)}"));
+			if (newProps.Count == 0) return false;
+			bool configChanged = false;
 
 			foreach (var newPropKvp in newProps)
 			{
 				switch (newPropKvp.Key)
 				{
-					case nameof(ConfigVersion):
+					case nameof(BackendName) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != BackendName:
 					{
-						ConfigVersion = newPropKvp.Value;
+						Logs.LogStream.Write(new(StreamId.Verbose, "Config Edit", $"Config Edit Requested: {string.Join(", ", newProps.Keys)}"));
+						BackendName = newPropKvp.Value.GetString() ?? BackendName;
+						configChanged = true;
 						break;
 					}
-					case nameof(BackendName):
+					case nameof(SecondsToUpdate) when newPropKvp.Value.GetUInt16() != SecondsToUpdate:
 					{
-						BackendName = newPropKvp.Value;
+						SecondsToUpdate = newPropKvp.Value.GetUInt16();
+						configChanged = true;
 						break;
 					}
-					case nameof(SecondsToUpdate):
+					case nameof(PathToDataFolder) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != PathToDataFolder:
 					{
-						SecondsToUpdate = newPropKvp.Value;
+						PathToDataFolder = newPropKvp.Value.GetString() ?? PathToDataFolder;
+						configChanged = true;
 						break;
 					}
-					case nameof(PathToDataFolder):
+					case nameof(PathToComposeFolder) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != PathToComposeFolder:
 					{
-						PathToDataFolder = newPropKvp.Value;
+						PathToComposeFolder = newPropKvp.Value.GetString() ?? PathToComposeFolder;
+						configChanged = true;
 						break;
 					}
-					case nameof(PathToComposeFolder):
+					case nameof(DockerIntegrationEnabled) when newPropKvp.Value.GetBoolean() != DockerIntegrationEnabled:
 					{
-						PathToComposeFolder = newPropKvp.Value;
+						DockerIntegrationEnabled = newPropKvp.Value.GetBoolean();
+						configChanged = true;
 						break;
 					}
-					case nameof(DockerIntegrationEnabled):
+					case nameof(KeepMoreLogs) when newPropKvp.Value.GetBoolean() != KeepMoreLogs:
 					{
-						DockerIntegrationEnabled = newPropKvp.Value;
+						KeepMoreLogs = newPropKvp.Value.GetBoolean();
+						configChanged = true;
 						break;
 					}
-					case nameof(KeepMoreLogs):
+					case nameof(ShowTimestampsInLogs) when newPropKvp.Value.GetBoolean() != ShowTimestampsInLogs:
 					{
-						KeepMoreLogs = newPropKvp.Value;
+						ShowTimestampsInLogs = newPropKvp.Value.GetBoolean();
+						configChanged = true;
 						break;
-					}
-					case nameof(ShowTimestampsInLogs):
-					{
-						ShowTimestampsInLogs = newPropKvp.Value;
-						break;
-					}
-					case nameof(WatchedMounts):
-					{
-						throw new ArgumentException("Cannot edit WatchedMounts directly. Use AddMountpoint and RemoveMountpoint instead.");
-					}
-					case nameof(WolClients):
-					case nameof(WolClientsClass):
-					{
-						throw new ArgumentException($"Cannot edit {newPropKvp.Key} directly. Use AddWolClient or RemoveWolClient instead.");
-					}
-					default:
-					{
-						throw new ArgumentException("Invalid property name");
 					}
 				}
 			}
 
-			SaveConfig();
+			if (configChanged) SaveConfig();
+			return configChanged;
 		}
 
 		// Mountpoint management

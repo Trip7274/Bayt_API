@@ -196,10 +196,8 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", ([FromBody] Dictionary<str
 {
 	// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
 
-	ApiConfig.ApiConfiguration.EditConfig(newConfigs);
-
-	return Results.NoContent();
-
+	return ApiConfig.ApiConfiguration.EditConfig(newConfigs) ? Results.NoContent()
+		: Results.StatusCode(StatusCodes.Status304NotModified);
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.WithSummary("Change one or a few configs of the API. Follows the names and types of the ApiConfiguration.json file")

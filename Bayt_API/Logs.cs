@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Bayt_API;
@@ -130,7 +131,9 @@ public sealed class LogEntry
 	public override string ToString()
 	{
 		// [INFO] ModuleName: Content
-		return $"[{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}";
+		return ApiConfig.ApiConfiguration.ShowTimestampsInLogs ?
+			$"[{StreamId.ToString().ToUpperInvariant()} - {TimeWritten.ToString(CultureInfo.CurrentCulture)}] {ModuleName}: {Content}"
+			: $"[{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}";
 	}
 }
 

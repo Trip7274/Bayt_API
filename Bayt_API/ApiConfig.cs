@@ -186,7 +186,12 @@ public static class ApiConfig
 		/// <remarks>
 		/// Defaults to false.
 		/// </remarks>
-		public static bool KeepMoreLogs { get; private set; } = false;
+		public static bool KeepMoreLogs { get; private set; }
+
+		/// <summary>
+		/// Whether to prepend every log with a timestamp.
+		/// </summary>
+		public static bool ShowTimestampsInLogs { get; private set; }
 
 		/// <summary>
 		/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
@@ -229,6 +234,7 @@ public static class ApiConfig
 				{ nameof(PathToComposeFolder), PathToComposeFolder },
 				{ nameof(DockerIntegrationEnabled), DockerIntegrationEnabled },
 				{ nameof(KeepMoreLogs), KeepMoreLogs },
+				{ nameof(ShowTimestampsInLogs), ShowTimestampsInLogs },
 				{ nameof(WatchedMounts), WatchedMounts },
 				{ nameof(WolClients), WolClients }
 			};
@@ -258,6 +264,7 @@ public static class ApiConfig
 			PathToComposeFolder = loadedDict.TryGetProperty(nameof(PathToComposeFolder), out var pathToComposeFolder) ? pathToComposeFolder.GetString() ?? PathToComposeFolder : PathToComposeFolder;
 			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
 			KeepMoreLogs = loadedDict.TryGetProperty(nameof(KeepMoreLogs), out var keepMoreLogs) ? keepMoreLogs.GetBoolean() : KeepMoreLogs;
+			ShowTimestampsInLogs = loadedDict.TryGetProperty(nameof(ShowTimestampsInLogs), out var showTimestampsInLogs) ? showTimestampsInLogs.GetBoolean() : ShowTimestampsInLogs;
 
 			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
 			{
@@ -427,6 +434,11 @@ public static class ApiConfig
 					case nameof(KeepMoreLogs):
 					{
 						KeepMoreLogs = newPropKvp.Value;
+						break;
+					}
+					case nameof(ShowTimestampsInLogs):
+					{
+						ShowTimestampsInLogs = newPropKvp.Value;
 						break;
 					}
 					case nameof(WatchedMounts):

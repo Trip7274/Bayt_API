@@ -249,7 +249,6 @@ public static class Logs
 		{
 			MemoryStream.Position = 0;
 			var entryHeader = new byte[42];
-			Console.WriteLine(MemoryStream.Length);
 			try
 			{
 				await MemoryStream.ReadExactlyAsync(entryHeader);

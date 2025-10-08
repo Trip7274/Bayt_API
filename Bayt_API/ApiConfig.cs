@@ -357,7 +357,7 @@ public static class ApiConfig
 		///	Changing <c>WatchedMounts</c> or the <c>ConfigVersion</c> properties are blocked from this method. Use the appropriate methods for that.
 		/// </remarks>
 		/// <param name="newProps">
-		///	Configs to edit. In the format: <c>{ "ConfigVersion": 0 }</c>
+		///	Configs to edit. In the format: <c>{ "BackendName": "Test" }</c>
 		/// </param>
 		/// <exception cref="ArgumentException">One of the requested parameters is blocked.</exception>
 		/// <seealso cref="AddMountpoint"/>
@@ -393,6 +393,16 @@ public static class ApiConfig
 					case nameof(PathToComposeFolder):
 					{
 						PathToComposeFolder = newPropKvp.Value;
+						break;
+					}
+					case nameof(DockerIntegrationEnabled):
+					{
+						DockerIntegrationEnabled = newPropKvp.Value;
+						break;
+					}
+					case nameof(KeepMoreLogs):
+					{
+						KeepMoreLogs = newPropKvp.Value;
 						break;
 					}
 					case nameof(WatchedMounts):

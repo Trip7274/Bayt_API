@@ -220,15 +220,7 @@ public static class Logs
 			ReadOnlySpan<byte> entryBytes = entry.Serialize();
 
 			StreamWrittenTo?.Invoke(null, entry);
-			try
-			{
-				MemoryStream.Write(entryBytes);
-			}
-			catch (IOException e)
-			{
-				Console.WriteLine(e);
-				throw;
-			}
+			MemoryStream.Write(entryBytes);
 			Truncate();
 		}
 
@@ -278,12 +270,7 @@ public static class Logs
 		public static void Truncate()
 		{
 			if (MemoryStream.Length < MaxBytesLength) return;
-			//var tempStream = new byte[MaxBytesLength];
 
-			//MemoryStream.Position -= MaxBytesLength;
-			//_ = MemoryStream.Read(tempStream);
-			//MemoryStream.SetLength(0);
-			//MemoryStream.Write(tempStream);
 			MemoryStream.SetLength(MaxBytesLength);
 			// TODO: This needs more testing.
 		}

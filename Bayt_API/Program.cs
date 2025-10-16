@@ -55,7 +55,7 @@ app.UseHttpsRedirection();
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "Init",
+	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "Initialization",
 		$"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like. This is unsupported."));
 }
 
@@ -1008,7 +1008,7 @@ if (Docker.IsDockerAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "
 if (Docker.IsDockerComposeAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Skipping first fetch cycle. This may cause the first request to be slow."));
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
 }
 else
 {
@@ -1026,10 +1026,10 @@ else
 		fetchTasks.Add(Task.Run(Docker.ImagesInfo.UpdateDataIfNecessary));
 	}
 
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Init", "Running an initial fetch cycle..."));
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Initialization", "Running an initial fetch cycle..."));
 	await Task.WhenAll(fetchTasks);
 
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Init", "Fetch cycle complete. Starting API..."));
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Initialization", "Fetch cycle complete. Starting API..."));
 }
 
 try

@@ -16,7 +16,7 @@ public sealed class LogEntry
 
 	public LogEntry(StreamId streamId, string moduleName, string content, DateTime? timeWritten = null)
 	{
-		if (string.IsNullOrWhiteSpace(moduleName) || string.IsNullOrWhiteSpace(content)) throw new ArgumentException("Log module name and content cannot be empty or whitespace.");
+		if (string.IsNullOrWhiteSpace(moduleName) || string.IsNullOrWhiteSpace(content)) throw new ArgumentException("Log module name or content cannot be empty or whitespace.");
 
 		StreamId = streamId;
 		ModuleName = moduleName;
@@ -25,7 +25,7 @@ public sealed class LogEntry
 	}
 	public LogEntry(byte streamIdByte, string moduleName, byte[] contentBytes, long? timeWrittenBinary = null)
 	{
-		if (string.IsNullOrWhiteSpace(moduleName) || contentBytes.Length == 0) throw new ArgumentException("Log module name and content cannot be empty or whitespace.");
+		if (string.IsNullOrWhiteSpace(moduleName) || contentBytes.Length == 0) throw new ArgumentException("Log module name or content cannot be empty or whitespace.");
 
 		StreamId = (StreamId) streamIdByte;
 		ModuleName = moduleName;

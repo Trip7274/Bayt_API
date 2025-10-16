@@ -43,6 +43,7 @@ if (Docker.IsDockerComposeAvailable)
 }
 
 
+builder.Logging.ClearProviders();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -1029,8 +1030,9 @@ else
 	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Initialization", "Running an initial fetch cycle..."));
 	await Task.WhenAll(fetchTasks);
 
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Initialization", "Fetch cycle complete. Starting API..."));
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Initialization", "Fetch cycle complete."));
 }
+await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Initialization", "Bayt API is ready."));
 
 try
 {
@@ -1050,4 +1052,15 @@ catch (IOException e) when (e.InnerException is not null && e.InnerException.Mes
 {
 	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
 		$"Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running."));
+}
+finally
+{
+	ExitBayt(null, null);
+}
+
+return;
+
+void ExitBayt(object? sender, ConsoleCancelEventArgs? e)
+{
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Bayt", "Bayt is shutting down."));
 }

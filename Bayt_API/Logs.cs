@@ -132,7 +132,7 @@ public sealed class LogEntry
 	{
 		// [INFO] ModuleName: Content
 		return ApiConfig.ApiConfiguration.ShowTimestampsInLogs ?
-			$"[{StreamId.ToString().ToUpperInvariant()} - {TimeWritten.ToString(CultureInfo.CurrentCulture)}] {ModuleName}: {Content}"
+			$"{TimeWritten.ToLongTimeString()} - [{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}"
 			: $"[{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}";
 	}
 }

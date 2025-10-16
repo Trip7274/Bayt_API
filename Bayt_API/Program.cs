@@ -736,14 +736,14 @@ app.MapGet($"{baseDockerUrl}/containers/getContainerCompose", async (string? con
 
 app.MapPut($"{baseDockerUrl}/containers/setContainerCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
 {
-	// Request validation
-	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
-	if (requestValidation is not null) return requestValidation;
-
 	if (!context.Request.Headers.ContentEncoding.Contains("chunked") && context.Request.ContentLength is null or 0)
 	{
 		return Results.StatusCode(StatusCodes.Status411LengthRequired);
 	}
+
+	// Request validation
+	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
+	if (requestValidation is not null) return requestValidation;
 
 	// Container validation
 	Docker.DockerContainer targetContainer;

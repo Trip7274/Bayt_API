@@ -3,7 +3,7 @@ namespace Bayt_API.Testing;
 public class LoggingTests
 {
 	private static readonly byte[] ReferenceHeader = [
-		5, 15, 255, 63, 55, 244, 117, 40, 202, 43, 84, 101, 115, 116, 105, 110, 103, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+		5, 15, 0, 255, 63, 55, 244, 117, 40, 202, 43, 84, 101, 115, 116, 105, 110, 103, 2
 	];
 	private static readonly byte[] ReferenceContent = "This is a test!"u8.ToArray();
 

@@ -20,7 +20,7 @@ please do help out if you have the experience!)
 	- [X] WoL management and support
 	- [X] Shutdown and restart endpoints
 	- [X] Arbitrary data exchange endpoints for things like client-wide configs
-	- [ ] Docker container management endpoints
+	- [X] Docker container management endpoints
     - [ ] Docker image management endpoints
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions
@@ -50,10 +50,10 @@ but the default scripts require the following, depending on your GPU:
 - AMD GPU Systems:
 	- `amdgpu_top` (Currently requires a build that contains the commit [04983eb](https://github.com/Umio-Yasuno/amdgpu_top/commit/04983ebf5563982c9d685e587a8a1f2a48252811). Either compile manually or use the [amdgpu_top-git](https://aur.archlinux.org/packages/amdgpu_top-git) AUR package)
 
-Along with utilites you probably already have, such as `bash`, (GNU) `grep`, `head`, `jq`, `net-tools`, and `df`.
+Along with utilites you probably already have, such as `bash`, `grep` (GNU), `head`, `jq`, `net-tools`, and `df`.
 
 ---
-I mainly test this on CachyOS (Arch-based) and a plain Fedora server, but I do try to use as many distro-agnostic features as I can in the default scripts.
+I mainly test this on CachyOS (Arch-based), but I do try to use as many distro-agnostic features as I can in the default scripts.
 If you encounter any issues on other distros, feel free to open an issue!
 
 This project also uses shell scripts to fetch most system stats (located in the `Bayt_API/scripts` directory),

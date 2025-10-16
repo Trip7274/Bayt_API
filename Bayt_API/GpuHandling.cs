@@ -130,7 +130,7 @@ public static class GpuHandling
 			// Format should be:
 			// "GPU Brand|GPU Name|IsGpuDedicated?|Graphics Util Perc|Graphics Frequency|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|VRAM GTT Usage Perc?|Encoder Util|Decoder Util?|Video Enhance Util?|Encoder/Decoder Frequency?|Power Usage|TemperatureC?|FanSpeedRPM?"
 
-			int shellTimeout = 2500;
+			var shellTimeout = TimeSpan.FromMilliseconds(2500);
 			if (Name == null)
 			{
 				shellTimeout *= 10;

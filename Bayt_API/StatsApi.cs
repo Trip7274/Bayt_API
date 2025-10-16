@@ -156,7 +156,7 @@ public static class StatsApi
 		/// <exception cref="Exception">Non-zero shell script exit code, or the output was of invalid length.</exception>
 		public static async Task UpdateData()
 		{
-			int shellTimeout = 2500;
+			var shellTimeout = TimeSpan.FromMilliseconds(2500);
 			if (LastUpdate == DateTime.MinValue)
 			{
 				shellTimeout *= 10;
@@ -280,7 +280,7 @@ public static class StatsApi
 		/// <exception cref="Exception">Non-zero shell script exit code, or the output was of invalid length.</exception>
 		public static async Task UpdateData()
 		{
-			int shellTimeout = 2500;
+			var shellTimeout = TimeSpan.FromMilliseconds(2500);
 			if (LastUpdate == DateTime.MinValue)
 			{
 				shellTimeout *= 10;

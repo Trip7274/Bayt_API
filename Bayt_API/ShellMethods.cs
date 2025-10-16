@@ -41,13 +41,13 @@ public static class ShellMethods
 	/// </summary>
 	/// <param name="program">The path to the program to execute.</param>
 	/// <param name="arguments">The command-line arguments to pass to the program.</param>
-	/// <param name="timeoutMilliseconds">The maximum time to wait for the process to exit, in milliseconds. Defaults to 5 seconds.</param>
+	/// <param name="timeout">The maximum time to wait for the process to exit. Defaults to 5 seconds.</param>
 	/// <param name="throwIfTimedout">Whether to throw a <c>TimeoutException</c> if the process times out, or return a ShellResult object with a status code of 124. Defaults to true.</param>
 	/// <param name="environmentVariables">Environment variables to set for the specified process. These are applied over the Bayt API's env vars.</param>
 	/// <returns>A <see cref="ShellResult"/> containing the process output, error, and exit code. Will be null if the process timed out.</returns>
 	/// <exception cref="InvalidOperationException">Thrown if there is an error starting the process.</exception>
 	/// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
-	public static async Task<ShellResult> RunShell(string program, string[]? arguments = null, int timeoutMilliseconds = 5000, bool throwIfTimedout = true, Dictionary<string, string?>? environmentVariables = null)
+	public static async Task<ShellResult> RunShell(string program, string[]? arguments = null, TimeSpan? timeout = null, bool throwIfTimedout = true, Dictionary<string, string?>? environmentVariables = null)
 	{
 		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Got a request to run a command: {Path.GetFileName(program)} {string.Join(", ", arguments ?? [])}"));
 		StringBuilder stdout = new();
@@ -64,6 +64,7 @@ public static class ShellMethods
 			}
 		}
 
+		timeout ??= TimeSpan.FromSeconds(5);
 		arguments ??= [];
 
 		var statusCode = -1;
@@ -77,14 +78,14 @@ public static class ShellMethods
 				.WithStandardErrorPipe(PipeTarget.ToStringBuilder(stderr))
 				.WithWorkingDirectory(Directory.GetCurrentDirectory())
 				.WithEnvironmentVariables(envVars)
-				.ExecuteAsync(new CancellationTokenSource(timeoutMilliseconds).Token);
+				.ExecuteAsync(new CancellationTokenSource(timeout.Value).Token);
 		}
 		catch (OperationCanceledException e)
 		{
 			if (throwIfTimedout)
 			{
 				throw new TimeoutException(
-					$"The process '{Path.GetFileName(program)}' timed out after {TimeSpan.FromMilliseconds(timeoutMilliseconds).Seconds} seconds.",
+					$"The process '{Path.GetFileName(program)}' timed out after {timeout.Value.Seconds} seconds.",
 					e);
 			}
 

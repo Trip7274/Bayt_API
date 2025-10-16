@@ -24,11 +24,11 @@ public class ShellTests
 	[Fact]
 	public async Task ShellTimeout()
 	{
-		await Assert.ThrowsAsync<TimeoutException>(() => ShellMethods.RunShell("sleep", ["0.2"], 150, true));
+		await Assert.ThrowsAsync<TimeoutException>(() => ShellMethods.RunShell("sleep", ["0.1"], TimeSpan.FromMicroseconds(1), true));
 	}
 	[Fact]
 	public async Task NoShellTimeoutWhenRequested()
 	{
-		Assert.Equal(124, (await ShellMethods.RunShell("sleep", ["0.2"], 150, false)).ExitCode);
+		Assert.Equal(124, (await ShellMethods.RunShell("sleep", ["0.1"], TimeSpan.FromMicroseconds(1), false)).ExitCode);
 	}
 }

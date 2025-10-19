@@ -1005,11 +1005,11 @@ app.MapGet($"{baseDockerUrl}/images/getImages", async () =>
 	.WithTags("Docker", "Docker Images")
 	.WithName("GetDockerImages");
 
-if (Docker.IsDockerAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
-if (Docker.IsDockerComposeAvailable) Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
+if (Docker.IsDockerAvailable) await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
+if (Docker.IsDockerComposeAvailable) await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
 }
 else
 {
@@ -1040,27 +1040,20 @@ try
 }
 catch (SocketException e) when (e.Message == "Cannot assign requested address")
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Fatal, "Network Initalization",
 		"Something went wrong while binding to one of the targetted IP addresses. Make sure the targetted IP address is valid."));
 }
 catch (SocketException e) when (e.Message == "Permission denied")
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Fatal, "Network Initalization",
 		"The current user does not have permission to bind to one of the IP addresses or ports."));
 }
 catch (IOException e) when (e.InnerException is not null && e.InnerException.Message == "Address already in use")
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Fatal, "Network Initalization",
 		$"Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running."));
 }
 finally
 {
-	ExitBayt(null, null);
-}
-
-return;
-
-void ExitBayt(object? sender, ConsoleCancelEventArgs? e)
-{
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Bayt", "Bayt is shutting down."));
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Bayt", "Bayt is shutting down."));
 }

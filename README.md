@@ -8,7 +8,7 @@ reliable foundation to decorate and make your own however you'd like!
 
 Bayt is still in an early alpha phase.
 
-## Planned Features:
+## Planned Features
 - [X] Provide general system information
 - [X] GPU-related information (NVIDIA, AMD, Intel)
 - [X] Proper configuration files (JSON-based)

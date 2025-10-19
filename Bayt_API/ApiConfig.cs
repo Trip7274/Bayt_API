@@ -36,8 +36,11 @@ public static class ApiConfig
 	public static readonly Stopwatch BaytStartStopwatch = Stopwatch.StartNew();
 
 	/// <summary>
-	/// Indicates how verbose the API should be. 0-7, with 7 being the most verbose. Tries to use the env var <c>BAYT_VERBOSITY</c> first, then falls back to 6.
+	/// Indicates how verbose the API's logging should be. 0-7, with 7 being the most verbose. Tries to use the env var <c>BAYT_VERBOSITY</c> first, then falls back to 6.
 	/// </summary>
+	/// <remarks>
+	///	As-as, this only affects the PRINTING of logs. More verbose logs are still written to the log stream.
+	/// </remarks>
 	public static readonly byte VerbosityLevel = (byte) (byte.TryParse(Environment.GetEnvironmentVariable("BAYT_VERBOSITY"), out var verbosityLevel) ? verbosityLevel : 6);
 
 	// Paths and config-specific stuff from here on out

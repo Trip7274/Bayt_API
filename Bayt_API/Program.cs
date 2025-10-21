@@ -561,7 +561,7 @@ app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? contain
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
-	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
 		: Results.StatusCode((int) await targetContainer.Start());
@@ -580,7 +580,7 @@ app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containe
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
-	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
 		: Results.StatusCode((int) await targetContainer.Stop());
@@ -599,7 +599,7 @@ app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? conta
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
-	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
 		: Results.StatusCode((int) await targetContainer.Restart());
@@ -618,7 +618,7 @@ app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containe
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
-	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
 		: Results.StatusCode((int) await targetContainer.Kill());
@@ -638,7 +638,7 @@ app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? cont
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
 
-	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
+	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
 		: Results.StatusCode((int) await targetContainer.Delete(removeCompose, removeVolumes));
@@ -660,7 +660,7 @@ app.MapPost($"{baseDockerUrl}/containers/pauseContainer", async (string? contain
 		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 		if (requestValidation is not null) return requestValidation;
 
-		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
+		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 		return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
 			: Results.StatusCode((int) await targetContainer.Pause());
@@ -679,7 +679,7 @@ app.MapPost($"{baseDockerUrl}/containers/resumeContainer", async (string? contai
 		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 		if (requestValidation is not null) return requestValidation;
 
-		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id == containerId);
+		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 		return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
 			: Results.StatusCode((int) await targetContainer.Unpause());

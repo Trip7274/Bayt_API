@@ -1169,22 +1169,27 @@ public static class Docker
 	}
 
 	/// <summary>
-	/// Represents the response from a Docker API request, containing status, success state, and response body.
+	/// Represents the response from a Docker API request, containing status, success state, content-type, and response body.
 	/// </summary>
 	public sealed record DockerResponse
 	{
 		/// <summary>
-		/// The request's status code.
+		/// The response's status code.
 		/// </summary>
 		public HttpStatusCode Status { get; init; }
 		/// <summary>
-		/// Whether the request was successful.
+		/// Whether the response had a status code of 200-299. (This considers 300-399 as a failure.)
 		/// </summary>
 		public bool IsSuccess { get; init; }
 		/// <summary>
-		/// The request's body text.
+		/// The response's body text.
 		/// </summary>
 		public string Body { get; init; } = "";
+
+		/// <summary>
+		/// The response's stated content type. Falls back to "application/json" if not specified. (as Docker usually uses JSON)
+		/// </summary>
+		public string ContentType { get; init; } = "application/json";
 	}
 
 	/// <summary>
@@ -1329,7 +1334,8 @@ public static class Docker
 		{
 			Status = clientResponse.StatusCode,
 			IsSuccess = clientResponse.IsSuccessStatusCode,
-			Body = Encoding.UTF8.GetString(fullResponse)
+			Body = Encoding.UTF8.GetString(fullResponse),
+			ContentType = clientResponse.Content.Headers.ContentType?.MediaType ?? "application/json"
 		};
 	}
 }

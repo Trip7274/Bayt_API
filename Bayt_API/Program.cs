@@ -564,7 +564,7 @@ app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? contain
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
-		: Results.StatusCode((int) await targetContainer.Start());
+		: await targetContainer.Start();
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
@@ -583,7 +583,7 @@ app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containe
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
-		: Results.StatusCode((int) await targetContainer.Stop());
+		: await targetContainer.Stop();
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
@@ -602,7 +602,7 @@ app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? conta
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
-		: Results.StatusCode((int) await targetContainer.Restart());
+		: await targetContainer.Restart();
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
@@ -621,7 +621,7 @@ app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containe
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
-		: Results.StatusCode((int) await targetContainer.Kill());
+		: await targetContainer.Kill();
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
@@ -641,7 +641,7 @@ app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? cont
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
-		: Results.StatusCode((int) await targetContainer.Delete(removeCompose, removeVolumes));
+		: await targetContainer.Delete(removeCompose, removeVolumes);
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
@@ -663,7 +663,7 @@ app.MapPost($"{baseDockerUrl}/containers/pauseContainer", async (string? contain
 		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 		return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
-			: Results.StatusCode((int) await targetContainer.Pause());
+			: await targetContainer.Pause();
 	}).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)
@@ -682,7 +682,7 @@ app.MapPost($"{baseDockerUrl}/containers/resumeContainer", async (string? contai
 		var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 		return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
-			: Results.StatusCode((int) await targetContainer.Unpause());
+			: await targetContainer.Unpause();
 	}).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)

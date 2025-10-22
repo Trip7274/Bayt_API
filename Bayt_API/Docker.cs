@@ -376,62 +376,63 @@ public static class Docker
 		/// Send the command to start this container.
 		/// </summary>
 		/// <returns>The result of the command.</returns>
-		public async Task<HttpStatusCode> Start()
+		public async Task<IResult> Start()
 		{
-			if (State is "running") return HttpStatusCode.NotModified;
+			if (State is "running") return Results.StatusCode(StatusCodes.Status304NotModified);
 			var dockerRequest = await SendRequest($"containers/{Id}/start", "POST");
-			return dockerRequest.Status;
+			return dockerRequest.ToResult();
 		}
 		/// <summary>
 		/// Send the command to restart this container.
 		/// </summary>
 		/// <returns>The result of the command.</returns>
-		public async Task<HttpStatusCode> Restart()
+		public async Task<IResult> Restart()
 		{
-			if (State is "restarting") return HttpStatusCode.NotModified;
+			if (State is "restarting") return Results.StatusCode(StatusCodes.Status304NotModified);
 			var dockerRequest = await SendRequest($"containers/{Id}/restart", "POST");
-			return dockerRequest.Status;
+			return dockerRequest.ToResult();
 		}
 		/// <summary>
 		/// Send the command to stop this container.
 		/// </summary>
 		/// <returns>The result of the command.</returns>
-		public async Task<HttpStatusCode> Stop()
+		public async Task<IResult> Stop()
 		{
-			if (State is "exited") return HttpStatusCode.NotModified;
+			if (State is "exited") return Results.StatusCode(StatusCodes.Status304NotModified);
 			var dockerRequest = await SendRequest($"containers/{Id}/stop", "POST");
-			return dockerRequest.Status;
+			return dockerRequest.ToResult();
 		}
 		/// <summary>
 		/// Send the command to kill this container.
 		/// </summary>
 		/// <returns>The result of the command.</returns>
-		public async Task<HttpStatusCode> Kill()
+		public async Task<IResult> Kill()
 		{
-			if (State is "exited") return HttpStatusCode.NotModified;
+			if (State is "exited") return Results.StatusCode(StatusCodes.Status304NotModified);
 			var dockerRequest = await SendRequest($"containers/{Id}/kill", "POST");
-			return dockerRequest.Status;
+			return dockerRequest.ToResult();
 		}
 		/// <summary>
 		/// Send the command to pause this container.
 		/// </summary>
 		/// <returns>The result of the command.</returns>
-		public async Task<HttpStatusCode> Pause()
+		public async Task<IResult> Pause()
 		{
-			if (State is "paused") return HttpStatusCode.NotModified;
-			if (State is not "running") return HttpStatusCode.Conflict;
+			if (State is "paused") return Results.StatusCode(StatusCodes.Status304NotModified);
+			if (State is not "running") return Results.Conflict("Cannot pause a container that is not running.");
+
 			var dockerRequest = await SendRequest($"containers/{Id}/pause", "POST");
-			return dockerRequest.Status;
+			return dockerRequest.ToResult();
 		}
 		/// <summary>
 		/// Send the command to unpause/resume this container.
 		/// </summary>
 		/// <returns>The result of the command.</returns>
-		public async Task<HttpStatusCode> Unpause()
+		public async Task<IResult> Unpause()
 		{
-			if (State is not "paused") return HttpStatusCode.NotModified;
+			if (State is not "paused") return Results.StatusCode(StatusCodes.Status304NotModified);
 			var dockerRequest = await SendRequest($"containers/{Id}/unpause", "POST");
-			return dockerRequest.Status;
+			return dockerRequest.ToResult();
 		}
 		/// <summary>
 		/// Send the command to delete this container. Optionally deletes the container's volumes and compose directory.
@@ -439,15 +440,15 @@ public static class Docker
 		/// <param name="deleteCompose">Please do be careful using this. It will recursively delete the parent directory of the compose file (<c>~/composeFolder/docker-compose.yml</c> would delete <c>~/composeFolder</c>)</param>
 		/// <param name="removeVolumes">Delete the anonymous volumes used by the container.</param>
 		/// <returns>The result of the command.</returns>
-		public async Task<HttpStatusCode> Delete(bool deleteCompose = false, bool removeVolumes = false)
+		public async Task<IResult> Delete(bool deleteCompose = false, bool removeVolumes = false)
 		{
-			if (State is not "exited") return HttpStatusCode.Conflict;
+			if (State is not "exited") return Results.Conflict("Cannot delete a container that is not exited.");
 			var dockerRequest = await SendRequest($"containers/{Id}?v={removeVolumes}", "DELETE");
 			if (deleteCompose && dockerRequest.IsSuccess && ComposePath is not null)
 			{
 				Directory.Delete(Path.GetDirectoryName(ComposePath)!, true);
 			}
-			return dockerRequest.Status;
+			return dockerRequest.ToResult();
 		}
 
 		public static readonly List<string> SupportedLabels = [nameof(PrettyName), nameof(Note), nameof(PreferredIconLink), nameof(WebpageLink)];

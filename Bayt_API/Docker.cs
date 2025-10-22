@@ -1322,7 +1322,7 @@ public static class Docker
 		byte[] fullResponse;
 		await using (var stream = await clientResponse.Content.ReadAsStreamAsync())
 		{
-			if (!stream.CanRead) throw new Exception("Docker UNIX socket is not writable or not readable.");
+			if (!stream.CanRead) throw new Exception("Docker UNIX socket is not readable.");
 
 			using var memoryStream = new MemoryStream();
 			await stream.CopyToAsync(memoryStream);

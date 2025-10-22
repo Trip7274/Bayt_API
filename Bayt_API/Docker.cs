@@ -439,11 +439,12 @@ public static class Docker
 		/// </summary>
 		/// <param name="deleteCompose">Please do be careful using this. It will recursively delete the parent directory of the compose file (<c>~/composeFolder/docker-compose.yml</c> would delete <c>~/composeFolder</c>)</param>
 		/// <param name="removeVolumes">Delete the anonymous volumes used by the container.</param>
+		/// <param name="force">Whether to kill the container before deletion if it's still active.</param>
 		/// <returns>The result of the command.</returns>
-		public async Task<IResult> Delete(bool deleteCompose = false, bool removeVolumes = false)
+		public async Task<IResult> Delete(bool deleteCompose = false, bool removeVolumes = false, bool force = false)
 		{
-			if (State is not "exited") return Results.Conflict("Cannot delete a container that is not exited.");
-			var dockerRequest = await SendRequest($"containers/{Id}?v={removeVolumes}", "DELETE");
+			if (State is not "exited" && !force) return Results.Conflict("Cannot delete a container that is not exited.");
+			var dockerRequest = await SendRequest($"containers/{Id}?v={removeVolumes}&force={force}", "DELETE");
 			if (deleteCompose && dockerRequest.IsSuccess && ComposePath is not null)
 			{
 				Directory.Delete(Path.GetDirectoryName(ComposePath)!, true);

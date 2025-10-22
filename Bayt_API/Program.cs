@@ -633,7 +633,7 @@ app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containe
 	.WithTags("Docker")
 	.WithName("KillDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? containerId, bool removeCompose = false, bool removeVolumes = false) =>
+app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? containerId, bool removeCompose = false, bool removeVolumes = false, bool force = false) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
@@ -641,7 +641,7 @@ app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? cont
 	var targetContainer = Docker.DockerContainers.Containers.Find(container => container.Id.StartsWith(containerId));
 
 	return targetContainer is null ? Results.NotFound($"Container with ID '{containerId}' was not found.")
-		: await targetContainer.Delete(removeCompose, removeVolumes);
+		: await targetContainer.Delete(removeCompose, removeVolumes, force);
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status404NotFound)

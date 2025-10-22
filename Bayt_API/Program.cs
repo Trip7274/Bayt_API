@@ -1005,8 +1005,35 @@ app.MapGet($"{baseDockerUrl}/images/getImages", async () =>
 	.WithTags("Docker", "Docker Images")
 	.WithName("GetDockerImages");
 
-if (Docker.IsDockerAvailable) await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
-if (Docker.IsDockerComposeAvailable) await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
+app.MapDelete($"{baseDockerUrl}/images/deleteImage", async (string? imageId, bool? force = false) =>
+{
+	var requestValidation = await RequestChecking.ValidateDockerRequest(imageId, false, updateImages:true);
+	if (requestValidation is not null) return requestValidation;
+	if (!imageId.StartsWith("sha256:")) imageId = "sha256:" + imageId;
+
+	var targetImage = Docker.ImagesInfo.Images.Find(image => image.Id.StartsWith(imageId));
+
+	return targetImage is null ? Results.NotFound($"Image with ID '{imageId}' was not found.")
+		: await targetImage.Delete(force.GetValueOrDefault(false));
+}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status409Conflict)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Delete a Docker image.")
+	.WithDescription("imageId must contain at least the first 12 characters of the image's ID. force removes the image even if it is being used by stopped containers or has other tags, defaults to false.")
+	.WithTags("Docker", "Docker Images")
+	.WithName("DeleteDockerImage");
+
+
+if (Docker.IsDockerAvailable)
+{
+	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
+
+	if (Docker.IsDockerComposeAvailable)
+	{
+		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
+	}
+}
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
 	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));

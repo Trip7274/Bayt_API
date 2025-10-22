@@ -895,6 +895,14 @@ public static class Docker
 	/// </summary>
 	public sealed class ImageInfo
 	{
+		public async Task<IResult> Delete(bool force = false)
+		{
+			if (Containers > 0 && !force) return Results.Conflict();
+			var dockerRequest = await SendRequest($"images/{Id}?force={force}", "DELETE");
+
+			return dockerRequest.ToResult();
+		}
+
 		public required string Id { get; init; }
 		/// <summary>
 		/// ID of the parent image. If none exists, this'll be an empty string.
@@ -1190,6 +1198,17 @@ public static class Docker
 		/// The response's stated content type. Falls back to "application/json" if not specified. (as Docker usually uses JSON)
 		/// </summary>
 		public string ContentType { get; init; } = "application/json";
+
+		/// <summary>
+		/// Return this object to a <see cref="IResult"/> object. Useful to return as a response verbatim.
+		/// </summary>
+		/// <remarks>
+		///	Do be careful with this, as it may expose sensitive information. If possible, parse the response body into a more specific object.
+		/// </remarks>
+		public IResult ToResult()
+		{
+			return Results.Text(Body, ContentType, Encoding.UTF8, (int) Status);
+		}
 	}
 
 	/// <summary>

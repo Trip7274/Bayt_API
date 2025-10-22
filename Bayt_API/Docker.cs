@@ -574,12 +574,12 @@ public static class Docker
 		/// </summary>
 		public bool IsCompose { get; }
 		/// <summary>
-		/// Whether the container is managed by Bayt. If false, the user did not allow Bayt to manage this container and thus it should not be modified.
+		/// Whether the container is managed by Bayt. If false, the user did not allow Bayt to manage this container, and thus it should not be modified.
 		/// </summary>
 		public bool IsManaged { get; }
 
 		/// <summary>
-		/// List of URLs pointing to the container's icon. Resolved using the container's labels, if any.
+		/// List of URLs pointing to the container's icon. Resolved from the container's labels, if any.
 		/// </summary>
 		/// <remarks>
 		///	Ordered by priority/confidence.
@@ -947,7 +947,7 @@ public static class Docker
 		/// <seealso cref="Docker.GetImageUrl"/>
 		public string? ImageUrl => GetImageUrl(Labels);
 		/// <summary>
-		/// List of URLs pointing to this image's icon. Resolved using the image's labels, if any. Ordered by priority/confidence.
+		/// List of URLs pointing to this image's icon. Resolved from the image's labels, if any. Ordered by priority/confidence.
 		/// </summary>
 		/// <seealso cref="Docker.GetIconUrls"/>
 		public List<string> IconUrls => GetIconUrls(Labels);
@@ -955,7 +955,7 @@ public static class Docker
 		/// The version of this image.
 		/// </summary>
 		/// <remarks>
-		///	In cases where the image's labels don't specify a version, Bayt will try to infer it from the the first <see cref="RepoTags"/> element. (e.g. "bayt/bayt:latest" -> "latest")
+		///	In cases where the image's labels don't specify a version, Bayt will try to infer it from the first <see cref="RepoTags"/> element. (e.g. "bayt/bayt:latest" -> "latest")
 		/// </remarks>
 		/// <seealso cref="Docker.GetImageVersion"/>
 		public string? ImageVersion => GetImageVersion(Labels, RepoTags);
@@ -1132,7 +1132,7 @@ public static class Docker
 	}
 
 	/// <summary>
-	/// Retrieves the URL pointing to the image's public homepage (e.g., GitHub link, Docker Hub link) from the given labels dictionary.
+	/// Retrieves the URL pointing to the image's public homepage (e.g., GitHub link, Docker Hub link) from the given Labels dictionary.
 	/// </summary>
 	/// <param name="labelsDict">A dictionary containing labels associated with the container or image, typically extracted from the Docker daemon's output.</param>
 	/// <returns>A string representing the image's public URL if found and starting with "http"; otherwise, null.</returns>
@@ -1150,7 +1150,7 @@ public static class Docker
 	}
 
 	/// <summary>
-	/// Tries to retrieve the version of the image from the given labels dictionary.
+	/// Tries to retrieve the version of the image from the given Labels dictionary.
 	/// </summary>
 	/// <param name="labelsDict">
 	/// A dictionary containing labels associated with the container or image, typically extracted from the Docker daemon's output.

@@ -83,7 +83,7 @@ public static class StatsApi
 		}
 
 		/// <summary>
-		/// The CPU's friendly name. E.g., "AMD Ryzen 5 7600X 6-Core Processor"
+		/// The CPU's user-facing name. E.g., "AMD Ryzen 5 7600X 6-Core Processor"
 		/// </summary>
 		public static string? Name { get; }
 		/// <summary>

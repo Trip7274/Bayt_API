@@ -537,8 +537,7 @@ public static class ApiConfig
 				{
 					var name = wolClientDict.Value.GetValueOrDefault("Name");
 					Logs.LogStream.Write(new(StreamId.Error, "WoL Init",
-						$"Failed to load a WoL client from the configuration file. Detected name: {name ?? "(unable to fetch name)"} Skipping."));
-					Logs.LogStream.Write(new(StreamId.Error, "WoL Init", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
+						$"Got a '{e.Message}' error trying to load a WoL client from the configuration file. Detected name: {name ?? "(unable to fetch name)"} Skipping."));
 				}
 			}
 

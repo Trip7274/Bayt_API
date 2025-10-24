@@ -362,6 +362,8 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/WoL/wake", (string? ipAddress) =>
 	.WithTags("Wake-on-LAN")
 	.WithName("WakeWolClient");
 
+
+
 // Client Data endpoints
 // I'd like to note that I feel like the names for these can still use some work.
 
@@ -494,6 +496,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/deletefolder", (string? fo
 	.WithName("DeleteClientDataFolder");
 
 
+
 // Power endpoints
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/shutdown", async () =>
 {
@@ -538,6 +541,8 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/restart", async () =>
 	.WithSummary("Restart the system.")
 	.WithTags("Power")
 	.WithName("RestartServer");
+
+
 
 // Docker endpoints
 
@@ -701,6 +706,8 @@ app.MapGet($"{baseDockerUrl}/containers/streamLogs", Docker.StreamDockerLogs)
 	.WithDescription("containerId is required. stdout, stderr, and timestamps are optional to specify which streams to follow, and whether to prefix each line with a timestamp. Will default to stdout=true, stderr=true, and timestamps=false if not specified.")
 	.WithTags("Docker")
 	.WithName("GetDockerContainerLogs");
+
+
 
 // Docker Compose endpoints
 
@@ -991,6 +998,8 @@ app.MapPost($"{baseDockerUrl}/containers/setMetadata", async (string? containerI
 	.WithTags("Docker")
 	.WithName("SetDockerContainerMetadata");
 
+
+
 // Docker images endpoints
 
 app.MapGet($"{baseDockerUrl}/images/getList", async () =>
@@ -1023,6 +1032,7 @@ app.MapDelete($"{baseDockerUrl}/images/delete", async (string? imageId, bool? fo
 	.WithDescription("imageId must contain at least the first 12 characters of the image's ID. force removes the image even if it is being used by stopped containers or has other tags, defaults to false.")
 	.WithTags("Docker", "Docker Images")
 	.WithName("DeleteDockerImage");
+
 
 
 if (Docker.IsDockerAvailable)

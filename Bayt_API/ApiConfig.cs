@@ -582,17 +582,31 @@ public static class ApiConfig
 		/// Remove a specific client from the current configuration. Updates the live and in-disk configuration.
 		/// </summary>
 		/// <param name="clientAddress">Local IP Address of the client to remove.</param>
-		public static int RemoveWolClient(string clientAddress)
+		/// <returns>True if the client was removed. False otherwise.</returns>
+		public static bool RemoveWolClient(IPAddress clientAddress)
 		{
-			var physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
-				["PhysicalAddress", clientAddress], throwIfTimedout: false).Result;
-			if (physicalAddressProcess.ExitCode == 124 || !PhysicalAddress.TryParse(physicalAddressProcess.StandardOutput, out var physicalAddress))
-				return physicalAddressProcess.ExitCode;
+			string physicalAddressStdout;
+			try
+			{
+				physicalAddressStdout = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
+					["PhysicalAddress", clientAddress.ToString()]).Result.StandardOutput;
+			}
+			catch (TimeoutException)
+			{
+				Logs.LogStream.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh timed out while ({clientAddress.ToString()}). Skipping."));
+				return false;
+			}
+
+			if (!PhysicalAddress.TryParse(physicalAddressStdout, out var physicalAddress))
+			{
+				Logs.LogStream.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh output seems to be malformed or incorrect for {clientAddress}. Skipping."));
+				return false;
+			}
 
 			WolClients.Remove(physicalAddress.ToString());
 			LoadWolClientsList();
 			SaveConfig();
-			return 0;
+			return true;
 		}
 
 		/// <summary>

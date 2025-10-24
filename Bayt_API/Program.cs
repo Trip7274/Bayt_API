@@ -315,16 +315,11 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/WoL/addClient", (string clientAddress, 
 
 app.MapDelete($"{ApiConfig.BaseApiUrlPath}/WoL/removeClient", (string clientAddress) =>
 {
-	if (string.IsNullOrWhiteSpace(clientAddress) || !IPAddress.TryParse(clientAddress, out _))
+	if (string.IsNullOrWhiteSpace(clientAddress) || !IPAddress.TryParse(clientAddress, out var clientAddressParsed))
 		return Results.BadRequest("Invalid or missing IP address.");
 
-	var removeOperation = ApiConfig.ApiConfiguration.RemoveWolClient(clientAddress);
-	if (removeOperation == 0) return Results.NoContent();
-
-
-	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "RemoveWolClient",
-		$"Failed to remove client {clientAddress} from the list of clients. Either the script ./getNet.sh timed out, or failed. ({removeOperation})"));
-	return Results.InternalServerError("Failed to remove the client from the list of clients. Either the script ./getNet.sh timed out, or failed.");
+	return ApiConfig.ApiConfiguration.RemoveWolClient(clientAddressParsed) ? Results.NoContent()
+		: Results.InternalServerError("Failed to remove the client from the list of clients. Either the script getNet.sh timed out, or returned malformed data.");
 }).Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status204NoContent)

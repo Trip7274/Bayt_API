@@ -62,7 +62,7 @@ if (Environment.OSVersion.Platform != PlatformID.Unix)
 
 
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts) =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts) =>
 	{
 		Dictionary<ApiConfig.SystemStats, bool?> requestedStatsRaw = new() {
 			{ ApiConfig.SystemStats.Meta, meta },
@@ -193,7 +193,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getStats", async (bool? meta, bool? syst
 
 // API Config management endpoints
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", ([FromBody] Dictionary<string, dynamic> newConfigs) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/config/edit", ([FromBody] Dictionary<string, dynamic> newConfigs) =>
 {
 	// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
 
@@ -208,7 +208,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/editConfig", ([FromBody] Dictionary<str
 	.WithName("EditConfig");
 
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/config/getList", () =>
 		Results.Json(ApiConfig.ApiConfiguration.ToDictionary()))
 	.Produces(StatusCodes.Status200OK)
 	.WithSummary("Fetch the API's live configs in the form of JSON.")
@@ -216,7 +216,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getApiConfigs", () =>
 	.WithName("GetActiveApiConfigs");
 
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/config/update", () =>
 {
 	ApiConfig.ApiConfiguration.LoadConfig();
 
@@ -230,7 +230,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/updateLiveConfigs", () =>
 
 // Mount management endpoints
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/mounts/getList", () =>
 		Results.Json(ApiConfig.ApiConfiguration.WatchedMounts))
 	.Produces(StatusCodes.Status200OK)
 	.WithSummary("Fetch the list of the currently watched mounts.")
@@ -238,7 +238,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getMountsList", () =>
 	.WithName("GetMountsList");
 
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", ([FromBody] Dictionary<string, string?> mountPoints) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/mounts/add", ([FromBody] Dictionary<string, string?> mountPoints) =>
 {
 	foreach (var mountPoint in mountPoints.Where(mountPoint => !Directory.Exists(mountPoint.Key)))
 	{
@@ -262,7 +262,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/addMounts", ([FromBody] Dictionary<stri
 	.WithName("AddMounts");
 
 
-app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", ([FromBody] Dictionary<string, List<string>> mountPointsFull) =>
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/mounts/remove", ([FromBody] Dictionary<string, List<string>> mountPointsFull) =>
 {
 	List<string> mountPoints;
 	try
@@ -293,7 +293,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/removeMounts", ([FromBody] Dictionary
 
 // WoL endpoints
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", (string clientAddress, string clientLabel) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/WoL/addClient", (string clientAddress, string clientLabel) =>
 {
 	if (string.IsNullOrWhiteSpace(clientLabel) || !IPAddress.TryParse(clientAddress, out _))
 		return Results.BadRequest("Invalid IP address or missing label.");
@@ -313,7 +313,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/AddWolClient", (string clientAddress, s
 	.WithTags("Wake-on-LAN")
 	.WithName("AddWolClient");
 
-app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClient", (string clientAddress) =>
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/WoL/removeClient", (string clientAddress) =>
 {
 	if (string.IsNullOrWhiteSpace(clientAddress) || !IPAddress.TryParse(clientAddress, out _))
 		return Results.BadRequest("Invalid or missing IP address.");
@@ -332,14 +332,14 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/RemoveWolClient", (string clientAddre
 	.WithTags("Wake-on-LAN")
 	.WithName("RemoveWolClient");
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/GetWolClients", () =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/WoL/getClients", () =>
 		Results.Json(ApiConfig.ApiConfiguration.WolClients))
 	.Produces(StatusCodes.Status200OK)
 	.WithSummary("Fetch the list of the currently saved WoL clients.")
 	.WithTags("Wake-on-LAN")
 	.WithName("GetWolClients");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string? ipAddress) =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/WoL/wake", (string? ipAddress) =>
 {
 	if (string.IsNullOrWhiteSpace(ipAddress) || !IPAddress.TryParse(ipAddress, out _))
 		return Results.BadRequest("ipAddress must be a valid IPv4 address.");
@@ -365,7 +365,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/WakeWolClient", (string? ipAddress) =>
 // Client Data endpoints
 // I'd like to note that I feel like the names for these can still use some work.
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (string? folderName, string? fileName) =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/clientData/getData", async (string? folderName, string? fileName) =>
 {
 	if (folderName is null || fileName is null)
 	{
@@ -403,7 +403,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/getData", async (string? folderName, str
 	.WithTags("clientData")
 	.WithName("GetClientData");
 
-app.MapPut($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context, string? folderName, string? fileName) =>
+app.MapPut($"{ApiConfig.BaseApiUrlPath}/clientData/setData", async (HttpContext context, string? folderName, string? fileName) =>
 {
 	if (folderName is null || fileName is null)
 	{
@@ -432,7 +432,7 @@ app.MapPut($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context, st
 	.WithTags("clientData")
 	.WithName("SetClientData");
 
-app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", (string? folderName, string? fileName) =>
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/deleteData", (string? folderName, string? fileName) =>
 {
 	if (folderName is null || fileName is null)
 	{
@@ -466,7 +466,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deleteData", (string? folderName, str
 	.WithTags("clientData")
 	.WithName("DeleteClientData");
 
-app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =>
+app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/deletefolder", (string? folderName) =>
 {
 	if (string.IsNullOrWhiteSpace(folderName)) return Results.BadRequest("Folder name must be specified.");
 
@@ -495,7 +495,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/deletefolder", (string? folderName) =
 
 
 // Power endpoints
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", async () =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/shutdown", async () =>
 {
 	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Server Power", "Recieved poweroff request, attempting to shut down..."));
 	var operationShell = await ShellMethods.RunShell("sudo", ["-n", "/sbin/poweroff"]);
@@ -518,7 +518,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/shutdownServer", async () =>
 	.WithTags("Power")
 	.WithName("ShutdownServer");
 
-app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", async () =>
+app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/restart", async () =>
 {
 	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Server Power", "Recieved restart request, attempting to restart..."));
 	var operationShell = await ShellMethods.RunShell("sudo", ["-n", "/sbin/reboot"]);
@@ -543,7 +543,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/restartServer", async () =>
 
 string baseDockerUrl = $"{ApiConfig.BaseApiUrlPath}/docker";
 
-app.MapGet($"{baseDockerUrl}/containers/getContainers", async (bool all = true) =>
+app.MapGet($"{baseDockerUrl}/containers/getList", async (bool all = true) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	await Docker.DockerContainers.UpdateDataIfNecessary();
@@ -556,7 +556,7 @@ app.MapGet($"{baseDockerUrl}/containers/getContainers", async (bool all = true) 
 	.WithTags("Docker")
 	.WithName("GetDockerContainers");
 
-app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/start", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
@@ -575,7 +575,7 @@ app.MapPost($"{baseDockerUrl}/containers/startContainer", async (string? contain
 	.WithTags("Docker")
 	.WithName("StartDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/stop", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
@@ -594,7 +594,7 @@ app.MapPost($"{baseDockerUrl}/containers/stopContainer", async (string? containe
 	.WithTags("Docker")
 	.WithName("StopDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/restart", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
@@ -613,7 +613,7 @@ app.MapPost($"{baseDockerUrl}/containers/restartContainer", async (string? conta
 	.WithTags("Docker")
 	.WithName("RestartDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/kill", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
@@ -633,7 +633,7 @@ app.MapPost($"{baseDockerUrl}/containers/killContainer", async (string? containe
 	.WithTags("Docker")
 	.WithName("KillDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? containerId, bool removeCompose = false, bool removeVolumes = false, bool force = false) =>
+app.MapDelete($"{baseDockerUrl}/containers/delete", async (string? containerId, bool removeCompose = false, bool removeVolumes = false, bool force = false) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
@@ -655,7 +655,7 @@ app.MapDelete($"{baseDockerUrl}/containers/deleteContainer", async (string? cont
 	.WithTags("Docker")
 	.WithName("DeleteDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/containers/pauseContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/pause", async (string? containerId) =>
 	{
 		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 		if (requestValidation is not null) return requestValidation;
@@ -674,7 +674,7 @@ app.MapPost($"{baseDockerUrl}/containers/pauseContainer", async (string? contain
 	.WithTags("Docker")
 	.WithName("PauseDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/containers/resumeContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/resume", async (string? containerId) =>
 	{
 		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 		if (requestValidation is not null) return requestValidation;
@@ -693,7 +693,7 @@ app.MapPost($"{baseDockerUrl}/containers/resumeContainer", async (string? contai
 	.WithTags("Docker")
 	.WithName("ResumeDockerContainer");
 
-app.MapGet($"{baseDockerUrl}/containers/getContainerLogs", Docker.StreamDockerLogs)
+app.MapGet($"{baseDockerUrl}/containers/streamLogs", Docker.StreamDockerLogs)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)
@@ -704,7 +704,7 @@ app.MapGet($"{baseDockerUrl}/containers/getContainerLogs", Docker.StreamDockerLo
 
 // Docker Compose endpoints
 
-app.MapGet($"{baseDockerUrl}/containers/getContainerCompose", async (string? containerId) =>
+app.MapGet($"{baseDockerUrl}/containers/getCompose", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -735,7 +735,7 @@ app.MapGet($"{baseDockerUrl}/containers/getContainerCompose", async (string? con
 	.WithTags("Docker")
 	.WithName("GetDockerContainerCompose");
 
-app.MapPut($"{baseDockerUrl}/containers/setContainerCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
+app.MapPut($"{baseDockerUrl}/containers/setCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
 {
 	if (!context.Request.Headers.ContentEncoding.Contains("chunked") && context.Request.ContentLength is null or 0)
 	{
@@ -790,7 +790,7 @@ app.MapPut($"{baseDockerUrl}/containers/setContainerCompose", async (HttpContext
 	.WithTags("Docker")
 	.WithName("SetDockerContainerCompose");
 
-app.MapPost($"{baseDockerUrl}/containers/ownContainer", async (string? containerId) =>
+app.MapPost($"{baseDockerUrl}/containers/own", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -824,7 +824,7 @@ app.MapPost($"{baseDockerUrl}/containers/ownContainer", async (string? container
 	.WithTags("Docker")
 	.WithName("OwnDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/containers/disownContainer", async (string? containerId) =>
+app.MapDelete($"{baseDockerUrl}/containers/disown", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -856,7 +856,7 @@ app.MapDelete($"{baseDockerUrl}/containers/disownContainer", async (string? cont
 	.WithTags("Docker")
 	.WithName("DisownDockerContainer");
 
-app.MapDelete($"{baseDockerUrl}/containers/pruneContainers", async () =>
+app.MapDelete($"{baseDockerUrl}/containers/prune", async () =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 
@@ -877,7 +877,7 @@ app.MapDelete($"{baseDockerUrl}/containers/pruneContainers", async () =>
 	.WithTags("Docker")
 	.WithName("PruneDockerContainers");
 
-app.MapGet($"{baseDockerUrl}/containers/getContainerStats", async (string? containerId) =>
+app.MapGet($"{baseDockerUrl}/containers/getStats", async (string? containerId) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
 	if (requestValidation is not null) return requestValidation;
@@ -903,7 +903,7 @@ app.MapGet($"{baseDockerUrl}/containers/getContainerStats", async (string? conta
 	.WithTags("Docker")
 	.WithName("GetDockerContainerStats");
 
-app.MapPost($"{baseDockerUrl}/containers/createContainer", async (HttpContext context, string? containerName, bool startContainer = true, bool deleteIfFailed = true) =>
+app.MapPost($"{baseDockerUrl}/containers/create", async (HttpContext context, string? containerName, bool startContainer = true, bool deleteIfFailed = true) =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	if (!Docker.IsDockerComposeAvailable) return Results.InternalServerError("Docker-Compose is not available on this system or the Docker integration was disabled.");
@@ -967,7 +967,7 @@ app.MapPost($"{baseDockerUrl}/containers/createContainer", async (HttpContext co
 	.WithTags("Docker")
 	.WithName("CreateDockerContainer");
 
-app.MapPost($"{baseDockerUrl}/containers/setContainerMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
+app.MapPost($"{baseDockerUrl}/containers/setMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(containerId, true, true);
 	if (requestValidation is not null) return requestValidation;
@@ -993,7 +993,7 @@ app.MapPost($"{baseDockerUrl}/containers/setContainerMetadata", async (string? c
 
 // Docker images endpoints
 
-app.MapGet($"{baseDockerUrl}/images/getImages", async () =>
+app.MapGet($"{baseDockerUrl}/images/getList", async () =>
 {
 	if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 	await Docker.ImagesInfo.UpdateDataIfNecessary();
@@ -1005,7 +1005,7 @@ app.MapGet($"{baseDockerUrl}/images/getImages", async () =>
 	.WithTags("Docker", "Docker Images")
 	.WithName("GetDockerImages");
 
-app.MapDelete($"{baseDockerUrl}/images/deleteImage", async (string? imageId, bool? force = false) =>
+app.MapDelete($"{baseDockerUrl}/images/delete", async (string? imageId, bool? force = false) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(imageId, false, updateImages:true);
 	if (requestValidation is not null) return requestValidation;

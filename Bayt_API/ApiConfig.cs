@@ -549,19 +549,28 @@ public static class ApiConfig
 		/// </summary>
 		/// <param name="clientAddress">The IP Address of the client to add.</param>
 		/// <param name="clientLabel">The label for the client to add.</param>
-		public static int[] AddWolClient(string clientAddress, string clientLabel)
+		/// <returns>True if the client was added. False if something went wrong.</returns>
+		public static bool AddWolClient(string clientAddress, string clientLabel)
 		{
-			var physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
-				["PhysicalAddress", clientAddress], throwIfTimedout: false).Result;
+			ShellResult physicalAddressProcess;
+			ShellResult subnetMaskProcess;
+			try
+			{
+				physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
+					["PhysicalAddress", clientAddress]).Result;
 
-			var subnetMaskProcess =
-				ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", ["Netmask"], throwIfTimedout: false).Result;
+				subnetMaskProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", ["Netmask"]).Result;
+			}
+			catch (TimeoutException)
+			{
+				Logs.LogStream.Write(new(StreamId.Error, "WoL Client Add", $"getNet.sh timed out while fetching the client's physical address or subnet mask ({clientAddress}). Skipping."));
+				return false;
+			}
 
 			if (!subnetMaskProcess.IsSuccess || !IPAddress.TryParse(subnetMaskProcess.StandardOutput, out var subnetMask)
-			                                 || !physicalAddressProcess.IsSuccess
-			                                 || !PhysicalAddress.TryParse(physicalAddressProcess.StandardOutput, out var physicalAddress))
+			   || !physicalAddressProcess.IsSuccess || !PhysicalAddress.TryParse(physicalAddressProcess.StandardOutput, out var physicalAddress))
 			{
-				return [subnetMaskProcess.ExitCode, physicalAddressProcess.ExitCode];
+				return false;
 			}
 
 			WolClients.TryAdd(physicalAddress.ToString(), new()
@@ -574,14 +583,14 @@ public static class ApiConfig
 
 			SaveConfig();
 			LoadWolClientsList();
-			return [0, 0];
+			return true;
 		}
 
 		/// <summary>
 		/// Remove a specific client from the current configuration. Updates the live and in-disk configuration.
 		/// </summary>
 		/// <param name="clientAddress">Local IP Address of the client to remove.</param>
-		/// <returns>True if the client was removed. False otherwise.</returns>
+		/// <returns>True if the client was removed. False if something went wrong.</returns>
 		public static bool RemoveWolClient(IPAddress clientAddress)
 		{
 			string physicalAddressStdout;

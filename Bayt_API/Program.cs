@@ -298,14 +298,8 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/WoL/addClient", (string clientAddress, 
 	if (string.IsNullOrWhiteSpace(clientLabel) || !IPAddress.TryParse(clientAddress, out _))
 		return Results.BadRequest("Invalid IP address or missing label.");
 
-	var addOperation = ApiConfig.ApiConfiguration.AddWolClient(clientAddress, clientLabel);
-	if (addOperation[0] == 0 && addOperation[1] == 0) return Results.NoContent();
-
-
-	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "AddWolClient",
-		$"Failed to add client {clientAddress} ({clientLabel}) to the list of clients. Either the script ./getNet.sh timed out, or failed. ({addOperation[0]}, {addOperation[1]})"));
-	return Results.InternalServerError("Failed to add the client to the list of clients. Either the script ./getNet.sh timed out, or failed.");
-
+	return ApiConfig.ApiConfiguration.AddWolClient(clientAddress, clientLabel) ? Results.NoContent()
+		: Results.InternalServerError("Failed to add the client to the list of clients. Either the script getNet.sh timed out, or returned malformed data.");
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status400BadRequest)

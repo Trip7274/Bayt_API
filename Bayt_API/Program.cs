@@ -312,9 +312,15 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/WoL/removeClient", (string clientAddr
 	if (string.IsNullOrWhiteSpace(clientAddress) || !IPAddress.TryParse(clientAddress, out var clientAddressParsed))
 		return Results.BadRequest("Invalid or missing IP address.");
 
-	return ApiConfig.ApiConfiguration.RemoveWolClient(clientAddressParsed) ? Results.NoContent()
-		: Results.InternalServerError("Failed to remove the client from the list of clients. Either the script getNet.sh timed out, or returned malformed data.");
+	return ApiConfig.ApiConfiguration.RemoveWolClient(clientAddressParsed) switch
+	{
+		true => Results.NoContent(),
+		false => Results.NotFound("Client was not found in the API's list of clients."),
+		null => Results.InternalServerError(
+			"Failed to remove the client from the list of clients. Either the script getNet.sh timed out, or returned malformed data.")
+	};
 }).Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status404NotFound)
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status204NoContent)
 	.WithSummary("Remove a saved WoL clients from this Bayt instance.")

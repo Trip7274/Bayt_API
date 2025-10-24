@@ -590,8 +590,8 @@ public static class ApiConfig
 		/// Remove a specific client from the current configuration. Updates the live and in-disk configuration.
 		/// </summary>
 		/// <param name="clientAddress">Local IP Address of the client to remove.</param>
-		/// <returns>True if the client was removed. False if something went wrong.</returns>
-		public static bool RemoveWolClient(IPAddress clientAddress)
+		/// <returns>True if the client was removed, false if the element was not found, and null if something went wrong.</returns>
+		public static bool? RemoveWolClient(IPAddress clientAddress)
 		{
 			string physicalAddressStdout;
 			try
@@ -602,16 +602,16 @@ public static class ApiConfig
 			catch (TimeoutException)
 			{
 				Logs.LogStream.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh timed out while ({clientAddress.ToString()}). Skipping."));
-				return false;
+				return null;
 			}
 
 			if (!PhysicalAddress.TryParse(physicalAddressStdout, out var physicalAddress))
 			{
 				Logs.LogStream.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh output seems to be malformed or incorrect for {clientAddress}. Skipping."));
-				return false;
+				return null;
 			}
 
-			WolClients.Remove(physicalAddress.ToString());
+			if (!WolClients.Remove(physicalAddress.ToString())) return false;
 			LoadWolClientsList();
 			SaveConfig();
 			return true;

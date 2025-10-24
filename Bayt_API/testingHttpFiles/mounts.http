@@ -1,0 +1,19 @@
+### Fetches the list of watched mounts
+GET {{Bayt_API_HostAddress}}/mounts/getList
+
+### Add a mount to the API's list of watched mounts
+POST {{Bayt_API_HostAddress}}/mounts/add
+Content-Type: application/json
+
+{
+    "/home": "Home Partition"
+}
+
+
+### Delete a mountpoint
+DELETE {{Bayt_API_HostAddress}}/mounts/remove
+Content-Type: application/json
+
+{
+    "Mounts": [ "/mnt" ]
+}

@@ -1,9 +1,9 @@
-### updateLiveConfigs Test
+### config/update Test
 < {%
 	client.global.set("startTime", Date.now());
 %}
 
-POST {{Bayt_API_HostAddress}}/updateLiveConfigs/
+POST {{Bayt_API_HostAddress}}/config/update
 Accept: application/json
 
 > {%
@@ -20,12 +20,53 @@ Accept: application/json
 	});
 %}
 
-### getMountsList Test
+### config/getList Test
+< {%
+    client.global.set("startTime", Date.now());
+%}
+
+GET {{Bayt_API_HostAddress}}/config/getList
+
+> {%
+    client.test("Request executed successfully", function () {
+        const timeToRespond = Date.now() - client.global.get("startTime");
+
+
+        console.log(response.body);
+        console.log(response.body["WatchedMounts"]);
+        console.log(`Response execution time: ${timeToRespond}ms`);
+
+
+        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(response.body !== "", "Response json is empty");
+
+        client.assert(response.body.hasOwnProperty("ConfigVersion"), "ConfigVersion property missing");
+        client.assert(response.body.hasOwnProperty("BackendName"), "BackendName property missing");
+        client.assert(response.body.hasOwnProperty("SecondsToUpdate"), "SecondsToUpdate property missing");
+        client.assert(response.body.hasOwnProperty("PathToDataFolder"), "PathToDataFolder property missing");
+        client.assert(response.body.hasOwnProperty("PathToComposeFolder"), "PathToComposeFolder property missing");
+        client.assert(response.body.hasOwnProperty("DockerIntegrationEnabled"), "DockerIntegrationEnabled property missing");
+        client.assert(response.body.hasOwnProperty("KeepMoreLogs"), "KeepMoreLogs property missing");
+        client.assert(response.body.hasOwnProperty("ShowTimestampsInLogs"), "ShowTimestampsInLogs property missing");
+        client.assert(response.body.hasOwnProperty("WatchedMounts"), "WatchedMounts property missing");
+        client.assert(response.body.hasOwnProperty("WolClients"), "WolClients property missing");
+
+        client.assert(response.body["WatchedMounts"] !== "", "WatchedMounts doesn't have any children");
+
+        client.log("hi"); // TODO: Remove this line
+        if (timeToRespond > 100) {
+            client.log(`Response time might be too long. Expected < 100ms`)
+            console.log(`Response time might be too long. Expected < 100ms`);
+        }
+    })
+%}
+
+### mounts/getList Test
 < {%
 	client.global.set("startTime", Date.now());
 %}
 
-GET {{Bayt_API_HostAddress}}/getMountsList/
+GET {{Bayt_API_HostAddress}}/mounts/getList
 
 > {%
     client.test("Request executed successfully", function () {
@@ -43,46 +84,12 @@ GET {{Bayt_API_HostAddress}}/getMountsList/
     })
 %}
 
-### getApiConfigs Test
+### mounts/add Test
 < {%
 	client.global.set("startTime", Date.now());
 %}
 
-GET {{Bayt_API_HostAddress}}/getApiConfigs/
-
-> {%
-    client.test("Request executed successfully", function () {
-		const timeToRespond = Date.now() - client.global.get("startTime");
-
-
-		console.log(response.body);
-		console.log(response.body["WatchedMounts"]);
-		console.log(`Response execution time: ${timeToRespond}ms`);
-
-
-		client.assert(response.status === 200, "Response status is not 200");
-		client.assert(response.body !== "", "Response json is empty");
-
-		client.assert(response.body.hasOwnProperty("ConfigVersion"), "ConfigVersion property missing");
-		client.assert(response.body.hasOwnProperty("BackendName"), "BackendName property missing");
-		client.assert(response.body.hasOwnProperty("SecondsToUpdate"), "SecondsToUpdate property missing");
-		client.assert(response.body.hasOwnProperty("WatchedMounts"), "WatchedMounts property missing");
-
-		client.assert(response.body["WatchedMounts"] !== "", "WatchedMounts doesn't have any children");
-
-		if (timeToRespond > 100) {
-			console.log(`Response time might be too long. Expected < 100ms`);
-		}
-	})
-%}
-
-### addMounts Test
-< {%
-	client.global.set("startTime", Date.now());
-%}
-
-POST {{Bayt_API_HostAddress}}/addMounts/
-Accept: application/json
+POST {{Bayt_API_HostAddress}}/mounts/add
 Content-Type: application/json
 
 {
@@ -103,13 +110,12 @@ Content-Type: application/json
 	})
 %}
 
-### removeMounts Test
+### mounts/remove Test
 < {%
 	client.global.set("startTime", Date.now());
 %}
 
-DELETE {{Bayt_API_HostAddress}}/removeMounts/
-Accept: application/json
+DELETE {{Bayt_API_HostAddress}}/mounts/remove
 Content-Type: application/json
 
 {
@@ -130,13 +136,13 @@ Content-Type: application/json
 	})
 %}
 
-### GetWolClientsFirst Test
+### WoL/getList Test 1/3 (Base)
 @IP_TO_USE = 127.0.0.1
 < {%
 	client.global.set("startTime", Date.now());
 %}
 # First, get a value to make sure the add operation ACTUALLY added something
-GET {{Bayt_API_HostAddress}}/GetWolClients/
+GET {{Bayt_API_HostAddress}}/WoL/getClients
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -159,7 +165,7 @@ GET {{Bayt_API_HostAddress}}/GetWolClients/
 	client.global.set("startTime", Date.now());
 %}
 # Add the test client
-POST {{Bayt_API_HostAddress}}/AddWolClient?clientAddress={{IP_TO_USE}}&clientLabel=Testing PC
+POST {{Bayt_API_HostAddress}}/WoL/addClient?clientAddress={{IP_TO_USE}}&clientLabel=Testing PC
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -175,12 +181,12 @@ POST {{Bayt_API_HostAddress}}/AddWolClient?clientAddress={{IP_TO_USE}}&clientLab
 	})
  %}
 
-### GetWolClientsSecond Check
+### WoL/getList Test 2/3 (Addition)
 < {%
 	client.global.set("startTime", Date.now());
 %}
 # Check again to make sure the last request actually succeeded
-GET {{Bayt_API_HostAddress}}/GetWolClients?thing{{firstWolCheck}}
+GET {{Bayt_API_HostAddress}}/WoL/getClients
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -199,11 +205,11 @@ GET {{Bayt_API_HostAddress}}/GetWolClients?thing{{firstWolCheck}}
 	})
  %}
 
-### RemoveWolClient Test
+### WoL/removeClient Test
 < {%
     client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_HostAddress}}/RemoveWolClient?clientAddress={{IP_TO_USE}}
+DELETE {{Bayt_API_HostAddress}}/WoL/removeClient?clientAddress={{IP_TO_USE}}
 
 > {%
     client.test("Request executed successfully", function () {
@@ -216,19 +222,40 @@ DELETE {{Bayt_API_HostAddress}}/RemoveWolClient?clientAddress={{IP_TO_USE}}
         if (timeToRespond > 175) {
             console.log(`Response time might be too long. Expected < 175ms`);
         }
-
-        let firstWolCheck = client.global.get("firstWolCheck");
-        client.assert(firstWolCheck === Object.keys(response.body).length, "Deleting the client didn't work");
     })
 %}
 
+
+### WoL/getList Test 3/3 (Deletion)
+< {%
+    client.global.set("startTime", Date.now());
+%}
+# Check again to make sure the deletion was successful
+GET {{Bayt_API_HostAddress}}/WoL/getClients
+
+> {%
+    client.test("Request executed successfully", function () {
+        const timeToRespond = Date.now() - client.global.get("startTime");
+        console.log(`Response execution time: ${timeToRespond}ms`);
+
+        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(response.body !== "", "Response json is empty");
+
+        if (timeToRespond > 175) {
+            console.log(`Response time might be too long. Expected < 175ms`);
+        }
+
+        let firstWolCheck = client.global.get("firstWolCheck");
+        client.assert(firstWolCheck === Object.keys(response.body).length, `Deleting the client didn't work (${firstWolCheck} vs ${Object.keys(response.body).length})`);
+    })
+%}
 
 ### setData Test
 < {%
 	client.global.set("startTime", Date.now());
 %}
 # The folder *should* be trimmed to just "Testing". That's why the getData test looks for subfolder2 and not 1.
-PUT {{Bayt_API_HostAddress}}/setData?folderName=Testing/subfolder1&fileName=testFile.json
+PUT {{Bayt_API_HostAddress}}/clientData/setData?folderName=Testing/subfolder1&fileName=testFile.json
 Accept: application/json
 
 {
@@ -255,7 +282,7 @@ Accept: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-GET {{Bayt_API_HostAddress}}/getData?folderName=Testing/subfolder2&fileName=testFile.json
+GET {{Bayt_API_HostAddress}}/clientData/getData?folderName=Testing/subfolder2&fileName=testFile.json
 Accept: application/json
 
 > {%
@@ -279,7 +306,7 @@ Accept: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_HostAddress}}/deleteData?folderName=Testing/subfolder3&fileName=testFile.json
+DELETE {{Bayt_API_HostAddress}}/clientData/deleteData?folderName=Testing/subfolder3&fileName=testFile.json
 Accept: application/json
 
 > {%
@@ -300,7 +327,7 @@ Accept: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_HostAddress}}/deletefolder?folderName=Testing/subfolder44
+DELETE {{Bayt_API_HostAddress}}/clientData/deletefolder?folderName=Testing/subfolder44
 Accept: application/json
 
 > {%
@@ -321,7 +348,7 @@ Accept: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-GET {{Bayt_API_HostAddress}}/getStats
+GET {{Bayt_API_HostAddress}}/stats/getCurrent
 Accept: application/json
 
 > {%

@@ -1,8 +1,0 @@
-### Delete a mountpoint
-DELETE {{Bayt_API_HostAddress}}/removeMounts/
-Accept: application/json
-Content-Type: application/json
-
-{
-    "Mounts": [ "/mnt" ]
-}

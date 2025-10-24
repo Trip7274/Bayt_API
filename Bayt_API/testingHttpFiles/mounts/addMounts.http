@@ -1,9 +1,0 @@
-POST {{Bayt_API_HostAddress}}/addMounts/
-Accept: application/json
-Content-Type: application/json
-
-{
-    "/home": "Home Partition"
-}
-
-###

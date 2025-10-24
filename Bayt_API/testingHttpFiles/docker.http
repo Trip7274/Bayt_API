@@ -1,0 +1,32 @@
+### Fetch current Docker containers
+GET {{Bayt_API_HostAddress}}/docker/containers/getList
+
+### Start a docker container
+POST {{Bayt_API_HostAddress}}/docker/containers/start?containerId={{TestDockerContainerId}}
+
+### Stop a docker container
+POST {{Bayt_API_HostAddress}}/docker/containers/stop?containerId={{TestDockerContainerId}}
+
+### Kill a docker container
+POST {{Bayt_API_HostAddress}}/docker/containers/kill?containerId={{TestDockerContainerId}}
+
+### Fetch a specific container's compose file
+GET {{Bayt_API_HostAddress}}/docker/containers/getCompose?containerId={{TestDockerContainerId}}
+
+### Disown a container
+DELETE {{Bayt_API_HostAddress}}/docker/containers/disown?containerId={{TestDockerContainerId}}
+
+### Own a container
+POST {{Bayt_API_HostAddress}}/docker/containers/own?containerId={{TestDockerContainerId}}
+
+### Prune containers
+DELETE {{Bayt_API_HostAddress}}/docker/containers/prune
+
+### Get a container's stats
+GET {{Bayt_API_HostAddress}}/docker/containers/getStats?containerId={{TestDockerContainerId}}
+
+### Fetch the system's available Docker Images
+GET {{Bayt_API_HostAddress}}/docker/images/getList
+
+### Delete a specific Docker Image
+DELETE {{Bayt_API_HostAddress}}/docker/images/delete

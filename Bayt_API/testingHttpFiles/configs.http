@@ -1,0 +1,15 @@
+### Fetches the API's config
+GET {{Bayt_API_HostAddress}}/config/getList
+
+### Edit the API's configs
+POST {{Bayt_API_HostAddress}}/config/edit
+Content-Type: application/json
+
+# Changes the cache lifetime (in seconds)
+{
+    "SecondsToUpdate": {{$random.integer(1, 6)}}
+}
+
+
+### Sync in-disk config with the live config
+POST {{Bayt_API_HostAddress}}/config/update

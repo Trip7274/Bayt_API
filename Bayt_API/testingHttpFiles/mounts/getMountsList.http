@@ -1,3 +1,0 @@
-### Fetches the list of watched mounts
-GET {{Bayt_API_HostAddress}}/getMountsList/
-Accept: application/json

@@ -57,7 +57,7 @@ app.UseHttpsRedirection();
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
 	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "Initialization",
-		$"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like. This is unsupported."));
+		$"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like. This is unsupported, here be dragons."));
 }
 
 
@@ -428,7 +428,7 @@ app.MapPut($"{ApiConfig.BaseApiUrlPath}/setData", async (HttpContext context, st
 }).Produces(StatusCodes.Status204NoContent)
 	.Produces(StatusCodes.Status400BadRequest)
 	.WithSummary("Replace/Set a specific file under a specific folder in the base clientData folder. Will create the folder if it doesn't exist.")
-	.WithDescription("Both parameters are required and must be valid, non-empty file/folder names.")
+	.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. Expects the file's content in the body of the request.")
 	.WithTags("clientData")
 	.WithName("SetClientData");
 

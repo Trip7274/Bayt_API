@@ -2,6 +2,7 @@ namespace Bayt_API.Testing;
 
 public class LoggingTests
 {
+	//var ReferenceEntry = new LogEntry(StreamId.Info, "Testing", "This is a test!", DateTime.MaxValue);
 	private static readonly byte[] ReferenceHeader = [
 		5, 15, 0, 255, 63, 55, 244, 117, 40, 202, 43, 84, 101, 115, 116, 105, 110, 103, 2
 	];

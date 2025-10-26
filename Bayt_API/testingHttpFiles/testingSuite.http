@@ -9,13 +9,13 @@ Accept: application/json
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, `Response json is not empty, got: ${response.body}`);
 
 		if (timeToRespond > 100) {
-			console.log(`Response time might be too long. Expected < 100ms`);
+			client.log(`Response time might be too long. Expected < 100ms`);
         }
 	});
 %}
@@ -32,9 +32,9 @@ GET {{Bayt_API_BaseAddress}}/config/getList
         const timeToRespond = Date.now() - client.global.get("startTime");
 
 
-        console.log(response.body);
-        console.log(response.body["WatchedMounts"]);
-        console.log(`Response execution time: ${timeToRespond}ms`);
+        client.log(response.body);
+        client.log(response.body["WatchedMounts"]);
+        client.log(`Response execution time: ${timeToRespond}ms`);
 
 
         client.assert(response.status === 200, "Response status is not 200");
@@ -70,14 +70,14 @@ GET {{Bayt_API_BaseAddress}}/mounts/getList
     client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
 
-		console.log(response.body);
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(response.body);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 200, "Response status is not 200");
 		client.assert(response.body !== "", "Response json is empty");
 
 		if (timeToRespond > 100) {
-			console.log(`Response time might be too long. Expected < 100ms`);
+			client.log(`Response time might be too long. Expected < 100ms`);
 		}
     })
 %}
@@ -97,13 +97,13 @@ Content-Type: application/json
 > {%
     client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, "Response json is not empty");
 
 		if (timeToRespond > 100) {
-			console.log(`Response time might be too long. Expected < 100ms`);
+			client.log(`Response time might be too long. Expected < 100ms`);
 		}
 	})
 %}
@@ -123,13 +123,13 @@ Content-Type: application/json
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, "Response json is not empty");
 
 		if (timeToRespond > 100) {
-			console.log(`Response time might be too long. Expected < 100ms`);
+			client.log(`Response time might be too long. Expected < 100ms`);
 		}
 	})
 %}
@@ -145,13 +145,13 @@ GET {{Bayt_API_BaseAddress}}/WoL/getClients
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 200, "Response status is not 200");
 		client.assert(response.body !== "", "Response json is empty");
 
 		if (timeToRespond > 175) {
-			console.log(`Response time might be too long. Expected < 175ms`);
+			client.log(`Response time might be too long. Expected < 175ms`);
 		}
 	})
 
@@ -168,13 +168,13 @@ POST {{Bayt_API_BaseAddress}}/WoL/addClient?clientAddress={{IP_TO_USE}}&clientLa
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, "Response json is not empty");
 
 		if (timeToRespond > 175) {
-			console.log(`Response time might be too long. Expected < 175ms`);
+			client.log(`Response time might be too long. Expected < 175ms`);
 		}
 	})
  %}
@@ -189,13 +189,13 @@ GET {{Bayt_API_BaseAddress}}/WoL/getClients
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 200, "Response status is not 200");
 		client.assert(response.body !== "", "Response json is empty");
 
 		if (timeToRespond > 175) {
-			console.log(`Response time might be too long. Expected < 175ms`);
+			client.log(`Response time might be too long. Expected < 175ms`);
 		}
 
 		let firstWolCheck = client.global.get("firstWolCheck");
@@ -212,13 +212,13 @@ DELETE {{Bayt_API_BaseAddress}}/WoL/removeClient?clientAddress={{IP_TO_USE}}
 > {%
     client.test("Request executed successfully", function () {
         const timeToRespond = Date.now() - client.global.get("startTime");
-        console.log(`Response execution time: ${timeToRespond}ms`);
+        client.log(`Response execution time: ${timeToRespond}ms`);
 
         client.assert(response.status === 204, "Response status is not 204");
         client.assert(response.body === "" || response.body === null, "Response json is not empty");
 
         if (timeToRespond > 175) {
-            console.log(`Response time might be too long. Expected < 175ms`);
+            client.log(`Response time might be too long. Expected < 175ms`);
         }
     })
 %}
@@ -234,13 +234,13 @@ GET {{Bayt_API_BaseAddress}}/WoL/getClients
 > {%
     client.test("Request executed successfully", function () {
         const timeToRespond = Date.now() - client.global.get("startTime");
-        console.log(`Response execution time: ${timeToRespond}ms`);
+        client.log(`Response execution time: ${timeToRespond}ms`);
 
         client.assert(response.status === 200, "Response status is not 200");
         client.assert(response.body !== "", "Response json is empty");
 
         if (timeToRespond > 175) {
-            console.log(`Response time might be too long. Expected < 175ms`);
+            client.log(`Response time might be too long. Expected < 175ms`);
         }
 
         let firstWolCheck = client.global.get("firstWolCheck");
@@ -265,13 +265,13 @@ Accept: application/json
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, "Response json is not empty");
 
 		if (timeToRespond > 100) {
-			console.log(`Response time might be too long. Expected < 100ms`);
+			client.log(`Response time might be too long. Expected < 100ms`);
 		}
 	})
 %}
@@ -286,7 +286,7 @@ Accept: application/json
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 		const bodyField = response.body;
 
 		client.assert(response.status === 200, "Response status is not 200");
@@ -295,7 +295,7 @@ Accept: application/json
 		client.assert((bodyField.hasOwnProperty("Version") && bodyField["Version"] === 1) && (bodyField.hasOwnProperty("Working") && bodyField["Working"] === true), `Response json is not as expected (got '${bodyField["Version"]}' and '${bodyField["Working"]}')`)
 
 		if (timeToRespond > 100) {
-			console.log(`Response time might be too long. Expected < 100ms`);
+			client.log(`Response time might be too long. Expected < 100ms`);
 		}
 	})
 %}
@@ -310,13 +310,13 @@ Accept: application/json
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, "Response json is not empty");
 
 		if (timeToRespond > 100) {
-			console.log(`Response time might be too long. Expected < 100ms`);
+			client.log(`Response time might be too long. Expected < 100ms`);
 		}
 	})
 %}
@@ -331,13 +331,13 @@ Accept: application/json
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 204, "Response status is not 204");
 		client.assert(response.body === "" || response.body === null, "Response json is not empty");
 
 		if (timeToRespond > 100) {
-			console.log(`Response time might be too long. Expected < 100ms`);
+			client.log(`Response time might be too long. Expected < 100ms`);
 		}
 	})
 %}
@@ -352,11 +352,11 @@ Accept: application/json
 > {%
 	client.test("Request executed successfully", function () {
 		const timeToRespond = Date.now() - client.global.get("startTime");
-		console.log(`Response execution time: ${timeToRespond}ms`);
+		client.log(`Response execution time: ${timeToRespond}ms`);
 
 		client.assert(response.status === 200, "Response status is not 200");
 		if (timeToRespond > 700) {
-			console.log(`Response time might be too long. Expected < 700ms`);
+			client.log(`Response time might be too long. Expected < 700ms`);
 		}
 
         client.assert(response.body !== "" && response.body !== null, "Response json is empty or null");

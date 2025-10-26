@@ -4,7 +4,7 @@ public class LoggingTests
 {
 	//var ReferenceEntry = new LogEntry(StreamId.Info, "Testing", "This is a test!", DateTime.MaxValue);
 	private static readonly byte[] ReferenceHeader = [
-		5, 15, 0, 255, 63, 55, 244, 117, 40, 202, 43, 84, 101, 115, 116, 105, 110, 103, 2
+		5, 15, 0, 255, 7, 234, 206, 92, 40, 202, 107, 84, 101, 115, 116, 105, 110, 103, 2
 	];
 	private static readonly byte[] ReferenceContent = "This is a test!"u8.ToArray();
 
@@ -18,7 +18,7 @@ public class LoggingTests
 		Assert.Equal(StreamId.Info, entry.StreamId);
 		Assert.Equal("Testing", entry.ModuleName);
 		Assert.Equal("This is a test!", entry.Content);
-		Assert.Equal(DateTime.MaxValue, entry.TimeWritten);
+		Assert.Equal(DateTime.MaxValue.ToUniversalTime(), entry.TimeWritten);
 	}
 	[Fact]
 	public void TestParsingSplit()
@@ -28,7 +28,7 @@ public class LoggingTests
 		Assert.Equal(StreamId.Info, entry.StreamId);
 		Assert.Equal("Testing", entry.ModuleName);
 		Assert.Equal("This is a test!", entry.Content);
-		Assert.Equal(DateTime.MaxValue, entry.TimeWritten);
+		Assert.Equal(DateTime.MaxValue.ToUniversalTime(), entry.TimeWritten);
 	}
 	[Fact]
 	public void TestSerialization()

@@ -46,9 +46,9 @@ public sealed class LogEntry
 	public DateTime TimeWritten
 	{
 		get => DateTime.FromBinary(TimeWrittenBinary);
-		private init => TimeWrittenBinary = value.ToBinary();
+		private init => TimeWrittenBinary = value.ToUniversalTime().ToBinary();
 	}
-	public long TimeWrittenBinary { get; private init; } = DateTime.Now.ToBinary();
+	public long TimeWrittenBinary { get; private init; } = DateTime.UtcNow.ToBinary();
 
 	public string ModuleName
 	{
@@ -176,7 +176,7 @@ public sealed class LogEntry
 	{
 		// [INFO] ModuleName: Content
 		return ApiConfig.ApiConfiguration.ShowTimestampsInLogs ?
-			$"{TimeWritten.ToLongTimeString()} - [{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}"
+			$"{TimeWritten.ToLocalTime().ToLongTimeString()} - [{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}"
 			: $"[{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}";
 	}
 }

@@ -1,8 +1,8 @@
 ### Fetches the API's config
-GET {{Bayt_API_HostAddress}}/config/getList
+GET {{Bayt_API_BaseAddress}}/config/getList
 
 ### Edit the API's configs
-POST {{Bayt_API_HostAddress}}/config/edit
+POST {{Bayt_API_BaseAddress}}/config/edit
 Content-Type: application/json
 
 # Changes the cache lifetime (in seconds)
@@ -12,4 +12,4 @@ Content-Type: application/json
 
 
 ### Sync in-disk config with the live config
-POST {{Bayt_API_HostAddress}}/config/update
+POST {{Bayt_API_BaseAddress}}/config/update

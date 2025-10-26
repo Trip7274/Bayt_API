@@ -1,8 +1,8 @@
 ### Fetches the list of watched mounts
-GET {{Bayt_API_HostAddress}}/mounts/getList
+GET {{Bayt_API_BaseAddress}}/mounts/getList
 
 ### Add a mount to the API's list of watched mounts
-POST {{Bayt_API_HostAddress}}/mounts/add
+POST {{Bayt_API_BaseAddress}}/mounts/add
 Content-Type: application/json
 
 {
@@ -11,7 +11,7 @@ Content-Type: application/json
 
 
 ### Delete a mountpoint
-DELETE {{Bayt_API_HostAddress}}/mounts/remove
+DELETE {{Bayt_API_BaseAddress}}/mounts/remove
 Content-Type: application/json
 
 {

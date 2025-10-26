@@ -3,7 +3,7 @@
 	client.global.set("startTime", Date.now());
 %}
 
-POST {{Bayt_API_HostAddress}}/config/update
+POST {{Bayt_API_BaseAddress}}/config/update
 Accept: application/json
 
 > {%
@@ -25,7 +25,7 @@ Accept: application/json
     client.global.set("startTime", Date.now());
 %}
 
-GET {{Bayt_API_HostAddress}}/config/getList
+GET {{Bayt_API_BaseAddress}}/config/getList
 
 > {%
     client.test("Request executed successfully", function () {
@@ -66,7 +66,7 @@ GET {{Bayt_API_HostAddress}}/config/getList
 	client.global.set("startTime", Date.now());
 %}
 
-GET {{Bayt_API_HostAddress}}/mounts/getList
+GET {{Bayt_API_BaseAddress}}/mounts/getList
 
 > {%
     client.test("Request executed successfully", function () {
@@ -89,7 +89,7 @@ GET {{Bayt_API_HostAddress}}/mounts/getList
 	client.global.set("startTime", Date.now());
 %}
 
-POST {{Bayt_API_HostAddress}}/mounts/add
+POST {{Bayt_API_BaseAddress}}/mounts/add
 Content-Type: application/json
 
 {
@@ -115,7 +115,7 @@ Content-Type: application/json
 	client.global.set("startTime", Date.now());
 %}
 
-DELETE {{Bayt_API_HostAddress}}/mounts/remove
+DELETE {{Bayt_API_BaseAddress}}/mounts/remove
 Content-Type: application/json
 
 {
@@ -142,7 +142,7 @@ Content-Type: application/json
 	client.global.set("startTime", Date.now());
 %}
 # First, get a value to make sure the add operation ACTUALLY added something
-GET {{Bayt_API_HostAddress}}/WoL/getClients
+GET {{Bayt_API_BaseAddress}}/WoL/getClients
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -165,7 +165,7 @@ GET {{Bayt_API_HostAddress}}/WoL/getClients
 	client.global.set("startTime", Date.now());
 %}
 # Add the test client
-POST {{Bayt_API_HostAddress}}/WoL/addClient?clientAddress={{IP_TO_USE}}&clientLabel=Testing PC
+POST {{Bayt_API_BaseAddress}}/WoL/addClient?clientAddress={{IP_TO_USE}}&clientLabel=Testing PC
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -186,7 +186,7 @@ POST {{Bayt_API_HostAddress}}/WoL/addClient?clientAddress={{IP_TO_USE}}&clientLa
 	client.global.set("startTime", Date.now());
 %}
 # Check again to make sure the last request actually succeeded
-GET {{Bayt_API_HostAddress}}/WoL/getClients
+GET {{Bayt_API_BaseAddress}}/WoL/getClients
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -209,7 +209,7 @@ GET {{Bayt_API_HostAddress}}/WoL/getClients
 < {%
     client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_HostAddress}}/WoL/removeClient?clientAddress={{IP_TO_USE}}
+DELETE {{Bayt_API_BaseAddress}}/WoL/removeClient?clientAddress={{IP_TO_USE}}
 
 > {%
     client.test("Request executed successfully", function () {
@@ -231,7 +231,7 @@ DELETE {{Bayt_API_HostAddress}}/WoL/removeClient?clientAddress={{IP_TO_USE}}
     client.global.set("startTime", Date.now());
 %}
 # Check again to make sure the deletion was successful
-GET {{Bayt_API_HostAddress}}/WoL/getClients
+GET {{Bayt_API_BaseAddress}}/WoL/getClients
 
 > {%
     client.test("Request executed successfully", function () {
@@ -255,7 +255,7 @@ GET {{Bayt_API_HostAddress}}/WoL/getClients
 	client.global.set("startTime", Date.now());
 %}
 # The folder *should* be trimmed to just "Testing". That's why the getData test looks for subfolder2 and not 1.
-PUT {{Bayt_API_HostAddress}}/clientData/setData?folderName=Testing/subfolder1&fileName=testFile.json
+PUT {{Bayt_API_BaseAddress}}/clientData/setData?folderName=Testing/subfolder1&fileName=testFile.json
 Accept: application/json
 
 {
@@ -282,7 +282,7 @@ Accept: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-GET {{Bayt_API_HostAddress}}/clientData/getData?folderName=Testing/subfolder2&fileName=testFile.json
+GET {{Bayt_API_BaseAddress}}/clientData/getData?folderName=Testing/subfolder2&fileName=testFile.json
 Accept: application/json
 
 > {%
@@ -306,7 +306,7 @@ Accept: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_HostAddress}}/clientData/deleteData?folderName=Testing/subfolder3&fileName=testFile.json
+DELETE {{Bayt_API_BaseAddress}}/clientData/deleteData?folderName=Testing/subfolder3&fileName=testFile.json
 Accept: application/json
 
 > {%
@@ -327,7 +327,7 @@ Accept: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_HostAddress}}/clientData/deletefolder?folderName=Testing/subfolder44
+DELETE {{Bayt_API_BaseAddress}}/clientData/deletefolder?folderName=Testing/subfolder44
 Accept: application/json
 
 > {%
@@ -348,7 +348,7 @@ Accept: application/json
 < {%
 	client.global.set("startTime", Date.now());
 %}
-GET {{Bayt_API_HostAddress}}/stats/getCurrent
+GET {{Bayt_API_BaseAddress}}/stats/getCurrent
 Accept: application/json
 
 > {%

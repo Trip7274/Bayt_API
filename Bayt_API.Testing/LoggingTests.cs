@@ -38,4 +38,14 @@ public class LoggingTests
 		Assert.Equal(ReferenceHeader, serializedEntry.AsSpan(0, ReferenceHeader.Length).ToArray());
 		Assert.Equal(ReferenceContent, serializedEntry.AsSpan(ReferenceHeader.Length).ToArray());
 	}
+
+	[Fact]
+	public void TestControlCharacterFiltering()
+	{
+		var serializedEntry = new LogEntry(StreamId.Info, "\u0002T\res\nt\fi\tn\bg\v", "\n\t\r\u0002This i\fs a\v te\bst!\a", DateTime.MaxValue).Serialize();
+
+
+		Assert.Equal(ReferenceHeader, serializedEntry.AsSpan(0, ReferenceHeader.Length).ToArray());
+		Assert.Equal(ReferenceContent, serializedEntry.AsSpan(ReferenceHeader.Length).ToArray());
+	}
 }

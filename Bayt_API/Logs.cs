@@ -30,7 +30,7 @@ public sealed class LogEntry
 		StreamId = (StreamId) streamIdByte;
 		ModuleName = moduleName;
 		ContentBytes = contentBytes;
-		if (timeWrittenBinary is not null) TimeWrittenBinary = timeWrittenBinary.Value;
+		if (timeWrittenBinary is not null) TimeWritten = DateTime.FromBinary(timeWrittenBinary.Value);
 	}
 
 	public StreamId StreamId

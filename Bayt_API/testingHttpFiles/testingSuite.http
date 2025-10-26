@@ -53,10 +53,8 @@ GET {{Bayt_API_BaseAddress}}/config/getList
 
         client.assert(response.body["WatchedMounts"] !== "", "WatchedMounts doesn't have any children");
 
-        client.log("hi"); // TODO: Remove this line
         if (timeToRespond > 100) {
             client.log(`Response time might be too long. Expected < 100ms`)
-            console.log(`Response time might be too long. Expected < 100ms`);
         }
     })
 %}

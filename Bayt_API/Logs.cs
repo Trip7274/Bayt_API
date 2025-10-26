@@ -161,13 +161,12 @@ public sealed class LogEntry
 			StreamIdByte
 		];
 
-		byteList.AddRange(BitConverter.GetBytes((ushort) Content.Length));
+		byteList.AddRange(BitConverter.GetBytes(ContentLength));
 		byteList.AddRange(BitConverter.GetBytes(TimeWrittenBinary));
 
-		var moduleNameBytes = _moduleNameBytes;
-		byteList.AddRange(moduleNameBytes);
+		byteList.AddRange(_moduleNameBytes);
 		byteList.Add(2);
-		byteList.AddRange(ContentBytes);
+		byteList.AddRange(_contentRaw);
 
 		return byteList.ToArray();
 	}

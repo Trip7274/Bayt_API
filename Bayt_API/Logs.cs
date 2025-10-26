@@ -172,9 +172,17 @@ public sealed class LogEntry
 		return byteList.ToArray();
 	}
 
+	/// <summary>
+	/// Convert this LogEntry to a string with the following format:<br/>
+	/// <c>[STREAM] ModuleName: Content</c><br/>
+	/// or, based on <see cref="ApiConfig.ApiConfiguration.ShowTimestampsInLogs"/>:<br/>
+	/// <c>TimeWritten - [STREAM] ModuleName: Content</c>
+	/// </summary>
+	/// <remarks>
+	///	TimeWritten is in LocalTime.
+	/// </remarks>
 	public override string ToString()
 	{
-		// [INFO] ModuleName: Content
 		return ApiConfig.ApiConfiguration.ShowTimestampsInLogs ?
 			$"{TimeWritten.ToLocalTime().ToLongTimeString()} - [{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}"
 			: $"[{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}";

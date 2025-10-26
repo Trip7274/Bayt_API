@@ -83,9 +83,9 @@ public sealed class LogEntry
 			{
 				valueStringBuilder.Append(valueChar);
 			}
-			if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Content cannot be null or whitespace.");
+			if (string.IsNullOrWhiteSpace(valueStringBuilder.ToString())) throw new ArgumentException("Content cannot be null or whitespace.");
 
-			_contentRaw = Encoding.ASCII.GetBytes(value);
+			_contentRaw = Encoding.ASCII.GetBytes(valueStringBuilder.ToString());
 		}
 	}
 

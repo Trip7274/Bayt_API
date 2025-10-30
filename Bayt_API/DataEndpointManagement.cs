@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Bayt_API;
 
 /// <summary>
@@ -8,7 +6,7 @@ namespace Bayt_API;
 public static class DataEndpointManagement
 {
 	/// <summary>
-	/// Relative path from the base executable to the client data folder
+	/// Abs. path to the client data folder.
 	/// </summary>
 	private static string ClientDataFolder => ApiConfig.ApiConfiguration.PathToDataFolder;
 
@@ -16,185 +14,183 @@ public static class DataEndpointManagement
 	/// Represents metadata for a data file, including its folder location, file name, and file data.
 	/// Provides utilities for accessing the file's absolute path, last modification time, and file stream.
 	/// </summary>
-	public sealed class DataFileMetadata
+	public sealed record DataFileMetadata
 	{
 		/// <summary>
 		/// Constructor for <see cref="DataFileMetadata"/>
 		/// </summary>
 		/// <param name="folder">The name of the folder inside the root clientData folder. Subfolders will be trimmed off.</param>
 		/// <param name="fileName">The name of the file itself. Extension included.</param>
-		/// <param name="fileData">The contents of the file. The <see cref="FileStreamRead"/> property will fall back to creating a new stream if this is null.</param>
+		/// <param name="fileData">The contents of the file. The <see cref="ReadStream"/> property will fall back to creating a new stream if this is null.</param>
+		/// <param name="createMissing">Whether to create a new folder and/or file if the specified folder/file didn't exist in the clientData root, or throw a <see cref="DirectoryNotFoundException"/></param>
 		/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
-		public DataFileMetadata(string folder, string fileName, byte[]? fileData = null)
+		/// <exception cref="DirectoryNotFoundException">The specified directory was not found, and <c>createMissing</c> was set to false.</exception>
+		/// <exception cref="FileNotFoundException">The specified file was not found at the specified folder, and no data was passed to create one.</exception>
+		public DataFileMetadata(string? folder, string? fileName, byte[]? fileData = null, bool createMissing = false)
 		{
-			SanitizeFileFolderNames(ref folder, ref fileName);
+			var pathCheck = EnsureSafePaths(folder, fileName);
+			if (pathCheck is not null) throw new ArgumentException(pathCheck);
 
-			Folder = folder;
-			FileName = fileName;
-			FileData = fileData;
+			SetupDataFolder(folder!, !createMissing);
+			if (!File.Exists(Path.Combine(ClientDataFolder, folder!, fileName!)) && fileData is null && !createMissing)
+				throw new FileNotFoundException($"The file '{fileName}' does not exist.");
+
+			FolderName = folder!;
+			FileName = fileName!;
+			if (fileData is not null) FileData = fileData;
 		}
+
+		public void DeleteFile()
+		{
+			if (!File.Exists(AbsolutePath)) return;
+			try
+			{
+				File.Delete(AbsolutePath);
+			}
+			catch (IOException)
+			{
+				Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+					$"The '{Path.GetFileName(AbsolutePath)}' clientData file is in use, thus it was not deleted."));
+				throw;
+			}
+			catch (UnauthorizedAccessException)
+			{
+				Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+					$"The current user does not have the permission to delete the '{Path.GetFileName(AbsolutePath)}' clientData file, or it is read-only, thus it was not deleted."));
+				throw;
+			}
+		}
+
 		/// <summary>
 		/// Relative path from <see cref="DataEndpointManagement.ClientDataFolder"/> to the folder containing this file.
 		/// </summary>
-		public string Folder { set; get; }
+		public string FolderName { get; }
 		/// <summary>
 		/// Full file name, including the extension.
 		/// </summary>
-		public string FileName { set; get; }
-		/// <summary>
-		/// Raw contents of the file. If left null, <see cref="FileStreamRead"/> will create a new <see cref="FileStream"/> based off the file on-disk
-		/// </summary>
-		public byte[]? FileData { get; }
-
+		public string FileName { get; }
 		/// <summary>
 		/// Gets the absolute path to the file.
 		/// </summary>
-		public string AbsolutePath => Path.Combine(ClientDataFolder, Folder, FileName);
+		public string AbsolutePath => Path.GetFullPath(Path.Combine(ClientDataFolder, FolderName, FileName));
+
+		/// <summary>
+		/// Get: Gets the file's contents. Will be null if the file doesn't exist.<br/>
+		/// Set: Sets the file's contents. Will empty the file's contents if set to null.
+		/// </summary>
+		public byte[]? FileData
+		{
+			get => File.Exists(AbsolutePath) ? File.ReadAllBytes(AbsolutePath) : null;
+			set => File.WriteAllBytes(AbsolutePath, value);
+		}
 
 		/// <summary>
 		/// Gets the date and time, in local time, that the file was last accessed at.
 		/// </summary>
 		public DateTime LastWriteTime => File.GetLastWriteTime(AbsolutePath);
 		/// <summary>
-		/// Gets the <see cref="Stream"/> for the file's data. Backed by RAM if <see cref="FileData"/> is set, or backed by physical storage otherwise.
+		/// Gets the <see cref="FileStream"/> for the file with read access. Will return null if the file doesn't exist.
 		/// </summary>
-		public Stream FileStreamRead => FileData is null ? new FileStream(AbsolutePath, FileMode.Open, FileAccess.Read, FileShare.Read) : new MemoryStream(FileData);
+		public FileStream? ReadStream => File.Exists(AbsolutePath) ? new FileStream(AbsolutePath, FileMode.Open, FileAccess.Read, FileShare.Read) : null;
 	}
 
 	/// <summary>
-	/// Remove trailing and leading slashes, truncate subfolders from folders, and ensure a valid name for both the strings.
+	/// Deletes the specified sub-folder, after making sure it's within the <see cref="ClientDataFolder"/>.
 	/// </summary>
-	/// <param name="folder">Reference to a string of the folder name. Will be edited in-place</param>
-	/// <param name="fileName">Reference to a string of the file name. Will be edited in-place</param>
-	/// <exception cref="ArgumentException">The provided folder or file is not valid.</exception>
-	private static void SanitizeFileFolderNames(ref string folder, ref string fileName)
+	/// <param name="folderPath">The path to the specific clientData subfolder (relative to the clientData root <see cref="ClientDataFolder"/>).</param>
+	/// <exception cref="ArgumentException">The path safety check failed. The path is probably invalid or unsafe.</exception>
+	/// <exception cref="DirectoryNotFoundException">The specified subfolder does not exist under the root clientData folder.</exception>
+	/// <exception cref="UnauthorizedAccessException">The user does not have write access to the specified folder.</exception>
+	/// <exception cref="IOException">The folder is either in use, read-only, or contains a read-only file.</exception>
+	public static void DeleteDataFolder(string? folderPath)
 	{
-		folder = folder.Trim(Path.DirectorySeparatorChar); // E.g. "/Test/" => "Test"
-		fileName = fileName.Trim(Path.DirectorySeparatorChar); // E.g. "config.json/" => "config.json
+		var pathCheck = EnsureSafeFolderPath(folderPath);
+		if (pathCheck is not null) throw new ArgumentException(pathCheck);
 
-		// Prevent potential directory traversal attacks
-		while (folder.StartsWith("../"))
-		{
-			folder = folder[3..]; // E.g. "../Test" => "Test"
-		}
-		while (fileName.StartsWith("../"))
-		{
-			fileName = fileName[3..]; // E.g. "../Test" => "Test"
-		}
+		folderPath = Path.GetFullPath(Path.Combine(ClientDataFolder, folderPath!));
 
-		if (folder.Contains(Path.DirectorySeparatorChar))
-		{
-			folder = folder[..folder.IndexOf(Path.DirectorySeparatorChar)]; // E.g. "Test/subFolder" => "Test".
-			// Bayt API does not support subfolders at this stage.
-			// Proper endpoints for this will be implemented later.
-		}
+		if (!Directory.Exists(folderPath)) throw new DirectoryNotFoundException($"Path does not exist. ({folderPath})");
 
-		if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains)
-		       || string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
-		{
-			throw new ArgumentException("Folder and file name must not be empty or invalid.");
-		}
-	}
-
-	/// <summary>
-	/// Fetch a <see cref="DataFileMetadata"/> object of a specific data file.
-	/// </summary>
-	/// <param name="folder">The folder under which the file resides. Relative to the <see cref="ClientDataFolder"/> root.</param>
-	/// <param name="fileName">The file's name, extension included.</param>
-	/// <returns><see cref="DataFileMetadata"/> of the requested file.</returns>
-	/// <exception cref="FileNotFoundException">The specified file was not found under the folder provided.</exception>
-	/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
-	public static DataFileMetadata GetDataFile(string folder, string fileName)
-	{
-		SanitizeFileFolderNames(ref folder, ref fileName);
-
-		SetupDataFolder(folder, true);
-		string folderPath = Path.Combine(ClientDataFolder, folder);
-
-		string foundFile;
 		try
 		{
-			foundFile = Directory.GetFiles(folderPath, fileName).First();
+			Directory.Delete(folderPath, true);
 		}
-		catch (InvalidOperationException)
+		catch (UnauthorizedAccessException)
 		{
-			throw new FileNotFoundException($"File '{fileName}' was not found in the folder '{folder}'");
+			Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+				"The permissions for the clientData folder seem incorrect. (No write permission) Please ensure your user has write access to it."));
+			throw;
 		}
-
-		return new DataFileMetadata(folder, fileName, File.ReadAllBytes(foundFile));
-	}
-
-	/// <summary>
-	/// Flush the <see cref="DataFileMetadata.FileData"/> contents to the file represented by the object.
-	/// </summary>
-	/// <param name="dataObject">The <see cref="DataFileMetadata"/> object to flush to disk</param>
-	/// <exception cref="ArgumentNullException">Thrown if the <see cref="DataFileMetadata.FileData"/> property is null.</exception>
-	public static async Task SetDataFile(DataFileMetadata dataObject)
-	{
-		ArgumentNullException.ThrowIfNull(dataObject.FileData);
-		SetupDataFolder(dataObject.Folder);
-
-		string filePath = dataObject.AbsolutePath;
-
-		await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
-		await fileStream.WriteAsync(dataObject.FileData);
-	}
-
-	/// <summary>
-	/// Delete the data file at the specified folder path and filename.
-	/// </summary>
-	/// <param name="folderName">Folder path relative to the <see cref="ClientDataFolder"/> root.</param>
-	/// <param name="fileName">Name of the file to delete.</param>
-	/// <exception cref="DirectoryNotFoundException">The parent folder doesn't exist.</exception>
-	/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
-	public static void DeleteDataFile(string folderName, string fileName)
-	{
-		SanitizeFileFolderNames(ref folderName, ref fileName);
-
-		SetupDataFolder(folderName,true);
-
-		string filePath = Path.Combine(ClientDataFolder, folderName, fileName);
-		if (File.Exists(filePath))
+		catch (IOException)
 		{
-			File.Delete(filePath);
+			Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+				$"The '{Path.GetFileName(folderPath)}' clientData folder is either in use, read-only, or contains a read-only file, thus it was not deleted."));
+			throw;
 		}
 	}
 
 	/// <summary>
-	/// Deletes an entire data folder.
+	/// Ensure the folder + file names are safe and within the <see cref="ClientDataFolder"/>.
 	/// </summary>
-	/// <param name="folder">Folder to delete. Relative to the <see cref="ClientDataFolder"/> root.</param>
-	/// <exception cref="DirectoryNotFoundException">The specified directory was not found.</exception>
-	/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
-	public static void DeleteDataFolder(string folder)
+	/// <param name="folder">The relative path to the folder from the clientData root.</param>
+	/// <param name="fileName">The file's name</param>
+	/// <exception cref="ArgumentException">The provided folder and/or file names are not valid, or are not under the clientData root.</exception>
+	/// <returns>
+	///	Null if the folder and file names are valid. Otherwise, a string containing the error message.
+	/// </returns>
+	private static string? EnsureSafePaths(string? folder, string? fileName)
 	{
-		var emptyString = "this is just to satisfy the method. It is not used.";
-		SanitizeFileFolderNames(ref folder, ref emptyString);
+		if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains)
+		   || string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
+		{
+			Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+				$"Invalid folder or file name: '{folder} + {fileName}'"));
+			return "Folder and file name must not be empty or contain invalid characters.";
+		}
 
-		SetupDataFolder(folder, true);
 
-		Directory.Delete(Path.Combine(ClientDataFolder, folder), true);
+		// Directory traversal protection
+		if (Path.GetFullPath(Path.Combine(ClientDataFolder, folder, fileName)).StartsWith(ClientDataFolder)) return null;
+
+		Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+			$"Requested path is outside the clientData folder: '{Path.GetFullPath(Path.Combine(ClientDataFolder, folder, fileName))}'"));
+		return "Requested path is outside the clientData folder.";
+	}
+	private static string? EnsureSafeFolderPath(string? folder)
+	{
+		if (string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
+		{
+			Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+				$"Invalid folder name: '{folder}'"));
+			return "Folder name must not be empty or contain invalid characters.";
+		}
+
+
+		// Directory traversal protection
+		if (Path.GetFullPath(Path.Combine(ClientDataFolder, folder)).StartsWith(ClientDataFolder)) return null;
+
+		Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+			$"Requested path is outside the clientData folder: '{Path.GetFullPath(Path.Combine(ClientDataFolder, folder))}'"));
+		return "Requested path is outside the clientData folder.";
 	}
 
 	/// <summary>
 	/// Ensure the root <see cref="ClientDataFolder"/> and the specified data folder both exist. Optionally throw an exception if the latter check failed.
 	/// </summary>
-	/// <param name="dataFolderName">The specific data folder's name. If left null, the second check will be skipped.</param>
+	/// <param name="dataFolderName">The specific data folder's name. Relative to <see cref="ClientDataFolder"/>.</param>
 	/// <param name="throwIfSpecificFolderDoesNotExist">Whether to throw an exception if the specific folder didn't already exist or create it.</param>
-	/// <exception cref="DirectoryNotFoundException">Only thrown if <see cref="throwIfSpecificFolderDoesNotExist"/> was set to true. Prevents the creation of the folder.</exception>
-	private static void SetupDataFolder(string? dataFolderName = null, bool throwIfSpecificFolderDoesNotExist = false)
+	/// <exception cref="DirectoryNotFoundException">Only thrown if <see cref="throwIfSpecificFolderDoesNotExist"/> was set to true and the folder did not exist.</exception>
+	/// <remarks>
+	///	This method will not check if the specified path is safe or not, please use <see cref="EnsureSafePaths"/> prior to this for that.
+	/// </remarks>
+	private static void SetupDataFolder(string dataFolderName, bool throwIfSpecificFolderDoesNotExist = false)
 	{
-		if (dataFolderName == null) return;
+		string folderPath = Path.GetFullPath(Path.Combine(ClientDataFolder, dataFolderName));
+		if (Directory.Exists(folderPath)) return;
 
-		string folderPath = Path.Combine(ClientDataFolder, dataFolderName);
-		if (throwIfSpecificFolderDoesNotExist && !Directory.Exists(folderPath))
-		{
+		if (throwIfSpecificFolderDoesNotExist)
 			throw new DirectoryNotFoundException($"The folder '{dataFolderName}' does not exist.");
-		}
 
-		if (!Directory.Exists(folderPath))
-		{
-			Directory.CreateDirectory(folderPath);
-		}
+		Directory.CreateDirectory(folderPath);
 	}
 }

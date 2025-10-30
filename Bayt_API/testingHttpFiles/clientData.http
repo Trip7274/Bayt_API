@@ -1,9 +1,9 @@
 ### Fetch data file
-GET {{Bayt_API_BaseAddress}}/clientData/getData?folderName=GoodTest&fileName=configs.json
+GET {{Bayt_API_BaseAddress}}/clientData/GoodTest/configs.json
 Accept: application/json
 
 ### Set data file and folder
-PUT {{Bayt_API_BaseAddress}}/clientData/setData?folderName=GoodTest/subfolder&fileName=configs.json
+PUT {{Bayt_API_BaseAddress}}/clientData/GoodTest/configs.json
 Accept: application/json
 
 {
@@ -13,35 +13,33 @@ Accept: application/json
 
 
 ### Delete data file
-DELETE {{Bayt_API_BaseAddress}}/clientData/deleteData?folderName=GoodTest/subfolder&fileName=configs.json
+DELETE {{Bayt_API_BaseAddress}}/clientData/GoodTest/configs.json
 Accept: application/json
+
+#==============================#
+# Image/Arbitrary data tests   #
+#==============================#
+
+### Fetch a test image file (for arbitrary data)
+# @no-cookie-jar
+GET https://cataas.com/cat/says/this%20is%20a%20test?fontSize=50
+Accept: image/jpeg
+
+>>! {{$historyFolder}}/testImage.jpg
+
+### Send the test image file
+# @no-cookie-jar
+PUT {{Bayt_API_BaseAddress}}/clientData/GoodTest/imageTest.jpg
+
+< ./testImage.jpg
+
+### Get the test image file
+# @no-cookie-jar
+GET {{Bayt_API_BaseAddress}}/clientData/GoodTest/imageTest.jpg
+
+>>! {{$historyFolder}}/testImageGot.jpg
+
 
 ### Delete specific data folder recursively
-DELETE {{Bayt_API_BaseAddress}}/clientData/deletefolder?folderName=GoodTest
+DELETE {{Bayt_API_BaseAddress}}/clientData/GoodTest
 Accept: application/json
-
-# --Directory traversal checks--
-### Make sure nothing outside the folder is readable
-# Folder-side
-GET {{Bayt_API_BaseAddress}}/clientData/getData?folderName=../BadTest&fileName=check.json
-
-### Make sure nothing outside the folder is writable
-PUT {{Bayt_API_BaseAddress}}/clientData/setData?folderName=../BadTest/subfolder&fileName=check.json
-
-{
-    "Version": 1,
-    "Working? Hopefully": false
-}
-
-
-### Make sure nothing outside the folder is readable
-# File-side
-GET {{Bayt_API_BaseAddress}}/clientData/getData?folderName=BadTest&fileName=../check.json
-
-### Make sure nothing outside the folder is writable
-PUT {{Bayt_API_BaseAddress}}/clientData/setData?folderName=BadTest/subfolder&fileName=../check.json
-
-{
-    "Version": 1,
-    "Working? Hopefully": false
-}

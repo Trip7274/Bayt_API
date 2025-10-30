@@ -248,16 +248,14 @@ GET {{Bayt_API_BaseAddress}}/WoL/getClients
     })
 %}
 
-### setData Test
+### PUT/clientData (Send test JSON)
 < {%
 	client.global.set("startTime", Date.now());
 %}
-# The folder *should* be trimmed to just "Testing". That's why the getData test looks for subfolder2 and not 1.
-PUT {{Bayt_API_BaseAddress}}/clientData/setData?folderName=Testing/subfolder1&fileName=testFile.json
-Accept: application/json
+PUT {{Bayt_API_BaseAddress}}/clientData/Testing/testFile.json
 
 {
-    "Version": 1,
+    "Version": 0,
     "Working": true
 }
 
@@ -276,11 +274,11 @@ Accept: application/json
 	})
 %}
 
-### getData Test
+### GET/clientData (Get the test file)
 < {%
 	client.global.set("startTime", Date.now());
 %}
-GET {{Bayt_API_BaseAddress}}/clientData/getData?folderName=Testing/subfolder2&fileName=testFile.json
+GET {{Bayt_API_BaseAddress}}/clientData/Testing/testFile.json
 Accept: application/json
 
 > {%
@@ -292,7 +290,7 @@ Accept: application/json
 		client.assert(response.status === 200, "Response status is not 200");
         client.assert(response.contentType.mimeType === "application/json", "Response content type is not application/json");
 		client.assert(bodyField !== "" && bodyField !== null, "Response json is empty, got: " + bodyField);
-		client.assert((bodyField.hasOwnProperty("Version") && bodyField["Version"] === 1) && (bodyField.hasOwnProperty("Working") && bodyField["Working"] === true), `Response json is not as expected (got '${bodyField["Version"]}' and '${bodyField["Working"]}')`)
+		client.assert((bodyField.hasOwnProperty("Version") && bodyField["Version"] === 0) && (bodyField.hasOwnProperty("Working") && bodyField["Working"] === true), `Response json is not as expected (got '${bodyField["Version"]}' and '${bodyField["Working"]}')`)
 
 		if (timeToRespond > 100) {
 			client.log(`Response time might be too long. Expected < 100ms`);
@@ -300,12 +298,11 @@ Accept: application/json
 	})
 %}
 
-### deleteData Test
+### DELETE/clientData (Delete the test file)
 < {%
 	client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_BaseAddress}}/clientData/deleteData?folderName=Testing/subfolder3&fileName=testFile.json
-Accept: application/json
+DELETE {{Bayt_API_BaseAddress}}/clientData/Testing/testFile.json
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -321,12 +318,86 @@ Accept: application/json
 	})
 %}
 
-### deleteFolder Test
+### Fetch test image
+# @no-cookie-jar
+GET https://cataas.com/cat/says/this%20is%20a%20test?fontSize=50
+Accept: image/jpeg
+
+>>! {{$historyFolder}}/testingSuiteImage.jpg
+
+### PUT/clientData (Send the test image file)
+# @no-cookie-jar
+< {%
+    client.global.set("startTime", Date.now());
+%}
+# @no-cookie-jar
+PUT {{Bayt_API_BaseAddress}}/clientData/Testing/imageTest.jpg
+
+< ./testingSuiteImage.jpg
+> {%
+    client.test("Request executed successfully", function () {
+        const timeToRespond = Date.now() - client.global.get("startTime");
+        client.log(`Response execution time: ${timeToRespond}ms`);
+
+        client.assert(response.status === 204, "Response status is not 204");
+        client.assert(response.body === "" || response.body === null, "Response json is not empty");
+
+        if (timeToRespond > 350) {
+            client.log(`Response time might be too long. Expected < 350ms`);
+        }
+        client.log(request.body())
+    })
+%}
+
+### GET/clientData (Get the test image file)
+< {%
+    client.global.set("startTime", Date.now());
+%}
+# @no-cookie-jar
+GET {{Bayt_API_BaseAddress}}/clientData/Testing/imageTest.jpg
+
+>>! {{$historyFolder}}/testingSuiteImageGot.jpg
+
+> {%
+    client.test("Request executed successfully", function () {
+        const timeToRespond = Date.now() - client.global.get("startTime");
+        client.log(`Response execution time: ${timeToRespond}ms`);
+
+        client.assert(response.contentType.mimeType === "application/ocetet-stream", "Response content type is not application/ocetet-stream");
+
+        if (timeToRespond > 350) {
+            client.log(`Response time might be too long. Expected < 350ms`);
+        }
+        client.assert(response.headers.valueOf("Content-Length") > 100, `Response content length seems too small, double-check the image (${response.headers["Content-Length"]} bytes)`);
+        client.assert(response.headers.valueOf("Content-Disposition").startsWith("attachment; filename=imageTest.jpg"), "Response content disposition is not as expected");
+    })
+%}
+
+### DELETE/clientData (Delete the test image)
+< {%
+    client.global.set("startTime", Date.now());
+%}
+DELETE {{Bayt_API_BaseAddress}}/clientData/Testing/imageTest.jpg
+
+> {%
+    client.test("Request executed successfully", function () {
+        const timeToRespond = Date.now() - client.global.get("startTime");
+        client.log(`Response execution time: ${timeToRespond}ms`);
+
+        client.assert(response.status === 204, "Response status is not 204");
+        client.assert(response.body === "" || response.body === null, "Response json is not empty");
+
+        if (timeToRespond > 100) {
+            client.log(`Response time might be too long. Expected < 100ms`);
+        }
+    })
+%}
+
+### DELETE/clientData Test (folder)
 < {%
 	client.global.set("startTime", Date.now());
 %}
-DELETE {{Bayt_API_BaseAddress}}/clientData/deletefolder?folderName=Testing/subfolder44
-Accept: application/json
+DELETE {{Bayt_API_BaseAddress}}/clientData/Testing
 
 > {%
 	client.test("Request executed successfully", function () {
@@ -342,7 +413,7 @@ Accept: application/json
 	})
 %}
 
-### getStats Test
+### stats/getCurrent Test
 < {%
 	client.global.set("startTime", Date.now());
 %}

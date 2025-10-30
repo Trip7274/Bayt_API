@@ -40,6 +40,11 @@ public static class DataEndpointManagement
 			if (fileData is not null) FileData = fileData;
 		}
 
+		/// <summary>
+		/// If the file exists, delete it.
+		/// </summary>
+		/// <exception cref="UnauthorizedAccessException">The user does not have write access to the file.</exception>
+		/// <exception cref="IOException">The file is in use.</exception>
 		public void DeleteFile()
 		{
 			if (!File.Exists(AbsolutePath)) return;
@@ -138,6 +143,7 @@ public static class DataEndpointManagement
 	/// <returns>
 	///	Null if the folder and file names are valid. Otherwise, a string containing the error message.
 	/// </returns>
+	/// <seealso cref="EnsureSafeFolderPath"/>
 	private static string? EnsureSafePaths(string? folder, string? fileName)
 	{
 		if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains)
@@ -156,6 +162,15 @@ public static class DataEndpointManagement
 			$"Requested path is outside the clientData folder: '{Path.GetFullPath(Path.Combine(ClientDataFolder, folder, fileName))}'"));
 		return "Requested path is outside the clientData folder.";
 	}
+	/// <summary>
+	/// Ensure the folder name is safe and within the <see cref="ClientDataFolder"/>.
+	/// </summary>
+	/// <param name="folder">The relative path to the folder from the clientData root.</param>
+	/// <exception cref="ArgumentException">The provided folder name is invalid or is not under the clientData root.</exception>
+	/// <returns>
+	///	Null if the folder name is valid. Otherwise, a string containing the error message.
+	/// </returns>
+	/// <seealso cref="EnsureSafePaths"/>
 	private static string? EnsureSafeFolderPath(string? folder)
 	{
 		if (string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))

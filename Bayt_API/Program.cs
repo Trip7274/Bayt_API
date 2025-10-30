@@ -1064,7 +1064,7 @@ else
 
 	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Initialization", "Fetch cycle complete."));
 }
-await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Initialization", "Bayt API is ready."));
+await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Initialization", "::: Bayt API is ready :::"));
 
 try
 {

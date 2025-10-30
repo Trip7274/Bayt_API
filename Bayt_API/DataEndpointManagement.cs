@@ -81,7 +81,7 @@ public static class DataEndpointManagement
 		public byte[]? FileData
 		{
 			get => File.Exists(AbsolutePath) ? File.ReadAllBytes(AbsolutePath) : null;
-			set => File.WriteAllBytes(AbsolutePath, value);
+			set => File.WriteAllBytes(AbsolutePath, value ?? []);
 		}
 
 		/// <summary>

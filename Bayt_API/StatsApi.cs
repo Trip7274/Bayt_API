@@ -60,8 +60,8 @@ public static class StatsApi
 				{ nameof(KernelName), KernelName },
 				{ nameof(KernelVersion), KernelVersion },
 				{ nameof(KernelArch), KernelArch },
-				{ nameof(Docker.IsDockerAvailable), Docker.IsDockerAvailable },
-				{ nameof(Docker.IsDockerComposeAvailable), Docker.IsDockerComposeAvailable },
+				{ nameof(DockerLocal.IsDockerAvailable), DockerLocal.IsDockerAvailable },
+				{ nameof(DockerLocal.IsDockerComposeAvailable), DockerLocal.IsDockerComposeAvailable },
 				{ nameof(SystemUptime), SystemUptime }
 			};
 		}

@@ -9,13 +9,13 @@ public static class RequestChecking
 	/// </summary>
 	///	<param name="id">A potentially null string to ensure it's not null and is >= 12 characters</param>
 	/// <param name="updateContainers">
-	///		Whether to update the <see cref="Docker.DockerContainers"/> list by using
-	///     <see cref="Docker.DockerContainers.UpdateDataIfNecessary"/>.
+	///		Whether to update the <see cref="DockerLocal.DockerContainers"/> list by using
+	///     <see cref="DockerLocal.DockerContainers.UpdateDataIfNecessary"/>.
 	/// </param>
 	/// <param name="checkCompose">Whether to check if Docker-Compose exists and is executable or not.</param>
 	/// <param name="updateImages">
-	///		Whether to update the <see cref="Docker.ImagesInfo"/> list by using
-	///		<see cref="Docker.ImagesInfo.UpdateDataIfNecessary"/>.
+	///		Whether to update the <see cref="DockerLocal.ImagesInfo"/> list by using
+	///		<see cref="DockerLocal.ImagesInfo.UpdateDataIfNecessary"/>.
 	/// </param>
 	/// <returns>
 	///		An IResult object if the request is invalid, otherwise null.
@@ -36,17 +36,17 @@ public static class RequestChecking
 			return Results.BadRequest("ID must be at least 12 characters long.");
 		}
 
-		if (!Docker.IsDockerAvailable)
+		if (!DockerLocal.IsDockerAvailable)
 		{
 			return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 		}
-		if (checkCompose && !Docker.IsDockerComposeAvailable)
+		if (checkCompose && !DockerLocal.IsDockerComposeAvailable)
 		{
 			return Results.InternalServerError("Docker-Compose is not available on this system or the Docker integration was disabled.");
 		}
 
-		if (updateContainers) await Docker.DockerContainers.UpdateDataIfNecessary();
-		if (updateImages) await Docker.ImagesInfo.UpdateDataIfNecessary();
+		if (updateContainers) await DockerLocal.DockerContainers.UpdateDataIfNecessary();
+		if (updateImages) await DockerLocal.ImagesInfo.UpdateDataIfNecessary();
 		return null;
 	}
 }

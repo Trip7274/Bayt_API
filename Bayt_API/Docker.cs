@@ -7,7 +7,7 @@ using System.Text.Json;
 
 namespace Bayt_API;
 
-public static class Docker
+public static class DockerLocal
 {
 	public static bool IsDockerAvailable => File.Exists("/var/run/docker.sock") && ApiConfig.ApiConfiguration.DockerIntegrationEnabled;
 
@@ -517,7 +517,7 @@ public static class Docker
 		/// <remarks>
 		/// In the case of a managed container, this includes the user's preferred name as the first entry.
 		/// </remarks>
-		/// <seealso cref="Docker.GetNames"/>
+		/// <seealso cref="DockerLocal.GetNames"/>
 		public List<string> Names { get; private set; } = [];
 		private readonly Dictionary<string, string>? _labels;
 
@@ -527,7 +527,7 @@ public static class Docker
 		/// <summary>
 		/// The URL pointing to the image's public homepage (GitHub link, Docker Hub link, etc.).
 		/// </summary>
-		/// <seealso cref="Docker.GetImageUrl"/>
+		/// <seealso cref="DockerLocal.GetImageUrl"/>
 		public string? ImageUrl { get; }
 		/// <summary>
 		/// The version of the image.
@@ -535,12 +535,12 @@ public static class Docker
 		/// <remarks>
 		///	In cases where the container's labels don't specify a version, Bayt will try to infer it from the image's name. (e.g. "bayt/bayt:latest" -> "latest")
 		/// </remarks>
-		/// <seealso cref="Docker.GetImageVersion"/>
+		/// <seealso cref="DockerLocal.GetImageVersion"/>
 		public string? ImageVersion { get;  }
 		/// <summary>
 		/// The friendly description of the image.
 		/// </summary>
-		/// <seealso cref="Docker.GetDescription"/>
+		/// <seealso cref="DockerLocal.GetDescription"/>
 		public string? ImageDescription { get; private set; }
 
 		/// <summary>
@@ -584,7 +584,7 @@ public static class Docker
 		/// <remarks>
 		///	Ordered by priority/confidence.
 		/// </remarks>
-		/// <seealso cref="Docker.GetIconUrls"/>
+		/// <seealso cref="DockerLocal.GetIconUrls"/>
 		public List<string> IconUrls { get; }
 
 		/// <summary>
@@ -934,22 +934,22 @@ public static class Docker
 		/// <summary>
 		/// The possible names of this image. In order of priority/confidence
 		/// </summary>
-		/// <seealso cref="Docker.GetNames"/>
+		/// <seealso cref="DockerLocal.GetNames"/>
 		public List<string> Names => GetNames(Labels, repoTags:RepoTags);
 		/// <summary>
 		/// The friendly description of this image.
 		/// </summary>
-		/// <seealso cref="Docker.GetDescription"/>
+		/// <seealso cref="DockerLocal.GetDescription"/>
 		public string? Description => GetDescription(Labels);
 		/// <summary>
 		/// The URL pointing to this image's public homepage (GitHub link, Docker Hub link, etc.).
 		/// </summary>
-		/// <seealso cref="Docker.GetImageUrl"/>
+		/// <seealso cref="DockerLocal.GetImageUrl"/>
 		public string? ImageUrl => GetImageUrl(Labels);
 		/// <summary>
 		/// List of URLs pointing to this image's icon. Resolved from the image's labels, if any. Ordered by priority/confidence.
 		/// </summary>
-		/// <seealso cref="Docker.GetIconUrls"/>
+		/// <seealso cref="DockerLocal.GetIconUrls"/>
 		public List<string> IconUrls => GetIconUrls(Labels);
 		/// <summary>
 		/// The version of this image.
@@ -957,7 +957,7 @@ public static class Docker
 		/// <remarks>
 		///	In cases where the image's labels don't specify a version, Bayt will try to infer it from the first <see cref="RepoTags"/> element. (e.g. "bayt/bayt:latest" -> "latest")
 		/// </remarks>
-		/// <seealso cref="Docker.GetImageVersion"/>
+		/// <seealso cref="DockerLocal.GetImageVersion"/>
 		public string? ImageVersion => GetImageVersion(Labels, RepoTags);
 
 		/// <summary>

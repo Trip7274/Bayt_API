@@ -5,7 +5,7 @@ public class RequestCheckTests
 	[Fact]
 	public async Task TestDockerRequestValidation()
 	{
-		if (!Docker.IsDockerAvailable) return; // It'd be annoying to *require* Docker just to pass tests.
+		if (!DockerLocal.IsDockerAvailable) return; // It'd be annoying to *require* Docker just to pass tests.
 
 		var nullValidationCheck = await RequestChecking.ValidateDockerRequest(null, false);
 		Assert.NotNull(nullValidationCheck);

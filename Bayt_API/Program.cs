@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Web;
 using Bayt_API;
 using Microsoft.AspNetCore.Mvc;
 
@@ -1028,6 +1029,39 @@ app.MapDelete($"{baseDockerUrl}/images/delete", async (string? imageId, bool? fo
 	.WithTags("Docker", "Docker Images")
 	.WithName("DeleteDockerImage");
 
+app.MapGet($"{baseDockerUrl}/images/search", async (string term, byte limit = 15) =>
+	{
+		if (!Docker.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
+		if (string.IsNullOrWhiteSpace(term)) return Results.BadRequest("Please include a term to search.");
+		limit = byte.Clamp(limit, 1, 50);
+
+		var dockerResponse = await Docker.SendRequest($"images/search?term={HttpUtility.UrlEncode(term)}&limit={limit}");
+
+		if (!dockerResponse.IsSuccess) return Results.Text(dockerResponse.Body, dockerResponse.ContentType, Encoding.UTF8, (int) dockerResponse.Status);
+
+		var dockerResponseDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>[]>(dockerResponse.Body) ?? [];
+		var resultDict = new Dictionary<string, Dictionary<string, dynamic>>();
+
+		foreach (var dockerImage in dockerResponseDict)
+		{
+			var imageDict = new Dictionary<string, dynamic>
+			{
+				{ "starCount", dockerImage["star_count"].GetInt32() },
+				{ "isOfficial", dockerImage["is_official"].GetBoolean() },
+				{ "description", dockerImage["description"].GetString()!}
+			};
+			resultDict.Add(dockerImage["name"].GetString()!, imageDict);
+		}
+		resultDict = resultDict.OrderByDescending(pair => pair.Value["starCount"]).ToDictionary(pair => pair.Key, pair => pair.Value);
+
+		return Results.Json(resultDict);
+	}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Search for a Docker image from DockerHub.")
+	.WithDescription("term must be provided and not be whitespace.")
+	.WithTags("Docker", "Docker Images")
+	.WithName("SearchDockerHub");
 
 
 if (Docker.IsDockerAvailable)

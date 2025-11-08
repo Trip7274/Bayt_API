@@ -773,7 +773,7 @@ app.MapPut($"{baseDockerUrl}/containers/setCompose", async (HttpContext context,
 	if (!restartContainer) return Results.NoContent();
 
 
-	var dockerRequest = await DockerLocal.SendRequest($"containers/{containerId}/restart", "POST");
+	var dockerRequest = await DockerLocal.SendRequest($"containers/{containerId}/restart", HttpMethod.Post);
 	return dockerRequest.Status switch
 	{
 		HttpStatusCode.NoContent => Results.NoContent(),
@@ -863,7 +863,7 @@ app.MapDelete($"{baseDockerUrl}/containers/prune", async () =>
 {
 	if (!DockerLocal.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 
-	var dockerRequest = await DockerLocal.SendRequest("containers/prune", "POST");
+	var dockerRequest = await DockerLocal.SendRequest("containers/prune", HttpMethod.Post);
 
 	return dockerRequest.Status switch
 	{

@@ -379,7 +379,7 @@ public static class DockerLocal
 		public async Task<IResult> Start()
 		{
 			if (State is "running") return Results.StatusCode(StatusCodes.Status304NotModified);
-			var dockerRequest = await SendRequest($"containers/{Id}/start", "POST");
+			var dockerRequest = await SendRequest($"containers/{Id}/start", HttpMethod.Post);
 			return dockerRequest.ToResult();
 		}
 		/// <summary>
@@ -389,7 +389,7 @@ public static class DockerLocal
 		public async Task<IResult> Restart()
 		{
 			if (State is "restarting") return Results.StatusCode(StatusCodes.Status304NotModified);
-			var dockerRequest = await SendRequest($"containers/{Id}/restart", "POST");
+			var dockerRequest = await SendRequest($"containers/{Id}/restart", HttpMethod.Post);
 			return dockerRequest.ToResult();
 		}
 		/// <summary>
@@ -399,7 +399,7 @@ public static class DockerLocal
 		public async Task<IResult> Stop()
 		{
 			if (State is "exited") return Results.StatusCode(StatusCodes.Status304NotModified);
-			var dockerRequest = await SendRequest($"containers/{Id}/stop", "POST");
+			var dockerRequest = await SendRequest($"containers/{Id}/stop", HttpMethod.Post);
 			return dockerRequest.ToResult();
 		}
 		/// <summary>
@@ -409,7 +409,7 @@ public static class DockerLocal
 		public async Task<IResult> Kill()
 		{
 			if (State is "exited") return Results.StatusCode(StatusCodes.Status304NotModified);
-			var dockerRequest = await SendRequest($"containers/{Id}/kill", "POST");
+			var dockerRequest = await SendRequest($"containers/{Id}/kill", HttpMethod.Post);
 			return dockerRequest.ToResult();
 		}
 		/// <summary>
@@ -421,7 +421,7 @@ public static class DockerLocal
 			if (State is "paused") return Results.StatusCode(StatusCodes.Status304NotModified);
 			if (State is not "running") return Results.Conflict("Cannot pause a container that is not running.");
 
-			var dockerRequest = await SendRequest($"containers/{Id}/pause", "POST");
+			var dockerRequest = await SendRequest($"containers/{Id}/pause", HttpMethod.Post);
 			return dockerRequest.ToResult();
 		}
 		/// <summary>
@@ -431,7 +431,7 @@ public static class DockerLocal
 		public async Task<IResult> Unpause()
 		{
 			if (State is not "paused") return Results.StatusCode(StatusCodes.Status304NotModified);
-			var dockerRequest = await SendRequest($"containers/{Id}/unpause", "POST");
+			var dockerRequest = await SendRequest($"containers/{Id}/unpause", HttpMethod.Post);
 			return dockerRequest.ToResult();
 		}
 		/// <summary>
@@ -444,7 +444,7 @@ public static class DockerLocal
 		public async Task<IResult> Delete(bool deleteCompose = false, bool removeVolumes = false, bool force = false)
 		{
 			if (State is not "exited" && !force) return Results.Conflict("Cannot delete a container that is not exited.");
-			var dockerRequest = await SendRequest($"containers/{Id}?v={removeVolumes}&force={force}", "DELETE");
+			var dockerRequest = await SendRequest($"containers/{Id}?v={removeVolumes}&force={force}", HttpMethod.Delete);
 			if (deleteCompose && dockerRequest.IsSuccess && ComposePath is not null)
 			{
 				Directory.Delete(Path.GetDirectoryName(ComposePath)!, true);
@@ -900,7 +900,7 @@ public static class DockerLocal
 		public async Task<IResult> Delete(bool force = false)
 		{
 			if (Containers > 0 && !force) return Results.Conflict();
-			var dockerRequest = await SendRequest($"images/{Id}?force={force}", "DELETE");
+			var dockerRequest = await SendRequest($"images/{Id}?force={force}", HttpMethod.Delete);
 
 			return dockerRequest.ToResult();
 		}
@@ -1423,22 +1423,19 @@ public static class DockerLocal
 	/// <exception cref="FileNotFoundException">Thrown if the Docker socket is not available or the Docker daemon is not running.</exception>
 	/// <exception cref="ArgumentException">Thrown if the HTTP method provided is not "GET", "POST", or "DELETE".</exception>
 	/// <exception cref="Exception">Thrown if the Docker socket is not readable or writable.</exception>
-	public static async Task<DockerResponse> SendRequest(string path, string method = "GET", string content = "")
+	public static async Task<DockerResponse> SendRequest(string path, HttpMethod? method = null, string? content = null)
 	{
 		if (path.StartsWith('/')) path = path[1..];
 		if (!IsDockerAvailable)
 			throw new FileNotFoundException("Docker socket not found, or the Docker integration was disabled. " +
 			                                "Ensure that the Docker daemon is running and that the socket is accessible, " +
 			                                "along with that the Docker integration is enabled.");
+		method ??= HttpMethod.Get;
 
 		var client = GetDockerClient();
-		var clientResponse = method switch
-		{
-			"GET" => await client.GetAsync($"http://localhost/{path}"),
-			"POST" => await client.PostAsync($"http://localhost/{path}", new StringContent(content)),
-			"DELETE" => await client.DeleteAsync($"http://localhost/{path}"),
-			_ => throw new ArgumentException("Method must be either GET, POST, or DELETE.")
-		};
+		var request = new HttpRequestMessage(method, $"http://localhost/{path}");
+		if (!string.IsNullOrWhiteSpace(content)) request.Content = new StringContent(content);
+		var clientResponse = await client.SendAsync(request);
 
 		byte[] fullResponse;
 		await using (var stream = await clientResponse.Content.ReadAsStreamAsync())

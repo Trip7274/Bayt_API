@@ -1010,6 +1010,15 @@ app.MapGet($"{baseDockerUrl}/images/getList", async () =>
 	.WithTags("Docker", "Docker Images")
 	.WithName("GetDockerImages");
 
+app.MapPost($"{baseDockerUrl}/images/pull", DockerLocal.PullImage).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status409Conflict)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Delete a Docker image.")
+	.WithDescription("imageId must contain at least the first 12 characters of the image's ID. force removes the image even if it is being used by stopped containers or has other tags, defaults to false.")
+	.WithTags("Docker", "Docker Images")
+	.WithName("PullDockerImage");
+
 app.MapDelete($"{baseDockerUrl}/images/delete", async (string? imageId, bool? force = false) =>
 {
 	var requestValidation = await RequestChecking.ValidateDockerRequest(imageId, false, updateImages:true);
@@ -1062,6 +1071,57 @@ app.MapGet($"{baseDockerUrl}/images/search", async (string term, byte limit = 15
 	.WithDescription("term must be provided and not be whitespace.")
 	.WithTags("Docker", "Docker Images")
 	.WithName("SearchDockerHub");
+
+app.MapGet($"{baseDockerUrl}/images/check", async (string imageName, bool filterIncompatible = true) =>
+{
+	if (!DockerLocal.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
+	if (string.IsNullOrWhiteSpace(imageName) || imageName.Length > 256) return Results.BadRequest("Please include a valid image name to search.");
+	if (imageName.Contains(':')) imageName = imageName.Split(':')[0];
+	if (!imageName.Contains('/')) imageName = "library/" + imageName;
+	if (imageName.Count(c => c == '/') > 1) return Results.BadRequest("Image name seems malformed. Example: 'jellyfin/jellyfin' or 'hello-world' (for official images)");
+
+	var imageNamespace = imageName.Split('/')[0];
+	var imageRepository = imageName.Split('/')[1];
+
+	HttpResponseMessage response;
+	using (var client = new HttpClient())
+	{
+		response = await client.GetAsync($"https://hub.docker.com/v2/namespaces/{imageNamespace}/repositories/{imageRepository}/tags?page_size=10");
+	}
+	if (!response.IsSuccessStatusCode) return Results.Text(await response.Content.ReadAsStringAsync(), "text/plain", Encoding.UTF8, (int) response.StatusCode);
+
+	// This is a bit messy, but we're just trying to make a buncha DockerHub.TagDetails objects from
+	// all the fields in the "results" property in the JSON
+
+	var json = await response.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>()
+	           ?? throw new NullReferenceException("Response from DockerHub was null.");
+
+	var tagElements = json["results"].EnumerateArray().ToList();
+	List<DockerHub.TagDetails> tags = [];
+	tags.AddRange(tagElements.Select(tagElement =>
+		new DockerHub.TagDetails(
+			tagElement.GetProperty("name").GetString()!,
+			tagElement.GetProperty("images"))));
+
+	Dictionary<string, dynamic?> resultDict = new();
+	foreach (var tag in tags)
+	{
+		if (filterIncompatible && !tag.ContainsCompatibleImage()) continue;
+
+		resultDict.Add(tag.Name, tag.ToDictionary(filterIncompatible));
+	}
+
+	return Results.Json(resultDict);
+}).Produces(StatusCodes.Status500InternalServerError)
+	.Produces(StatusCodes.Status429TooManyRequests)
+	.Produces(StatusCodes.Status404NotFound)
+	.Produces(StatusCodes.Status400BadRequest)
+	.Produces(StatusCodes.Status200OK)
+	.WithSummary("Check a Docker image from DockerHub for various details.")
+	.WithDescription("imageName must be provided, and must follow this format: 'jellyfin/jellyfin', or 'python' (for official images). " +
+	                 "filterIncompatible defaults to true, and hides images/tags that don't contain any natively-compatible images for this system")
+	.WithTags("Docker", "Docker Images", "DockerHub")
+	.WithName("CheckDockerImage");
 
 
 if (DockerLocal.IsDockerAvailable)

@@ -1314,6 +1314,106 @@ public static class DockerLocal
 	}
 
 	/// <summary>
+	/// Pulls the specified image from Docker Hub. Streams the progress to the HTTP response in real-time using SSE.
+	/// </summary>
+	/// <param name="context">The HTTP context to write the stream to.</param>
+	/// <param name="imageName">The image's name, or its specific digest to fetch.</param>
+	/// <param name="tagOrDigest">The tag to use. Will default to 'latest' if no digest or tag was specified.</param>
+	public static async Task PullImage(HttpContext context, string? imageName, string tagOrDigest = "latest")
+	{
+		if (!IsDockerAvailable)
+		{
+			await context.Response.WriteAsync("Docker is not available on this system.", context.RequestAborted);
+			await context.Response.CompleteAsync();
+			return;
+		}
+
+		if (string.IsNullOrWhiteSpace(imageName))
+		{
+			await context.Response.WriteAsync("No image name or digest provided.", context.RequestAborted);
+			await context.Response.CompleteAsync();
+			return;
+		}
+		if (imageName.Contains(':'))
+		{
+			tagOrDigest = imageName.Split(':').Last();
+			imageName = imageName.Split(':')[0];
+		}
+
+		var responseToClient = context.Response;
+
+		responseToClient.ContentType = "text/event-stream";
+		responseToClient.Headers.Append("Cache-Control", "no-cache");
+		responseToClient.Headers.Append("Connection", "keep-alive");
+
+		var client = GetDockerClient();
+		client.BaseAddress = new Uri("http://localhost");
+
+		try
+		{
+			var request = new HttpRequestMessage(HttpMethod.Post, $"/images/create?fromImage={imageName}&tag={tagOrDigest}");
+			var dockerResponse = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+
+			await using var stream = await dockerResponse.Content.ReadAsStreamAsync(context.RequestAborted);
+			if (!stream.CanRead)
+			{
+				responseToClient.StatusCode = 500;
+				responseToClient.ContentType = "text/plain";
+				await responseToClient.Body.WriteAsync("Unable to read from the Docker socket."u8.ToArray(),
+					context.RequestAborted);
+				await responseToClient.CompleteAsync();
+				return;
+			}
+
+			List<byte> responseBuffer = [];
+			bool seenCarriageReturn = false;
+			async Task SendBuffer()
+			{
+				await responseToClient.WriteAsync($"data: {Encoding.UTF8.GetString(responseBuffer.ToArray())}\n\n", context.RequestAborted);
+				await responseToClient.Body.FlushAsync(context.RequestAborted);
+				responseBuffer.Clear();
+			}
+
+			while (!context.RequestAborted.IsCancellationRequested)
+			{
+				var readByte = stream.ReadByte();
+				if (readByte == -1) break;
+				switch (readByte)
+				{
+					case '\r':
+					{
+						seenCarriageReturn = true;
+						break;
+					}
+					case '\n' when seenCarriageReturn:
+					{
+						await SendBuffer();
+						seenCarriageReturn = false;
+						break;
+					}
+					default:
+					{
+						responseBuffer.Add((byte) readByte);
+						break;
+					}
+				}
+			}
+			if (responseBuffer.Count > 0) await SendBuffer();
+		}
+		catch (Exception e)
+		{
+			await responseToClient.WriteAsync("data: There was an error reading the progress of the pull. The image may still be downloading, and more details will follow.\n\n", context.RequestAborted);
+			await responseToClient.Body.FlushAsync(context.RequestAborted);
+			await responseToClient.WriteAsync($"data: {e.Message}\n\n", context.RequestAborted);
+			await responseToClient.Body.FlushAsync(context.RequestAborted);
+		}
+		finally
+		{
+			await responseToClient.CompleteAsync();
+		}
+	}
+
+	/// <summary>
 	/// Sends a request to the Docker Daemon API using the specified path, HTTP method, and optional content, and retrieves the response.
 	/// </summary>
 	/// <param name="path">The path to query the Docker API on.</param>
@@ -1358,5 +1458,97 @@ public static class DockerLocal
 			Body = Encoding.UTF8.GetString(fullResponse),
 			ContentType = clientResponse.Content.Headers.ContentType?.MediaType ?? "application/json"
 		};
+	}
+}
+
+public static class DockerHub
+{
+	public sealed record TagDetails
+	{
+		public TagDetails(string name, JsonElement imagesElement)
+		{
+			Name = name;
+
+
+			foreach (var imageElem in imagesElement.EnumerateArray())
+			{
+				if (imageElem.TryGetProperty("digest", out var digestElement) && digestElement.GetString() is null) continue;
+
+				Images.Add(new ImageDetails
+				{
+					ArchitectureRaw = imageElem.GetProperty("architecture").GetString()!,
+					ArchVariant = imageElem.GetProperty("variant").GetString(),
+					OsName = imageElem.GetProperty("os").GetString()!,
+					Digest = imageElem.GetProperty("digest").GetString()!,
+					Size = imageElem.GetProperty("size").GetInt32(),
+					LastPushed = imageElem.GetProperty("last_pushed").GetDateTime()
+				});
+			}
+		}
+
+		public Dictionary<string, dynamic?> ToDictionary(bool filterIncompatible = true)
+		{
+			var resultDict = new Dictionary<string, dynamic?>();
+
+			foreach (var image in Images.Where(image => !filterIncompatible || image.ImageMatches()))
+			{
+				resultDict.Add(image.Digest, image.ToDictionary());
+			}
+
+			return resultDict;
+		}
+
+		public bool ContainsCompatibleImage()
+		{
+			return Images.Any(image => image.ImageMatches());
+		}
+		public string Name { get; }
+		public List<ImageDetails> Images { get; } = [];
+	}
+
+	public sealed record ImageDetails
+	{
+		public bool ImageMatches()
+		{
+			var systemArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture;
+			switch (systemArch)
+			{
+				case System.Runtime.InteropServices.Architecture.X64 when !string.Equals(Architecture, "amd64", StringComparison.OrdinalIgnoreCase):
+				case System.Runtime.InteropServices.Architecture.Arm64 when !string.Equals(Architecture, "arm64", StringComparison.OrdinalIgnoreCase):
+				case System.Runtime.InteropServices.Architecture.RiscV64 when !string.Equals(Architecture, "riscv64", StringComparison.OrdinalIgnoreCase):
+				case System.Runtime.InteropServices.Architecture.X86 when !string.Equals(Architecture, "386", StringComparison.OrdinalIgnoreCase):
+				case System.Runtime.InteropServices.Architecture.Armv6 when !string.Equals(Architecture, "armv6", StringComparison.OrdinalIgnoreCase):
+					return false;
+			}
+
+			switch (Environment.OSVersion.Platform)
+			{
+				case PlatformID.Unix when !string.Equals(OsName, "linux", StringComparison.OrdinalIgnoreCase):
+				case PlatformID.Win32NT when !string.Equals(OsName, "windows", StringComparison.OrdinalIgnoreCase):
+					return false;
+			}
+
+			return true;
+		}
+
+		public Dictionary<string, dynamic?> ToDictionary()
+		{
+			return new()
+			{
+				{ nameof(Architecture), Architecture },
+				{ nameof(OsName), OsName },
+				{ nameof(Size), Size },
+				{ nameof(LastPushed), LastPushed },
+				{ nameof(ImageMatches), ImageMatches() }
+			};
+		}
+
+		public string Architecture => ArchVariant is not null ? ArchitectureRaw + ArchVariant : ArchitectureRaw;
+		public required string ArchitectureRaw { get; init; }
+		public string? ArchVariant { get; init; }
+		public required string OsName { get; init; }
+		public required string Digest { get; init; }
+		public int Size { get; init; }
+		public DateTime? LastPushed { get; init; }
 	}
 }

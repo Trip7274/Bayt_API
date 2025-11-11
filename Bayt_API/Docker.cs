@@ -30,7 +30,7 @@ public static class DockerLocal
 				{
 					dockerComposeBins = Directory.GetFiles(pathInEnv, "docker-compose", SearchOption.TopDirectoryOnly);
 				}
-				catch (DirectoryNotFoundException)
+				catch (Exception e) when(e is AccessViolationException or DirectoryNotFoundException)
 				{
 					continue;
 				}

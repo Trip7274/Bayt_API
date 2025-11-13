@@ -312,7 +312,7 @@ public static class DockerLocal
 				var subnetNetwork = IPNetwork.Parse(networkSubnetCidr);
 				return subnetNetwork.Contains(containerIpAddress) ? machineLocalIp : containerIpAddress;
 			}
-			catch (Exception e) when(e is NullReferenceException or ArgumentException)
+			catch (Exception)
 			{
 				return machineLocalIp;
 			}

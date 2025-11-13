@@ -694,7 +694,20 @@ app.MapPost($"{baseDockerUrl}/containers/resume", async (string? containerId) =>
 	.WithTags("Docker")
 	.WithName("ResumeDockerContainer");
 
-app.MapGet($"{baseDockerUrl}/containers/streamLogs", DockerLocal.StreamDockerLogs)
+app.MapGet($"{baseDockerUrl}/containers/streamLogs", async (CancellationToken cancellationToken, string? containerId, bool stdout = true, bool stderr = true, bool timestamps = false) =>
+	{
+		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
+		if (requestValidation is not null)
+		{
+			return requestValidation;
+		}
+		if (DockerLocal.DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
+		{
+			return Results.NotFound("Container not found.");
+		}
+
+		return Results.ServerSentEvents(DockerLocal.StreamDockerLogs(containerId, stdout, stderr, timestamps, cancellationToken));
+	})
 	.Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status404NotFound)

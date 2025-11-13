@@ -1,7 +1,9 @@
 using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Net.ServerSentEvents;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 
@@ -1236,80 +1238,41 @@ public static class DockerLocal
 	/// <summary>
 	/// Streams Docker logs for the specified container, writing the logs to the HTTP response in real-time.
 	/// </summary>
-	/// <param name="context">The HTTP context used to write the logs to the response.</param>
 	/// <param name="containerId">The ID of the Docker container for which logs should be streamed. Must include at least the first 12 characters.</param>
 	/// <param name="stdout">Indicates whether standard output logs should be included in the stream.</param>
 	/// <param name="stderr">Indicates whether standard error logs should be included in the stream.</param>
 	/// <param name="timestamps">Indicates whether log timestamps should be included in the stream.</param>
-	/// <returns>A task that represents the asynchronous operation of streaming logs to the HTTP response.</returns>
-	public static async Task StreamDockerLogs(HttpContext context, string? containerId, bool stdout = true, bool stderr = true, bool timestamps = false)
+	/// <param name="cancellationToken">Cancellation token for the enumerator</param>
+	/// <returns>An <see cref="SseItem{T}"/> containing a byte[] with the event type "newLogEntry". The array includes both the entry's header and body.</returns>
+	/// <exception cref="InvalidOperationException">The Stream to the Docker socket is not readable.</exception>
+	public static async IAsyncEnumerable<SseItem<byte[]>> StreamDockerLogs(string containerId, bool stdout, bool stderr, bool timestamps, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		var requestValidation = await RequestChecking.ValidateDockerRequest(containerId);
-		if (requestValidation is not null)
+		using var dockerClient = GetDockerClient();
+
+		await using var dockerStream = await dockerClient.GetStreamAsync(
+			$"http://localhost/v1.51/containers/{containerId}/logs?stdout={stdout}&stderr={stderr}&timestamps={timestamps}&follow=true", cancellationToken);
+
+		if (!dockerStream.CanRead)
 		{
-			await requestValidation.ExecuteAsync(context);
-			await context.Response.CompleteAsync();
-			return;
+			throw new InvalidOperationException("Unable to read Docker logs stream.");
 		}
-		var response = context.Response;
+		byte[] logHeader = new byte[8];
 
-		if (DockerContainers.Containers.All(container => !container.Id.StartsWith(containerId)))
+
+		while (!cancellationToken.IsCancellationRequested)
 		{
-			response.StatusCode = 404;
-			await response.WriteAsync("Container not found.", context.RequestAborted);
-			await context.Response.CompleteAsync();
-			return;
-		}
+			var bytesRead = await dockerStream.ReadAtLeastAsync(logHeader, 8, false, cancellationToken);
 
-		response.ContentType = "text/event-stream";
-		response.Headers.Append("Cache-Control", "no-cache");
-		response.Headers.Append("Connection", "keep-alive");
-
-		var client = GetDockerClient();
-		client.BaseAddress = new Uri("http://localhost");
-
-		try
-		{
-			await using var stream = await client.GetStreamAsync(
-				$"/containers/{containerId}/logs?stdout={stdout}&stderr={stderr}&timestamps={timestamps}&follow=true");
-			if (!stream.CanRead)
+			if (bytesRead < 8 || cancellationToken.IsCancellationRequested)
 			{
-				response.StatusCode = 500;
-				response.ContentType = "text/plain";
-				await response.Body.WriteAsync("Unable to read from the Docker socket."u8.ToArray(),
-					context.RequestAborted);
-				await response.CompleteAsync();
-				return;
+				break;
 			}
+			var payloadSize = (int) BinaryPrimitives.ReadUInt32BigEndian(logHeader.AsSpan(4));
 
-			byte[] logHeader = new byte[8];
+			var payloadBuffer = new byte[payloadSize];
+			await dockerStream.ReadExactlyAsync(payloadBuffer, 0, payloadSize, cancellationToken);
 
-			while (!context.RequestAborted.IsCancellationRequested)
-			{
-				var bytesRead = await stream.ReadAtLeastAsync(logHeader, 8, false, context.RequestAborted);
-				if (bytesRead < 8)
-				{
-					break;
-				}
-				var payloadSize = (int) BinaryPrimitives.ReadUInt32BigEndian(logHeader.AsSpan(4));
-
-				var payloadBuffer = new byte[payloadSize];
-				await stream.ReadExactlyAsync(payloadBuffer, 0, payloadSize);
-
-				await response.WriteAsync($"data: {Encoding.UTF8.GetString(payloadBuffer)}\n\n", context.RequestAborted);
-				await response.Body.FlushAsync(context.RequestAborted);
-			}
-		}
-		catch (Exception e)
-		{
-			await response.WriteAsync("data: There was an error fetching the logs. The details will follow.\n\n", context.RequestAborted);
-			await response.Body.FlushAsync(context.RequestAborted);
-			await response.WriteAsync($"data: {e.Message}\n\n", context.RequestAborted);
-			await response.Body.FlushAsync(context.RequestAborted);
-		}
-		finally
-		{
-			await response.CompleteAsync();
+			yield return new SseItem<byte[]>(logHeader.Concat(payloadBuffer).ToArray(), "newLogEntry");
 		}
 	}
 

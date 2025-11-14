@@ -22,17 +22,19 @@ please do help out if you have the experience!)
 	- [X] Arbitrary data exchange endpoints for things like client-wide configs
 	- [X] Docker container management endpoints
     - [ ] Docker image management endpoints
+    - [ ] DockerHub integration (for searching, checking, and pulling images)
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions
 	- [ ] Silo arbitrary data folder to each client
 	- [ ] Add a permission to manage clients (with a dangerous disclaimer)
-	- [ ] Add a way to revoke clients without relying on any clients (Helper CLI?)
+	- [ ] Add a way to revoke clients without relying on any clients (OAuth2?)
 	- [ ] Establish permission presets (Simple stat-viewing dashboards need less access than server management clients)
 - [ ] Add Bayt log streaming endpoints
 - [ ] API documentation
 - [ ] Binary distribution across different Linux repos
 - [ ] Docker container implementation (if possible)
 - *----1.0 Release!----*
+- [ ] Add an endpoint to invoke a script on the server (with whitelisted clients + scripts + users)
 - [ ] Plugin support (if practical)
 - *Do feel free to suggest some more features!*
 
@@ -41,7 +43,7 @@ Bayt uses simple scripts (located in `Bayt_API/scripts/`) to fetch system inform
 The scripts can be written in any language that can be invoked using a shebang. More details on the specific format of I/O can be found in the script headers.
 
 ## Dependencies
-Currently, Bayt is only supported on Linux using the [ASP.NET Core Runtime 9](https://learn.microsoft.com/en-us/dotnet/core/install/linux), and any other dependencies are script-specific,
+Currently, Bayt is only supported on Linux using the [ASP.NET Core Runtime 10](https://learn.microsoft.com/en-us/dotnet/core/install/linux), and any other dependencies are script-specific,
 but the default scripts require the following, depending on your GPU:
 - NVIDIA Systems: (looking for testers; progress paused)
 	- `nvidia-smi`
@@ -64,17 +66,16 @@ You can find the proper format and documentation in each script's head.
 
 ## Installation and usage
 Bayt is still in an early stage, thus the compiled binaries are unavailable.
-You're free to compile the source code and test it out, though!
+Code compilation is straightforward, though!
 
-If you'd like to tinker with it, compilation should be quite simple. But make sure to [grab the .NET SDK 9.0 beforehand](https://learn.microsoft.com/en-us/dotnet/core/install/linux)!
+Make sure you have the [.NET Core 10 SDK](https://learn.microsoft.com/en-us/dotnet/core/install/linux) installed and follow these steps in a terminal:
+
 
 1. Retrieve the latest branch using `git clone https://github.com/Trip7274/Bayt_API.git`
 2. Switch to the appropriate directory using `cd Bayt_API/Bayt_API/`
 3. Compile by running `dotnet build --configuration Release`
-4. Switch to the output directory using `cd bin/Release/net9.0`
-5. Execute the server binary using `./Bayt_API`
+4. Switch to the output directory using `cd bin/Release/net10.0`
+5. Set up user permissions by running `./SetupBayt.sh` \[Optional, used for a few endpoints and dependency checks\]
+6. Execute the server binary using `./Bayt_API`
 
-If you'd like it as a one-liner, here you go:
-```shell
-git clone https://github.com/Trip7274/Bayt_API.git; cd Bayt_API/Bayt_API/; dotnet build --configuration Release; cd bin/Release/net9.0; ./Bayt_API
-```
+If you encounter any issues or feel like this README can be improved, feel free to open an issue!

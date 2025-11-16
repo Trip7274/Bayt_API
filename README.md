@@ -66,7 +66,7 @@ You can find the proper format and documentation in each script's head.
 
 ## Installation and usage
 Bayt is still in an early stage, thus the compiled binaries are unavailable.
-Code compilation is straightforward, though!
+Code compilation is straightforward, though! 
 
 Make sure you have the [.NET Core 10 SDK](https://learn.microsoft.com/en-us/dotnet/core/install/linux) installed and follow these steps in a terminal:
 

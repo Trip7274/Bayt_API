@@ -5,7 +5,7 @@ namespace Bayt_API;
 
 public static class ParsingMethods
 {
-	public static T? ParseTypeNullable<T>(string value) where T : struct, IParsable<T>
+	public static T? ParseNullable<T>(this string value) where T : struct, IParsable<T>
 	{
 		if (value == "null" || !T.TryParse(value, CultureInfo.CurrentCulture, out var result))
 		{

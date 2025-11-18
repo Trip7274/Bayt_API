@@ -174,7 +174,7 @@ public static class StatsApi
 				throw new Exception($"Invalid output from getCpu.sh (Expected 5 entries, got {outputArray.Length}).");
 			}
 
-			var temp = ParsingMethods.ParseTypeNullable<float>(outputArray[4]);
+			var temp = outputArray[4].ParseNullable<float>();
 			if (outputArray[3] == "thermalZone")
 			{
 				temp /= 1000;

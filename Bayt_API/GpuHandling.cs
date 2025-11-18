@@ -173,25 +173,25 @@ public static class GpuHandling
 
 			Brand = arrayOutput[0];
 			Name = arrayOutput[1].Trim('"');
-			IsDedicated = ParsingMethods.ParseTypeNullable<bool>(arrayOutput[2]);
+			IsDedicated = arrayOutput[2].ParseNullable<bool>();
 			IsMissing = false;
 
-			GraphicsUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[3]);
-			GraphicsFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[4]);
+			GraphicsUtilPerc = arrayOutput[3].ParseNullable<float>();
+			GraphicsFrequency = arrayOutput[4].ParseNullable<float>();
 
-			VramUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[5]);
-			VramTotalBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[6]);
-			VramUsedBytes = ParsingMethods.ParseTypeNullable<ulong>(arrayOutput[7]);
-			VramGttUtilPerc = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[8]);
+			VramUtilPerc = arrayOutput[5].ParseNullable<float>();
+			VramTotalBytes = arrayOutput[6].ParseNullable<ulong>();
+			VramUsedBytes = arrayOutput[7].ParseNullable<ulong>();
+			VramGttUtilPerc = arrayOutput[8].ParseNullable<sbyte>();
 
-			EncoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[9]);
-			DecoderUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[10]);
-			VideoEnhanceUtilPerc = ParsingMethods.ParseTypeNullable<float>(arrayOutput[11]);
-			EncDecFrequency = ParsingMethods.ParseTypeNullable<float>(arrayOutput[12]);
+			EncoderUtilPerc = arrayOutput[9].ParseNullable<float>();
+			DecoderUtilPerc = arrayOutput[10].ParseNullable<float>();
+			VideoEnhanceUtilPerc = arrayOutput[11].ParseNullable<float>();
+			EncDecFrequency = arrayOutput[12].ParseNullable<float>();
 
-			PowerUse = ParsingMethods.ParseTypeNullable<float>(arrayOutput[13]);
-			TemperatureC = ParsingMethods.ParseTypeNullable<sbyte>(arrayOutput[14]);
-			FanSpeedRpm = ParsingMethods.ParseTypeNullable<ushort>(arrayOutput[15]);
+			PowerUse = arrayOutput[13].ParseNullable<float>();
+			TemperatureC = arrayOutput[14].ParseNullable<sbyte>();
+			FanSpeedRpm = arrayOutput[15].ParseNullable<ushort>();
 		}
 	}
 

@@ -1,9 +1,9 @@
 using System.Buffers.Binary;
-using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.ServerSentEvents;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 
@@ -16,7 +16,6 @@ public static class DockerLocal
 	/// <summary>
 	/// Returns whether Docker-Compose is available.
 	/// </summary>
-	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
 	public static bool IsDockerComposeAvailable
 	{
 		get
@@ -39,6 +38,7 @@ public static class DockerLocal
 				if (dockerComposeBins.Length == 0) continue;
 
 				composeBinPath = dockerComposeBins[0];
+				break;
 			}
 
 			return composeBinPath is not null && (File.GetUnixFileMode(composeBinPath) & UnixFileMode.UserExecute) != 0;

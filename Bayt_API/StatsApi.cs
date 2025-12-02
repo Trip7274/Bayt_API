@@ -127,9 +127,9 @@ public static class StatsApi
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "CPU Fetch", "Checking for CPU data update..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Checking for CPU data update..."));
 			if (!ShouldUpdate) return;
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "CPU Fetch", "Updating CPU data..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Updating CPU data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -146,7 +146,7 @@ public static class StatsApi
 			{
 				UpdatingTask = null;
 			}
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "CPU Fetch", "CPU data updated."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "CPU data updated."));
 		}
 
 		/// <summary>
@@ -251,9 +251,9 @@ public static class StatsApi
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "RAM Fetch", "Checking for RAM data update..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Checking for RAM data update..."));
 			if (!ShouldUpdate) return;
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "RAM Fetch", "Updating RAM data..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Updating RAM data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -270,7 +270,7 @@ public static class StatsApi
 			{
 				UpdatingTask = null;
 			}
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "RAM Fetch", "RAM data updated."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "RAM data updated."));
 		}
 
 		/// <summary>

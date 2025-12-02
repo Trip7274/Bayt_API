@@ -49,7 +49,7 @@ public static class ShellMethods
 	/// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
 	public static async Task<ShellResult> RunShell(string program, string[]? arguments = null, TimeSpan? timeout = null, bool throwIfTimedout = true, Dictionary<string, string?>? environmentVariables = null)
 	{
-		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Got a request to run a command: {Path.GetFileName(program)} {string.Join(", ", arguments ?? [])}"));
+		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Process Execution", $"Got a request to run a command: {Path.GetFileName(program)} {string.Join(", ", arguments ?? [])}"));
 		StringBuilder stdout = new();
 		StringBuilder stderr = new();
 		Dictionary<string, string?> envVars = new()
@@ -93,7 +93,7 @@ public static class ShellMethods
 		}
 		if (statusCode == -1 && process is not null) statusCode = process.ExitCode;
 
-		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Process Execution", $"Process '{Path.GetFileName(program)}' exited with code {statusCode}."));
+		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Process Execution", $"Process '{Path.GetFileName(program)}' exited with code {statusCode}."));
 		return new ShellResult
 		{
 			StandardOutput = stdout.ToString().Trim('\n'),

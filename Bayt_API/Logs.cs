@@ -171,6 +171,9 @@ public sealed class LogEntry
 		return byteList.ToArray();
 	}
 
+	public static implicit operator byte[](LogEntry logEntry) => logEntry.Serialize();
+	public static explicit operator LogEntry(byte[] bytes) => Parse(bytes);
+
 	/// <summary>
 	/// Convert this LogEntry to a string with the following format:<br/>
 	/// <c>[STREAM] ModuleName: Content</c><br/>
@@ -256,22 +259,15 @@ public static class Logs
 
 	public static class LogStream
 	{
-		public static async ValueTask WriteAsync(LogEntry entry) {
-			if (entry.StreamId == StreamId.None) return;
-			ReadOnlyMemory<byte> textBytes = entry.Serialize();
-
-			StreamWrittenTo?.Invoke(null, entry);
-			await MemoryStream.WriteAsync(textBytes);
-			Truncate();
-		}
+		private static readonly MemoryStream MemoryStream = new();
+		private static readonly Lock StreamWriteLock = new();
 
 		public static void Write(LogEntry entry)
 		{
 			if (entry.StreamId == StreamId.None) return;
-			ReadOnlySpan<byte> entryBytes = entry.Serialize();
 
 			StreamWrittenTo?.Invoke(null, entry);
-			MemoryStream.Write(entryBytes);
+			lock (StreamWriteLock) MemoryStream.Write(entry);
 			Truncate();
 		}
 
@@ -325,8 +321,6 @@ public static class Logs
 			MemoryStream.SetLength(MaxStreamLength);
 			// TODO: This needs more testing.
 		}
-
-		private static readonly MemoryStream MemoryStream = new();
 	}
 
 	public static void EchoLogs(object? e, LogEntry logEntry)
@@ -374,7 +368,7 @@ public static class Logs
 				case StreamId.None:
 					break;
 			}
-			Console.WriteLine(logEntry.ToString());
+			Console.WriteLine(logEntry);
 			Console.ResetColor();
 		}
 	}

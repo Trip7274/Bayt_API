@@ -101,9 +101,9 @@ public static class DockerLocal
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Checking for Docker container data update..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Checking for Docker container data update..."));
 			if (!ShouldUpdate) return;
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Updating Docker container data..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Updating Docker container data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -120,7 +120,7 @@ public static class DockerLocal
 			{
 				UpdatingTask = null;
 			}
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Docker container data updated."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Docker container data updated."));
 		}
 
 		/// <summary>
@@ -843,9 +843,9 @@ public static class DockerLocal
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Checking for Docker image data update..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Checking for Docker image data update..."));
 			if (!ShouldUpdate) return;
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Updating Docker image data..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Updating Docker image data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -862,7 +862,7 @@ public static class DockerLocal
 			{
 				UpdatingTask = null;
 			}
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Docker image data updated."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Docker image data updated."));
 		}
 
 		/// <summary>

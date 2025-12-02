@@ -252,9 +252,9 @@ public static class GpuHandling
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "GPU Fetch", "Checking for GPU data update..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "Checking for GPU data update..."));
 			if (!ShouldUpdate) return;
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "GPU Fetch", "Updating GPU data..."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "Updating GPU data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -271,7 +271,7 @@ public static class GpuHandling
 			{
 				UpdatingTask = null;
 			}
-			await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Verbose, "GPU Fetch", "GPU data updated."));
+			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "GPU data updated."));
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()

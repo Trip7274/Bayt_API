@@ -1139,16 +1139,16 @@ app.MapGet($"{baseDockerUrl}/images/check", async (string imageName, bool filter
 
 if (DockerLocal.IsDockerAvailable)
 {
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
 
 	if (DockerLocal.IsDockerComposeAvailable)
 	{
-		await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
+		Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
 	}
 }
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
 }
 else
 {
@@ -1166,12 +1166,12 @@ else
 		fetchTasks.Add(Task.Run(DockerLocal.ImagesInfo.UpdateDataIfNecessary));
 	}
 
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Initialization", "Running an initial fetch cycle..."));
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Initialization", "Running an initial fetch cycle..."));
 	await Task.WhenAll(fetchTasks);
 
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Initialization", "Fetch cycle complete."));
+	Logs.LogStream.Write(new LogEntry(StreamId.Ok, "Initialization", "Fetch cycle complete."));
 }
-await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Ok, "Initialization", "::: Bayt API is ready :::"));
+Logs.LogStream.Write(new LogEntry(StreamId.Ok, "Initialization", "::: Bayt API is ready :::"));
 
 try
 {
@@ -1179,20 +1179,20 @@ try
 }
 catch (SocketException e) when (e.Message == "Cannot assign requested address")
 {
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Fatal, "Network Initalization",
+	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
 		"Something went wrong while binding to one of the targetted IP addresses. Make sure the targetted IP address is valid."));
 }
 catch (SocketException e) when (e.Message == "Permission denied")
 {
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Fatal, "Network Initalization",
+	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
 		"The current user does not have permission to bind to one of the IP addresses or ports."));
 }
 catch (IOException e) when (e.InnerException is not null && e.InnerException.Message == "Address already in use")
 {
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Fatal, "Network Initalization",
+	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
 		$"Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running."));
 }
 finally
 {
-	await Logs.LogStream.WriteAsync(new LogEntry(StreamId.Info, "Bayt", "Bayt is shutting down."));
+	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Bayt", "Bayt is shutting down."));
 }

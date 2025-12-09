@@ -57,4 +57,16 @@ public static class ParsingMethods
 			outpuStringBuilder.Length--;
 		return outpuStringBuilder.ToString();
 	}
+
+	public static bool IsEnvVarTrue(string varName)
+	{
+		var envVar = Environment.GetEnvironmentVariable(varName);
+		return envVar?.ToLowerInvariant() switch
+		{
+			null => false,
+			"1" or "yes" or "on" => true,
+			"0" or "no" or "off" => false,
+			_ => bool.TryParse(envVar, out var boolResult) && boolResult
+		};
+	}
 }

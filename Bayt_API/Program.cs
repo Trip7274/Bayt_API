@@ -15,7 +15,7 @@ builder.Services.AddOpenApi();
 Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list"));
 builder.WebHost.ConfigureKestrel(opts => opts.Listen(IPAddress.Loopback, ApiConfig.NetworkPort));
 
-if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
+if (!ParsingMethods.IsEnvVarTrue("BAYT_LOCALHOST_ONLY"))
 {
 	var localIp = StatsApi.GetLocalIpAddress();
 
@@ -23,7 +23,7 @@ if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 	builder.WebHost.ConfigureKestrel(opts => opts.Listen(localIp, ApiConfig.NetworkPort));
 }
 
-if (Environment.GetEnvironmentVariable("BAYT_DISABLE_SOCK") != "1")
+if (!ParsingMethods.IsEnvVarTrue("BAYT_DISABLE_SOCK"))
 {
 	if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
 	Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list"));
@@ -1146,7 +1146,7 @@ if (DockerLocal.IsDockerAvailable)
 		Logs.LogBook.Write(new (StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
 	}
 }
-if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
+if (ParsingMethods.IsEnvVarTrue("BAYT_SKIP_FIRST_FETCH"))
 {
 	Logs.LogBook.Write(new (StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
 }

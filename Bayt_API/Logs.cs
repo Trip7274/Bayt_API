@@ -39,7 +39,6 @@ public sealed class LogEntry
 		get => (StreamId) StreamIdByte;
 		private init => StreamIdByte = (byte) value;
 	}
-
 	public byte StreamIdByte { get; private init; }
 
 	public ushort ContentLength => (ushort) int.Clamp(ContentBytes.Length, 0, MaxContentLength);
@@ -69,12 +68,11 @@ public sealed class LogEntry
 			_moduleNameBytes = Encoding.ASCII.GetBytes(valueStringBuilder.ToString());
 		}
 	}
-
 	private readonly byte[] _moduleNameBytes = new byte[MaxModuleNameLength];
 
 	public string Content
 	{
-		get => Encoding.ASCII.GetString(_contentRaw);
+		get => Encoding.ASCII.GetString(ContentBytes);
 		private init
 		{
 			if (value.Length > MaxContentLength) value = value[..MaxContentLength];
@@ -86,20 +84,18 @@ public sealed class LogEntry
 			}
 			if (string.IsNullOrWhiteSpace(valueStringBuilder.ToString())) throw new ArgumentException("Content cannot be null or whitespace.");
 
-			_contentRaw = Encoding.ASCII.GetBytes(valueStringBuilder.ToString());
+			ContentBytes = Encoding.ASCII.GetBytes(valueStringBuilder.ToString());
 		}
 	}
-
 	public byte[] ContentBytes
 	{
-		get => _contentRaw;
+		get;
 		private init
 		{
 			if (value.Length > MaxContentLength) value = value[..MaxContentLength];
-			_contentRaw = value;
+			field = value;
 		}
 	}
-	private readonly byte[] _contentRaw = [];
 	public ushort SerializedLength => (ushort) (12 + _moduleNameBytes.Length + ContentLength);
 
 	public static LogEntry Parse(byte[] data)
@@ -169,7 +165,7 @@ public sealed class LogEntry
 		var moduleLen = _moduleNameBytes.Length;
 
 		buffer[11 + moduleLen] = 2; // STX
-		_contentRaw.CopyTo(buffer[(12 + moduleLen)..]);
+		ContentBytes.CopyTo(buffer[(12 + moduleLen)..]);
 
 		return buffer.ToArray();
 	}

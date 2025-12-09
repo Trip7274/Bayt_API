@@ -95,7 +95,7 @@ public sealed class LogEntry
 			if (value.Length > MaxContentLength) value = value[..MaxContentLength];
 			field = value;
 		}
-	}
+	} = [];
 	public ushort SerializedLength => (ushort) (12 + _moduleNameBytes.Length + ContentLength);
 
 	public static LogEntry Parse(byte[] data)

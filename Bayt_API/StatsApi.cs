@@ -127,9 +127,9 @@ public static class StatsApi
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Checking for CPU data update..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Checking for CPU data update..."));
 			if (!ShouldUpdate) return;
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Updating CPU data..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Updating CPU data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -146,7 +146,7 @@ public static class StatsApi
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "CPU data updated."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "CPU data updated."));
 		}
 
 		/// <summary>
@@ -251,9 +251,9 @@ public static class StatsApi
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Checking for RAM data update..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Checking for RAM data update..."));
 			if (!ShouldUpdate) return;
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Updating RAM data..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Updating RAM data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -270,7 +270,7 @@ public static class StatsApi
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "RAM data updated."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "RAM data updated."));
 		}
 
 		/// <summary>
@@ -330,11 +330,11 @@ public static class StatsApi
 			if (IPAddress.TryParse(Environment.GetEnvironmentVariable("BAYT_LOCALIP"), out var localIpParsed))
 			{
 				localIp = localIpParsed;
-				Logs.LogStream.Write(new(StreamId.Info, "Network Initalization", $"Using BAYT_LOCALIP environment variable to override detected IP address: '{localIp}'"));
+				Logs.LogBook.Write(new(StreamId.Info, "Network Initalization", $"Using BAYT_LOCALIP environment variable to override detected IP address: '{localIp}'"));
 				return localIp;
 			}
 
-			Logs.LogStream.Write(new (StreamId.Warning, "Network Initalization",
+			Logs.LogBook.Write(new (StreamId.Warning, "Network Initalization",
 				$"BAYT_LOCALIP environment variable is set to '{Environment.GetEnvironmentVariable("BAYT_LOCALIP")}', but it doesn't appear to be a valid IP address."));
 		}
 

@@ -36,12 +36,12 @@ public static class ApiConfig
 	public static readonly Stopwatch BaytStartStopwatch = Stopwatch.StartNew();
 
 	/// <summary>
-	/// Indicates how verbose the API's logging should be. 0-7, with 7 being the most verbose. Tries to use the env var <c>BAYT_VERBOSITY</c> first, then falls back to 6.
+	/// Indicates how verbose the API's terminal output should be. 0-7, with 7 being the most verbose. Tries to use the env var <c>BAYT_VERBOSITY</c> first, then falls back to 6 (Up to NOTICE).
 	/// </summary>
 	/// <remarks>
 	///	As-as, this only affects the PRINTING of logs. More verbose logs are still written to the log stream.
 	/// </remarks>
-	public static readonly byte VerbosityLevel = (byte) (byte.TryParse(Environment.GetEnvironmentVariable("BAYT_VERBOSITY"), out var verbosityLevel) ? verbosityLevel : 6);
+	public static readonly byte TerminalVerbosity = (byte) (byte.TryParse(Environment.GetEnvironmentVariable("BAYT_VERBOSITY"), out var terminalVerbosity) ? terminalVerbosity : 6);
 
 	// Paths and config-specific stuff from here on out
 
@@ -119,12 +119,9 @@ public static class ApiConfig
 	{
 		static ApiConfiguration()
 		{
-			Logs.StreamWrittenTo += Logs.EchoLogs;
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Logging", "Registered logging callback."));
-
 			if (!Directory.Exists(BaseConfigPath))
 			{
-				Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Config", "Base config directory does not exist, creating..."));
+				Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Configuration", "Base config directory does not exist, creating..."));
 				Directory.CreateDirectory(BaseConfigPath);
 				File.WriteAllText(Path.Combine(BaseConfigPath, "README"), "This folder is where the configs for the Bayt API are stored.\n" +
 				                                                          "More info: https://github.com/Trip7274/Bayt_API");
@@ -174,6 +171,13 @@ public static class ApiConfig
 		///	Defaults to "<see cref="BaseDataPath"/>/containers".
 		/// </remarks>
 		public static string PathToComposeFolder { get; private set; } = Path.Combine(BaseDataPath, "containers");
+		/// <summary>
+		/// Abs. path to the folder containing all the logs.
+		/// </summary>
+		/// <remarks>
+		///	Defaults to "<see cref="BaseDataPath"/>/logs".
+		/// </remarks>
+		public static string PathToLogFolder { get; private set; } = Path.Combine(BaseDataPath, "logs");
 
 		/// <summary>
 		/// Whether the Docker integration is enabled.
@@ -184,17 +188,10 @@ public static class ApiConfig
 		public static bool DockerIntegrationEnabled { get; private set; } = true;
 
 		/// <summary>
-		/// Whether to keep 65,535 bytes of logs, or 6,553,500 (100x) bytes. Useful for debugging but will use more RAM (~20MBs+)
+		/// The verbosity level of the written logs. Does not control the verbosity of the terminal output.
 		/// </summary>
-		/// <remarks>
-		/// Defaults to false.
-		/// </remarks>
-		public static bool KeepMoreLogs { get; private set; }
-
-		/// <summary>
-		/// Whether to prepend every log with a timestamp.
-		/// </summary>
-		public static bool ShowTimestampsInLogs { get; private set; }
+		/// <seealso cref="ApiConfig.TerminalVerbosity"/>
+		public static byte LogVerbosity { get; private set; } = 7;
 
 		/// <summary>
 		/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
@@ -234,10 +231,10 @@ public static class ApiConfig
 				{ nameof(BackendName), BackendName },
 				{ nameof(SecondsToUpdate), SecondsToUpdate },
 				{ nameof(PathToDataFolder), PathToDataFolder },
+				{ nameof(PathToLogFolder), PathToLogFolder },
 				{ nameof(PathToComposeFolder), PathToComposeFolder },
 				{ nameof(DockerIntegrationEnabled), DockerIntegrationEnabled },
-				{ nameof(KeepMoreLogs), KeepMoreLogs },
-				{ nameof(ShowTimestampsInLogs), ShowTimestampsInLogs },
+				{ nameof(LogVerbosity), LogVerbosity },
 				{ nameof(WatchedMounts), WatchedMounts },
 				{ nameof(WolClients), WolClients }
 			};
@@ -260,14 +257,15 @@ public static class ApiConfig
 			var loadedDict = (JsonSerializer.Deserialize<JsonDocument>(File.ReadAllText(ConfigFilePath, Encoding.UTF8))
 			                 ?? throw new Exception("Failed to deserialize config file")).RootElement;
 
+			// This needs some cleaning.
 			ConfigVersion = loadedDict.GetProperty(nameof(ConfigVersion)).GetByte();
 			BackendName = loadedDict.TryGetProperty(nameof(BackendName), out var backendName) ? backendName.GetString() ?? BackendName : BackendName;
 			SecondsToUpdate = loadedDict.TryGetProperty(nameof(SecondsToUpdate), out var secondsToUpdate) ? secondsToUpdate.GetUInt16() : SecondsToUpdate;
 			PathToDataFolder = loadedDict.TryGetProperty(nameof(PathToDataFolder), out var pathToDataFolder) ? pathToDataFolder.GetString() ?? PathToDataFolder : PathToDataFolder;
+			PathToLogFolder = loadedDict.TryGetProperty(nameof(PathToLogFolder), out var pathToLogFolder) ? pathToLogFolder.GetString() ?? PathToLogFolder : PathToLogFolder;
 			PathToComposeFolder = loadedDict.TryGetProperty(nameof(PathToComposeFolder), out var pathToComposeFolder) ? pathToComposeFolder.GetString() ?? PathToComposeFolder : PathToComposeFolder;
 			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
-			KeepMoreLogs = loadedDict.TryGetProperty(nameof(KeepMoreLogs), out var keepMoreLogs) ? keepMoreLogs.GetBoolean() : KeepMoreLogs;
-			ShowTimestampsInLogs = loadedDict.TryGetProperty(nameof(ShowTimestampsInLogs), out var showTimestampsInLogs) ? showTimestampsInLogs.GetBoolean() : ShowTimestampsInLogs;
+			LogVerbosity = loadedDict.TryGetProperty(nameof(LogVerbosity), out var logVerbosity) ? logVerbosity.GetByte() : LogVerbosity;
 
 			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
 			{
@@ -278,9 +276,9 @@ public static class ApiConfig
 				catch (JsonException e)
 				{
 					// Technically could recover from this by regenerating the config, but I don't wanna reset the user's entire config every time they mess up their JSON.
-					Logs.LogStream.Write(new(StreamId.Fatal, "Watched Mounts Load",
+					Logs.LogBook.Write(new(StreamId.Fatal, "Watched Mounts Load",
 						"Failed to load a mount entry from the configuration file. Please ensure the JSON is valid."));
-					Logs.LogStream.Write(new(StreamId.Fatal, "Watched Mounts Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
+					Logs.LogBook.Write(new(StreamId.Fatal, "Watched Mounts Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
 					throw new Exception();
 				}
 			}
@@ -293,9 +291,9 @@ public static class ApiConfig
 				catch (JsonException e)
 				{
 					// Technically could recover from this by regenerating the config, but I don't wanna reset the user's entire config every time they mess up their JSON.
-					Logs.LogStream.Write(new(StreamId.Fatal, "WoL Load",
+					Logs.LogBook.Write(new(StreamId.Fatal, "WoL Load",
 						"Failed to load the list of WoL clients from the configuration file. Please ensure the JSON is valid."));
-					Logs.LogStream.Write(new(StreamId.Fatal, "WoL Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
+					Logs.LogBook.Write(new(StreamId.Fatal, "WoL Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
 					throw new Exception();
 				}
 			}
@@ -313,48 +311,46 @@ public static class ApiConfig
 		/// </remarks>
 		private static void CheckConfig()
 		{
-			if (File.Exists(ConfigFilePath))
+			if (!File.Exists(ConfigFilePath))
 			{
-				if (!Directory.Exists(PathToDataFolder))
-				{
-					const string defaultReadmeContent = """
-					                                    This folder contains all server-wide data for each client, separated by client.
-
-					                                    Please refer to the specific client's documentation for info on the file types, along with usage details.
-					                                    Make sure the server is shut down before modifying these files.
-					                                    This folder was made by Bayt API. More info: https://github.com/Trip7274/Bayt_API
-					                                    """;
-
-					Directory.CreateDirectory(PathToDataFolder);
-					File.WriteAllText(Path.Combine(PathToDataFolder, "README"), defaultReadmeContent);
-				}
-				if (!Directory.Exists(PathToComposeFolder))
-				{
-					const string defaultReadmeContent = """
-					                                    This folder contains all the Docker compose files made by Bayt API.
-
-					                                    You should be safe manually deleting these files, provided the container is not running.
-					                                    This folder was made by Bayt API. More info: https://github.com/Trip7274/Bayt_API
-					                                    """;
-
-					Directory.CreateDirectory(PathToComposeFolder);
-					File.WriteAllText(Path.Combine(PathToComposeFolder, "README"), defaultReadmeContent);
-				}
-				if (ValidateConfigSyntax()) return;
-
-
-				if (File.Exists($"{ConfigFilePath}.old"))
-				{
-					File.Delete($"{ConfigFilePath}.old");
-				}
-				File.Move(ConfigFilePath, $"{ConfigFilePath}.old");
-			}
-			else
-			{
-				Logs.LogStream.Write(new LogEntry(StreamId.Info, "Config", "Couldn't find the configuration file. A new one will be generated."));
+				Logs.LogBook.Write(new LogEntry(StreamId.Info, "Configuration", "Couldn't find the configuration file. A new one will be generated."));
+				SaveConfig();
 			}
 
-			SaveConfig();
+			if (!Directory.Exists(PathToDataFolder))
+			{
+				const string defaultReadmeContent = """
+				                                    This folder contains all server-wide data for each client, separated by client.
+
+				                                    Please refer to the specific client's documentation for info on the file types, along with usage details.
+				                                    Make sure the server is shut down before modifying these files.
+				                                    This folder was made by Bayt API. More info: https://github.com/Trip7274/Bayt_API
+				                                    """;
+
+				Directory.CreateDirectory(PathToDataFolder);
+				File.WriteAllText(Path.Combine(PathToDataFolder, "README"), defaultReadmeContent);
+			}
+			if (!Directory.Exists(PathToComposeFolder))
+			{
+				const string defaultReadmeContent = """
+				                                    This folder contains all the Docker compose files made by Bayt API.
+
+				                                    You should be safe manually deleting these files, provided the container is not running.
+				                                    This folder was made by Bayt API. More info: https://github.com/Trip7274/Bayt_API
+				                                    """;
+
+				Directory.CreateDirectory(PathToComposeFolder);
+				File.WriteAllText(Path.Combine(PathToComposeFolder, "README"), defaultReadmeContent);
+			}
+			if (!Directory.Exists(PathToLogFolder)) Directory.CreateDirectory(PathToLogFolder);
+			if (ValidateConfigSyntax()) return;
+
+
+			if (File.Exists($"{ConfigFilePath}.old"))
+			{
+				File.Delete($"{ConfigFilePath}.old");
+			}
+			File.Move(ConfigFilePath, $"{ConfigFilePath}.old");
 		}
 
 		/// <summary>
@@ -367,17 +363,17 @@ public static class ApiConfig
 			{
 				var jsonDocument = JsonDocument.Parse(File.ReadAllText(ConfigFilePath)).RootElement;
 
-				if (jsonDocument.TryGetProperty(nameof(ConfigVersion), out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() > ApiVersion)
+				if (jsonDocument.TryGetProperty(nameof(ConfigVersion), out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() != ApiVersion)
 				{
-					Logs.LogStream.Write(new(StreamId.Warning, "Config", $"Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons."));
+					Logs.LogBook.Write(new(StreamId.Warning, "Config", $"Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons."));
 				}
 
 				return jsonDocument.TryGetProperty(nameof(ConfigVersion), out configVersion) && configVersion.ValueKind == JsonValueKind.Number;
 			}
 			catch (JsonException exception)
 			{
-				Logs.LogStream.Write(new(StreamId.Error, "Config", $"Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}."));
-				Logs.LogStream.Write(new(StreamId.Error, "Config", $"Your configuration will be regenerated. You can find your old configuration in {ConfigFilePath}.old"));
+				Logs.LogBook.Write(new(StreamId.Error, "Config", $"Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}."));
+				Logs.LogBook.Write(new(StreamId.Error, "Config", $"Your configuration will be regenerated. You can find your old configuration in {ConfigFilePath}.old"));
 				return false;
 			}
 		}
@@ -401,7 +397,7 @@ public static class ApiConfig
 		/// <returns>Whether the method actually changed any configs.</returns>
 		public static bool EditConfig(Dictionary<string, dynamic> newProps)
 		{
-			Logs.LogStream.Write(new(StreamId.Verbose, "Config Edit", $"Config Edit Requested: {string.Join(", ", newProps.Keys)}"));
+			Logs.LogBook.Write(new(StreamId.Verbose, "Configuration Edit", $"Configuration Edit Requested: {string.Join(", ", newProps.Keys)}"));
 			if (newProps.Count == 0) return false;
 			bool configChanged = false;
 
@@ -411,7 +407,7 @@ public static class ApiConfig
 				{
 					case nameof(BackendName) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != BackendName:
 					{
-						Logs.LogStream.Write(new(StreamId.Verbose, "Config Edit", $"Config Edit Requested: {string.Join(", ", newProps.Keys)}"));
+						Logs.LogBook.Write(new(StreamId.Verbose, "Configuration Edit", $"Configuration Edit Requested: {string.Join(", ", newProps.Keys)}"));
 						BackendName = newPropKvp.Value.GetString() ?? BackendName;
 						configChanged = true;
 						break;
@@ -428,6 +424,12 @@ public static class ApiConfig
 						configChanged = true;
 						break;
 					}
+					case nameof(PathToLogFolder) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != PathToLogFolder:
+					{
+						PathToLogFolder = newPropKvp.Value.GetString() ?? PathToLogFolder;
+						configChanged = true;
+						break;
+					}
 					case nameof(PathToComposeFolder) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != PathToComposeFolder:
 					{
 						PathToComposeFolder = newPropKvp.Value.GetString() ?? PathToComposeFolder;
@@ -440,15 +442,9 @@ public static class ApiConfig
 						configChanged = true;
 						break;
 					}
-					case nameof(KeepMoreLogs) when newPropKvp.Value.GetBoolean() != KeepMoreLogs:
+					case nameof(LogVerbosity) when newPropKvp.Value.GetByte() != LogVerbosity:
 					{
-						KeepMoreLogs = newPropKvp.Value.GetBoolean();
-						configChanged = true;
-						break;
-					}
-					case nameof(ShowTimestampsInLogs) when newPropKvp.Value.GetBoolean() != ShowTimestampsInLogs:
-					{
-						ShowTimestampsInLogs = newPropKvp.Value.GetBoolean();
+						LogVerbosity = newPropKvp.Value.GetByte();
 						configChanged = true;
 						break;
 					}
@@ -536,7 +532,7 @@ public static class ApiConfig
 				catch (Exception e)
 				{
 					var name = wolClientDict.Value.GetValueOrDefault("Name");
-					Logs.LogStream.Write(new(StreamId.Error, "WoL Init",
+					Logs.LogBook.Write(new(StreamId.Error, "WoL Init",
 						$"Got a '{e.Message}' error trying to load a WoL client from the configuration file. Detected name: {name ?? "(unable to fetch name)"} Skipping."));
 				}
 			}
@@ -563,7 +559,7 @@ public static class ApiConfig
 			}
 			catch (TimeoutException)
 			{
-				Logs.LogStream.Write(new(StreamId.Error, "WoL Client Add", $"getNet.sh timed out while fetching the client's physical address or subnet mask ({clientAddress}). Skipping."));
+				Logs.LogBook.Write(new(StreamId.Error, "WoL Client Add", $"getNet.sh timed out while fetching the client's physical address or subnet mask ({clientAddress}). Skipping."));
 				return false;
 			}
 
@@ -601,13 +597,13 @@ public static class ApiConfig
 			}
 			catch (TimeoutException)
 			{
-				Logs.LogStream.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh timed out while ({clientAddress.ToString()}). Skipping."));
+				Logs.LogBook.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh timed out while ({clientAddress.ToString()}). Skipping."));
 				return null;
 			}
 
 			if (!PhysicalAddress.TryParse(physicalAddressStdout, out var physicalAddress))
 			{
-				Logs.LogStream.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh output seems to be malformed or incorrect for {clientAddress}. Skipping."));
+				Logs.LogBook.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh output seems to be malformed or incorrect for {clientAddress}. Skipping."));
 				return null;
 			}
 

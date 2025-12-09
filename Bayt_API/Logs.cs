@@ -4,15 +4,16 @@ namespace Bayt_API;
 
 public sealed class LogEntry
 {
-	// Header length: 13-44 bytes
+	// Header length: 13-38 bytes
 	// Serialized Format:
 	// 1 byte: Stream ID
 	// 2 bytes: Content Length
 	// 8 bytes: Time Written
-	// (1-32) bytes: Module Name
+	// (1-26) bytes: Module Name
 	// STX (Start of Text) byte
 	// {Content Length} bytes: Content (1-1024 bytes/chars)
-	public const ushort MaxContentLength = 1024;
+	private const ushort MaxContentLength = 1024;
+	private const byte MaxModuleNameLength = 26;
 
 	public LogEntry(StreamId streamId, string moduleName, string content, DateTime? timeWritten = null)
 	{
@@ -55,7 +56,7 @@ public sealed class LogEntry
 		get => Encoding.ASCII.GetString(_moduleNameBytes);
 		private init
 		{
-			if (value.Length > 32) value = value[..32];
+			if (value.Length > MaxModuleNameLength) value = value[..MaxModuleNameLength];
 
 			var valueStringBuilder = new StringBuilder();
 
@@ -69,7 +70,7 @@ public sealed class LogEntry
 		}
 	}
 
-	private readonly byte[] _moduleNameBytes = new byte[32];
+	private readonly byte[] _moduleNameBytes = new byte[MaxModuleNameLength];
 
 	public string Content
 	{
@@ -99,11 +100,12 @@ public sealed class LogEntry
 		}
 	}
 	private readonly byte[] _contentRaw = [];
+	public ushort SerializedLength => (ushort) (12 + _moduleNameBytes.Length + ContentLength);
 
 	public static LogEntry Parse(byte[] data)
 	{
 		if (data.Length < 14) throw new ArgumentOutOfRangeException(nameof(data), "Data is too short.");
-		var headerModuleNameLength = (byte) Math.Min(data.Length - 11, 32);
+		var headerModuleNameLength = (byte) Math.Min(data.Length - 11, MaxModuleNameLength);
 		if (!data.AsSpan(11, headerModuleNameLength).Contains((byte) 2)) throw new ArgumentException("Header does not contain STX (Start of Text) byte. Looks like an invalid log entry.");
 
 		var streamId = data[0];
@@ -134,14 +136,14 @@ public sealed class LogEntry
 	{
 		if (header.Length < 13) throw new ArgumentOutOfRangeException(nameof(header), "Header data is too short.");
 		if (content.Length < 1) throw new ArgumentOutOfRangeException(nameof(content), "Content data is too short.");
-		if (!header.AsSpan(11, Math.Min(header.Length - 11, 32)).Contains((byte) 2)) throw new ArgumentException("Header does not contain STX (Start of Text) byte. Looks like an invalid log entry.");
+		if (!header.AsSpan(11, Math.Min(header.Length - 11, MaxModuleNameLength)).Contains((byte) 2)) throw new ArgumentException("Header does not contain STX (Start of Text) byte. Looks like an invalid log entry.");
 
 		var streamId = header[0];
 		var contentLength = BitConverter.ToUInt16(header.AsSpan(1, 2));
 		var timeWrittenRaw = BitConverter.ToInt64(header.AsSpan(3, 8));
 
 		byte stxOffset;
-		var moduleNamePotential = header.AsSpan(11, Math.Min(header.Length - 11, 32));
+		var moduleNamePotential = header.AsSpan(11, Math.Min(header.Length - 11, MaxModuleNameLength));
 		for (stxOffset = 0; stxOffset <= moduleNamePotential.Length; stxOffset++)
 		{
 			if (moduleNamePotential[stxOffset] == 2) break;
@@ -156,19 +158,20 @@ public sealed class LogEntry
 
 	public byte[] Serialize()
 	{
-		List<byte> byteList =
-		[
-			StreamIdByte
-		];
+		var buffer = new Span<byte>(new byte[SerializedLength])
+		{
+			[0] = StreamIdByte
+		};
+		BitConverter.TryWriteBytes(buffer.Slice(1, 2), ContentLength);
+		BitConverter.TryWriteBytes(buffer.Slice(3, 8), TimeWrittenBinary);
 
-		byteList.AddRange(BitConverter.GetBytes(ContentLength));
-		byteList.AddRange(BitConverter.GetBytes(TimeWrittenBinary));
+		_moduleNameBytes.CopyTo(buffer[11..]);
+		var moduleLen = _moduleNameBytes.Length;
 
-		byteList.AddRange(_moduleNameBytes);
-		byteList.Add(2);
-		byteList.AddRange(_contentRaw);
+		buffer[11 + moduleLen] = 2; // STX
+		_contentRaw.CopyTo(buffer[(12 + moduleLen)..]);
 
-		return byteList.ToArray();
+		return buffer.ToArray();
 	}
 
 	public static implicit operator byte[](LogEntry logEntry) => logEntry.Serialize();
@@ -176,18 +179,14 @@ public sealed class LogEntry
 
 	/// <summary>
 	/// Convert this LogEntry to a string with the following format:<br/>
-	/// <c>[STREAM] ModuleName: Content</c><br/>
-	/// or, based on <see cref="ApiConfig.ApiConfiguration.ShowTimestampsInLogs"/>:<br/>
-	/// <c>TimeWritten - [STREAM] ModuleName: Content</c>
+	/// <c>TimeWritten | STREAM_ID | ModuleName | Content</c>
 	/// </summary>
 	/// <remarks>
-	///	TimeWritten is in LocalTime.
+	///	TimeWritten is converted to LocalTime.
 	/// </remarks>
 	public override string ToString()
 	{
-		return ApiConfig.ApiConfiguration.ShowTimestampsInLogs ?
-			$"{TimeWritten.ToLocalTime().ToLongTimeString()} - [{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}"
-			: $"[{StreamId.ToString().ToUpperInvariant()}] {ModuleName}: {Content}";
+		return $"{TimeWritten.ToLocalTime(),-15:h:mm:ss tt zz} | {StreamId.ToString().ToUpperInvariant(),-7} | {ModuleName,-MaxModuleNameLength} | {Content}";
 	}
 }
 
@@ -253,81 +252,108 @@ public enum StreamId : byte
 
 public static class Logs
 {
-	private static readonly Lock LogLock = new();
-	private static readonly int MaxStreamLength = ApiConfig.ApiConfiguration.KeepMoreLogs ? ushort.MaxValue * 100 : ushort.MaxValue;
+	static Logs()
+	{
+		StreamWrittenTo += EchoLogs;
+		LogBook.Write(new LogEntry(StreamId.Verbose, "Logging", "Registered logging callback."));
+	}
 	public static event EventHandler<LogEntry>? StreamWrittenTo;
 
-	public static class LogStream
+	public static class LogBook
 	{
-		private static readonly MemoryStream MemoryStream = new();
-		private static readonly Lock StreamWriteLock = new();
+		static LogBook()
+		{
+			// ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+			if (ApiConfig.ApiConfiguration.PathToLogFolder is null || !Directory.Exists(ApiConfig.ApiConfiguration.PathToLogFolder)) return;
+
+			CreateNewLogFile();
+		}
+
+		private static readonly Lock BookWriteLock = new();
+		private static readonly Queue<LogEntry> SetupQueue = new();
+		private static DateOnly _lastDateOpened = DateOnly.FromDateTime(DateTime.Now);
+		private static StreamWriter? _logWriter;
 
 		public static void Write(LogEntry entry)
 		{
 			if (entry.StreamId == StreamId.None) return;
-
 			StreamWrittenTo?.Invoke(null, entry);
-			lock (StreamWriteLock) MemoryStream.Write(entry);
-			Truncate();
-		}
 
-		public static async Task<List<LogEntry>> ReadAll()
-		{
-			var oldPos = MemoryStream.Position;
-			MemoryStream.Position = 0;
-			var entries = new List<LogEntry>();
-			while (true)
+			// Buffer log entries up until the `ApiConfig.ApiConfiguration` class is fully initialized.
+			// Then, write them out in order.
+			lock (BookWriteLock)
 			{
-				var entry = await ReadEntry();
-				if (entry is null) break;
-				entries.Add(entry);
+				if (_logWriter is null)
+				{
+					SetupQueue.Enqueue(entry);
+					return;
+				}
+				if (SetupQueue.Count > 0)
+				{
+					while (SetupQueue.TryDequeue(out var queuedEntry))
+					{
+						if (ApiConfig.ApiConfiguration.LogVerbosity >= queuedEntry.StreamIdByte)
+						{
+							_logWriter.WriteLine(queuedEntry);
+						}
+					}
+					_logWriter.Flush();
+				}
 			}
 
-			MemoryStream.Position = oldPos;
-			return entries;
-		}
+			CheckFileDate();
 
-		public static async Task<LogEntry?> ReadEntry()
-		{
-			MemoryStream.Position = 0;
-			var entryHeader = new byte[44];
-			try
+			if (ApiConfig.ApiConfiguration.LogVerbosity < entry.StreamIdByte) return;
+
+			lock (BookWriteLock)
 			{
-				await MemoryStream.ReadExactlyAsync(entryHeader);
+				_logWriter.WriteLine(entry);
+				_logWriter.Flush();
 			}
-			catch (EndOfStreamException)
+		}
+		private static void CheckFileDate()
+		{
+			if (_lastDateOpened == DateOnly.FromDateTime(DateTime.Now)) return;
+
+			_lastDateOpened = DateOnly.FromDateTime(DateTime.Now);
+			lock (BookWriteLock)
 			{
-				return null;
+				string newFileName =
+					$"[{_lastDateOpened.ToString("O")}] baytLog.log";
+				_logWriter!.WriteLine(new LogEntry(StreamId.Notice, "Logging", $"System date changed. New logs will be written in '{newFileName}'"));
+				_logWriter.Flush();
+				_logWriter.Dispose();
+
+				CreateNewLogFile();
 			}
-
-			ushort contentLength = ushort.Clamp(BitConverter.ToUInt16(entryHeader.AsSpan(1, 2)), 0, LogEntry.MaxContentLength);
-			byte[] content = new byte[contentLength];
-			await MemoryStream.ReadExactlyAsync(content);
-
-			return LogEntry.Parse(entryHeader, content);
-		}
-		public static MemoryStream ReadStream()
-		{
-			return MemoryStream;
 		}
 
-		public static void Clear() =>
-			MemoryStream.SetLength(0);
-
-		public static void Truncate()
+		private static void CreateNewLogFile()
 		{
-			if (MemoryStream.Length < MaxStreamLength) return;
+			string fullPath = Path.Combine(ApiConfig.ApiConfiguration.PathToLogFolder, $"[{_lastDateOpened.ToString("O")}] baytLog.log");
 
-			MemoryStream.SetLength(MaxStreamLength);
-			// TODO: This needs more testing.
+			var fileIsNew = !File.Exists(fullPath);
+			_logWriter = new(fullPath, true, Encoding.UTF8);
+			if (fileIsNew) _logWriter.WriteLine("Time Written    | Type    | Module Name                | Content"); // Header
+			_logWriter.Flush();
+		}
+
+		internal static void Dispose()
+		{
+			lock (BookWriteLock)
+			{
+				_logWriter?.Flush();
+				_logWriter?.Dispose();
+			}
 		}
 	}
 
+	private static readonly Lock LogEchoLock = new();
 	public static void EchoLogs(object? e, LogEntry logEntry)
 	{
-		if (ApiConfig.VerbosityLevel < logEntry.StreamIdByte) return;
+		if (ApiConfig.TerminalVerbosity < logEntry.StreamIdByte) return;
 
-		lock (LogLock)
+		lock (LogEchoLock)
 		{
 			switch (logEntry.StreamId)
 			{

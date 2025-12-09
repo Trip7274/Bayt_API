@@ -12,34 +12,34 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list"));
+Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list"));
 builder.WebHost.ConfigureKestrel(opts => opts.Listen(IPAddress.Loopback, ApiConfig.NetworkPort));
 
 if (Environment.GetEnvironmentVariable("BAYT_LOCALHOST_ONLY") != "1")
 {
 	var localIp = StatsApi.GetLocalIpAddress();
 
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL '{localIp}:{ApiConfig.NetworkPort}' to listen list"));
+	Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL '{localIp}:{ApiConfig.NetworkPort}' to listen list"));
 	builder.WebHost.ConfigureKestrel(opts => opts.Listen(localIp, ApiConfig.NetworkPort));
 }
 
 if (Environment.GetEnvironmentVariable("BAYT_DISABLE_SOCK") != "1")
 {
 	if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Network Initalization", $"Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list"));
+	Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list"));
 	builder.WebHost.ConfigureKestrel(opts => opts.ListenUnixSocket(ApiConfig.UnixSocketPath));
 }
 
 
-Logs.LogStream.Write(new LogEntry(StreamId.Notice, "Configuration",
+Logs.LogBook.Write(new (StreamId.Notice, "Configuration",
 	$"Loaded configuration from: '{ApiConfig.ConfigFilePath}'"));
 
-Logs.LogStream.Write(new LogEntry(StreamId.Notice, "Client Data",
+Logs.LogBook.Write(new (StreamId.Notice, "Client Data",
 	$"Loaded clientData from: '{ApiConfig.ApiConfiguration.PathToDataFolder}'"));
 
 if (DockerLocal.IsDockerComposeAvailable)
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Notice, "Containers",
+	Logs.LogBook.Write(new (StreamId.Notice, "Containers",
 		$"Loaded containers from: '{ApiConfig.ApiConfiguration.PathToComposeFolder}'"));
 }
 
@@ -57,7 +57,7 @@ app.UseHttpsRedirection();
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Warning, "Initialization",
+	Logs.LogBook.Write(new (StreamId.Warning, "Initialization",
 		$"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like. This is unsupported, here be dragons."));
 }
 
@@ -88,7 +88,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (bool? meta, bo
 		{
 			return Results.BadRequest("No stats were requested.");
 		}
-		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GetStats", $"Got a request for: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
+		Logs.LogBook.Write(new (StreamId.Verbose, "GetStats", $"Got a request for: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
 
 		// Request checks done
 
@@ -182,7 +182,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (bool? meta, bo
 				}
 			}
 		}
-		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GetStats", $"Sent off the response with {responseDictionary.Count} fields."));
+		Logs.LogBook.Write(new (StreamId.Verbose, "GetStats", $"Sent off the response with {responseDictionary.Count} fields."));
 		return Results.Json(responseDictionary);
 	}).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
@@ -496,7 +496,7 @@ app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}", (string? 
 // Power endpoints
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/shutdown", async () =>
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Server Power", "Recieved poweroff request, attempting to shut down..."));
+	Logs.LogBook.Write(new (StreamId.Info, "Server Power", "Recieved poweroff request, attempting to shut down..."));
 	var operationShell = await ShellMethods.RunShell("sudo", ["-n", "/sbin/poweroff"]);
 
 	// Realistically, execution shouldn't get this far.
@@ -519,7 +519,7 @@ app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/shutdown", async () =>
 
 app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/restart", async () =>
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Server Power", "Recieved restart request, attempting to restart..."));
+	Logs.LogBook.Write(new (StreamId.Info, "Server Power", "Recieved restart request, attempting to restart..."));
 	var operationShell = await ShellMethods.RunShell("sudo", ["-n", "/sbin/reboot"]);
 
 	if (operationShell.IsSuccess) return Results.NoContent();
@@ -1139,16 +1139,16 @@ app.MapGet($"{baseDockerUrl}/images/check", async (string imageName, bool filter
 
 if (DockerLocal.IsDockerAvailable)
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
+	Logs.LogBook.Write(new (StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
 
 	if (DockerLocal.IsDockerComposeAvailable)
 	{
-		Logs.LogStream.Write(new LogEntry(StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
+		Logs.LogBook.Write(new (StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
 	}
 }
 if (Environment.GetEnvironmentVariable("BAYT_SKIP_FIRST_FETCH") == "1")
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
+	Logs.LogBook.Write(new (StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
 }
 else
 {
@@ -1166,12 +1166,12 @@ else
 		fetchTasks.Add(Task.Run(DockerLocal.ImagesInfo.UpdateDataIfNecessary));
 	}
 
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Initialization", "Running an initial fetch cycle..."));
+	Logs.LogBook.Write(new (StreamId.Info, "Initialization", "Running an initial fetch cycle..."));
 	await Task.WhenAll(fetchTasks);
 
-	Logs.LogStream.Write(new LogEntry(StreamId.Ok, "Initialization", "Fetch cycle complete."));
+	Logs.LogBook.Write(new (StreamId.Ok, "Initialization", "Fetch cycle complete."));
 }
-Logs.LogStream.Write(new LogEntry(StreamId.Ok, "Initialization", "::: Bayt API is ready :::"));
+Logs.LogBook.Write(new (StreamId.Ok, "Initialization", "::: Bayt API is ready :::"));
 
 try
 {
@@ -1179,20 +1179,21 @@ try
 }
 catch (SocketException e) when (e.Message == "Cannot assign requested address")
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+	Logs.LogBook.Write(new (StreamId.Fatal, "Network Initalization",
 		"Something went wrong while binding to one of the targetted IP addresses. Make sure the targetted IP address is valid."));
 }
 catch (SocketException e) when (e.Message == "Permission denied")
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+	Logs.LogBook.Write(new (StreamId.Fatal, "Network Initalization",
 		"The current user does not have permission to bind to one of the IP addresses or ports."));
 }
 catch (IOException e) when (e.InnerException is not null && e.InnerException.Message == "Address already in use")
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Fatal, "Network Initalization",
+	Logs.LogBook.Write(new (StreamId.Fatal, "Network Initalization",
 		$"Port {ApiConfig.NetworkPort} is already in use. Another instance of Bayt may be running."));
 }
 finally
 {
-	Logs.LogStream.Write(new LogEntry(StreamId.Info, "Bayt", "Bayt is shutting down."));
+	Logs.LogBook.Write(new (StreamId.Info, "Shutdown", "Bayt is shutting down."));
+	Logs.LogBook.Dispose();
 }

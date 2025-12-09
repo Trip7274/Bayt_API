@@ -142,7 +142,7 @@ public static class GpuHandling
 			string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
 			if (arrayOutput.Length < 16)
 			{
-				Logs.LogStream.Write(new(StreamId.Error, "GPU Fetch",
+				Logs.LogBook.Write(new(StreamId.Error, "GPU Fetch",
 					$"Error while parsing data for GPU '{GpuId}'! (Script exit code: {shellScriptProcess.ExitCode} Log: {ApiConfig.BaseExecutablePath}/logs/GPU.log)"));
 				return;
 			}
@@ -252,9 +252,9 @@ public static class GpuHandling
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "Checking for GPU data update..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "Checking for GPU data update..."));
 			if (!ShouldUpdate) return;
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "Updating GPU data..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "Updating GPU data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -271,7 +271,7 @@ public static class GpuHandling
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "GPU data updated."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "GPU data updated."));
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()

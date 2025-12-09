@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.ServerSentEvents;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 
@@ -101,9 +100,9 @@ public static class DockerLocal
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Checking for Docker container data update..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Checking for Docker container data update..."));
 			if (!ShouldUpdate) return;
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Updating Docker container data..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Updating Docker container data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -120,7 +119,7 @@ public static class DockerLocal
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Docker container data updated."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Docker container data updated."));
 		}
 
 		/// <summary>
@@ -370,7 +369,7 @@ public static class DockerLocal
 			}
 			catch (KeyNotFoundException)
 			{
-				Logs.LogStream.Write(new LogEntry(StreamId.Error, "Docker Container Init", $"The metadata file for a Docker container seems like invalid JSON. (ID: {Id[..16]})"));
+				Logs.LogBook.Write(new LogEntry(StreamId.Error, "Docker Container Init", $"The metadata file for a Docker container seems like invalid JSON. (ID: {Id[..16]})"));
 			}
 		}
 
@@ -843,9 +842,9 @@ public static class DockerLocal
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Checking for Docker image data update..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Checking for Docker image data update..."));
 			if (!ShouldUpdate) return;
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Updating Docker image data..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Updating Docker image data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -862,7 +861,7 @@ public static class DockerLocal
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Docker image data updated."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Docker image data updated."));
 		}
 
 		/// <summary>

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using CliWrap;
@@ -49,7 +50,11 @@ public static class ShellMethods
 	/// <exception cref="TimeoutException">Thrown if the process does not exit within the specified timeout.</exception>
 	public static async Task<ShellResult> RunShell(string program, string[]? arguments = null, TimeSpan? timeout = null, bool throwIfTimedout = true, Dictionary<string, string?>? environmentVariables = null)
 	{
-		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Process Execution", $"Got a request to run a command: {Path.GetFileName(program)} {string.Join(", ", arguments ?? [])}"));
+		var processIdentifier = (ushort) Random.Shared.Next();
+		timeout ??= TimeSpan.FromSeconds(5);
+		arguments ??= [];
+
+		Logs.LogBook.Write(new LogEntry(StreamId.Verbose, $"Process Execution [{processIdentifier:X4}]", $"Got a request to run a command: '{Path.GetFileName(program)} [{string.Join(", ", arguments)}]'"));
 		StringBuilder stdout = new();
 		StringBuilder stderr = new();
 		Dictionary<string, string?> envVars = new()
@@ -64,13 +69,12 @@ public static class ShellMethods
 			}
 		}
 
-		timeout ??= TimeSpan.FromSeconds(5);
-		arguments ??= [];
-
 		var statusCode = -1;
 		CommandResult? process = null;
+		Stopwatch processTimer = new();
 		try
 		{
+			processTimer.Start();
 			process = await Cli.Wrap(program)
 				.WithArguments(arguments)
 				.WithValidation(CommandResultValidation.None)
@@ -79,13 +83,16 @@ public static class ShellMethods
 				.WithWorkingDirectory(Directory.GetCurrentDirectory())
 				.WithEnvironmentVariables(envVars)
 				.ExecuteAsync(new CancellationTokenSource(timeout.Value).Token);
+			processTimer.Stop();
 		}
 		catch (OperationCanceledException e)
 		{
 			if (throwIfTimedout)
 			{
+				Logs.LogBook.Write(new(StreamId.Fatal,
+					$"Process Execution [{processIdentifier:X4}]", $"The process '{Path.GetFileName(program)}' fatally timed out after {processTimer.Elapsed.TotalSeconds} seconds. Bayt will exit."));
 				throw new TimeoutException(
-					$"The process '{Path.GetFileName(program)}' timed out after {timeout.Value.Seconds} seconds.",
+					$"[{processIdentifier:X4}] The process '{Path.GetFileName(program)}' timed out after {processTimer.Elapsed.TotalSeconds} seconds.",
 					e);
 			}
 
@@ -93,7 +100,8 @@ public static class ShellMethods
 		}
 		if (statusCode == -1 && process is not null) statusCode = process.ExitCode;
 
-		Logs.LogStream.Write(new LogEntry(StreamId.Verbose, "Process Execution", $"Process '{Path.GetFileName(program)}' exited with code {statusCode}."));
+		Logs.LogBook.Write(new LogEntry(StreamId.Verbose, $"Process Execution [{processIdentifier:X4}]",
+			$"Process '{Path.GetFileName(program)}' exited with code {statusCode}. (in {Math.Round(process?.RunTime.TotalMilliseconds ?? processTimer.ElapsedMilliseconds, 2)}ms)"));
 		return new ShellResult
 		{
 			StandardOutput = stdout.ToString().Trim('\n'),

@@ -54,13 +54,13 @@ public static class DataEndpointManagement
 			}
 			catch (IOException)
 			{
-				Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+				Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
 					$"The '{Path.GetFileName(AbsolutePath)}' clientData file is in use, thus it was not deleted."));
 				throw;
 			}
 			catch (UnauthorizedAccessException)
 			{
-				Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+				Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
 					$"The current user does not have the permission to delete the '{Path.GetFileName(AbsolutePath)}' clientData file, or it is read-only, thus it was not deleted."));
 				throw;
 			}
@@ -122,13 +122,13 @@ public static class DataEndpointManagement
 		}
 		catch (UnauthorizedAccessException)
 		{
-			Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+			Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
 				"The permissions for the clientData folder seem incorrect. (No write permission) Please ensure your user has write access to it."));
 			throw;
 		}
 		catch (IOException)
 		{
-			Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+			Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
 				$"The '{Path.GetFileName(folderPath)}' clientData folder is either in use, read-only, or contains a read-only file, thus it was not deleted."));
 			throw;
 		}
@@ -149,7 +149,7 @@ public static class DataEndpointManagement
 		if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains)
 		   || string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
 		{
-			Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+			Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
 				$"Invalid folder or file name: '{folder} + {fileName}'"));
 			return "Folder and file name must not be empty or contain invalid characters.";
 		}
@@ -158,7 +158,7 @@ public static class DataEndpointManagement
 		// Directory traversal protection
 		if (Path.GetFullPath(Path.Combine(ClientDataFolder, folder, fileName)).StartsWith(ClientDataFolder)) return null;
 
-		Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+		Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
 			$"Requested path is outside the clientData folder: '{Path.GetFullPath(Path.Combine(ClientDataFolder, folder, fileName))}'"));
 		return "Requested path is outside the clientData folder.";
 	}
@@ -175,7 +175,7 @@ public static class DataEndpointManagement
 	{
 		if (string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
 		{
-			Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+			Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
 				$"Invalid folder name: '{folder}'"));
 			return "Folder name must not be empty or contain invalid characters.";
 		}
@@ -184,7 +184,7 @@ public static class DataEndpointManagement
 		// Directory traversal protection
 		if (Path.GetFullPath(Path.Combine(ClientDataFolder, folder)).StartsWith(ClientDataFolder)) return null;
 
-		Logs.LogStream.Write(new(StreamId.Error, "Client Data Management",
+		Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
 			$"Requested path is outside the clientData folder: '{Path.GetFullPath(Path.Combine(ClientDataFolder, folder))}'"));
 		return "Requested path is outside the clientData folder.";
 	}

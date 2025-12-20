@@ -213,7 +213,7 @@ public static class StatsApi
 			{
 				0 => 0,
 				1 => coreFrequencies[0],
-				_ => (int) Math.Round(coreFrequencies.Average())
+				_ => (int) Math.Round(coreFrequencies.Average() / 1000F)
 			};
 		}
 

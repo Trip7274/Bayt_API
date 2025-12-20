@@ -109,7 +109,14 @@ public static class GpuHandling
 		/// <remarks>
 		///	In the case of an AMD iGPU, this will be the power consumption of the entire CPU die.
 		/// </remarks>
-		public float? PowerUse { get; private set; }
+		public float? PowerDraw { get; private set; }
+		/// <summary>
+		/// The current set power cap of the GPU. Unit is Watts.
+		/// </summary>
+		/// <remarks>
+		/// Currently dedicated AMD only.
+		/// </remarks>
+		public ushort? CurrentPowerCap { get; private set; }
 		/// <summary>
 		/// Average temperature of the GPU die. Unit is in Celsius.
 		/// </summary>
@@ -128,7 +135,8 @@ public static class GpuHandling
 		internal void UpdateData()
 		{
 			// Format should be:
-			// "GPU Brand|GPU Name|IsGpuDedicated?|Graphics Util Perc|Graphics Frequency|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|VRAM GTT Usage Perc?|Encoder Util|Decoder Util?|Video Enhance Util?|Encoder/Decoder Frequency?|Power Usage|TemperatureC?|FanSpeedRPM?"
+			// "GPU Brand|GPU Name|IsGpuDedicated?|Graphics Util Perc|Graphics Frequency|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|VRAM GTT Usage Perc?|Encoder Util|Decoder Util?|Video Enhance Util?|Encoder/Decoder Frequency?|Power Usage|CurrentPowerCap?|TemperatureC?|FanSpeedRPM?"
+			// TODO: This REALLY needs to be refactored to use JSON or *anything*.
 
 			var shellTimeout = TimeSpan.FromMilliseconds(2500);
 			if (Name == null)
@@ -140,7 +148,7 @@ public static class GpuHandling
 					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", ["All", GpuId], shellTimeout).Result;
 
 			string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
-			if (arrayOutput.Length < 16)
+			if (arrayOutput.Length < 17)
 			{
 				Logs.LogBook.Write(new(StreamId.Error, "GPU Fetch",
 					$"Error while parsing data for GPU '{GpuId}'! (Script exit code: {shellScriptProcess.ExitCode} Log: {ApiConfig.BaseExecutablePath}/logs/GPU.log)"));
@@ -189,9 +197,10 @@ public static class GpuHandling
 			VideoEnhanceUtilPerc = arrayOutput[11].ParseNullable<float>();
 			EncDecFrequency = arrayOutput[12].ParseNullable<float>();
 
-			PowerUse = arrayOutput[13].ParseNullable<float>();
-			TemperatureC = arrayOutput[14].ParseNullable<sbyte>();
-			FanSpeedRpm = arrayOutput[15].ParseNullable<ushort>();
+			PowerDraw = arrayOutput[13].ParseNullable<float>();
+			CurrentPowerCap = arrayOutput[14].ParseNullable<ushort>();
+			TemperatureC = arrayOutput[15].ParseNullable<sbyte>();
+			FanSpeedRpm = arrayOutput[16].ParseNullable<ushort>();
 		}
 	}
 
@@ -315,7 +324,8 @@ public static class GpuHandling
 					{ nameof(gpuData.VideoEnhanceUtilPerc), gpuData.VideoEnhanceUtilPerc },
 					{ nameof(gpuData.EncDecFrequency), gpuData.EncDecFrequency },
 
-					{ nameof(gpuData.PowerUse), gpuData.PowerUse },
+					{ nameof(gpuData.PowerDraw), gpuData.PowerDraw },
+					{ nameof(gpuData.CurrentPowerCap), gpuData.CurrentPowerCap },
 					{ nameof(gpuData.TemperatureC), gpuData.TemperatureC },
 					{ nameof(gpuData.FanSpeedRpm), gpuData.FanSpeedRpm },
 

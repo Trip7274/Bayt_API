@@ -33,6 +33,7 @@ PCIID="$2"
 # Video Encoder/Decoder Frequency (MHz) = clocks.current.video (NVIDIA)
 #
 # Power draw (W) = power.draw (NVIDIA, Intel, AMD [dGPU only, otherwise CPU draw])
+# Power Cap (W) = power.cap (AMD [dGPU only])
 # Temperature (C) = temperature.gpu (NVIDIA, AMD)
 # Fan Speed (RPM) = fan.speed (AMD)
 
@@ -96,7 +97,7 @@ fi
 POSSIBLESTATS=("gpu_brand" "gpu_name" "gpu.dedicated" "utilization.gpu" "clocks.current.graphics" \
  				"utilization.memory" "memory.total" "memory.used" "memory.gtt.util" "utilization.encoder" \
  				"utilization.decoder" "utilization.videoenhance" "clocks.current.video" "power.draw" \
-				"temperature.gpu" "fan.speed")
+				"power.cap" "temperature.gpu" "fan.speed")
 
 getNvidia() {
 	getNvidiaStat() {
@@ -254,6 +255,10 @@ getAmd() {
             	possiblePower=$(echo "$OUTPUT" | jq '.[0]["Sensors"]["Input Power"]["value"]')
             fi
             echo "$possiblePower"
+            ;;
+
+        	"power.cap")
+            	echo "$OUTPUT" | jq '.[0]["Power Cap"]["current"]'
             ;;
 
         	"temperature.gpu")

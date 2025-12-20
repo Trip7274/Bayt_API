@@ -100,6 +100,8 @@ public static class StatsApi
 		/// </summary>
 		public static ushort ThreadCount { get; private set; }
 
+		public static int AverageFrequencyMHz { get; private set; }
+
 		/// <summary>
 		/// The average CPU's temperature. Either the "Package id 0" on Intel or "Tctl" on AMD.
 		/// </summary>
@@ -161,6 +163,7 @@ public static class StatsApi
 			{
 				shellTimeout *= 10;
 			}
+			var frequencyUpdateTask = FetchFrequency();
 			var rawOutput = await ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", ["AllUtil"], shellTimeout);
 			if (!rawOutput.IsSuccess)
 			{
@@ -189,7 +192,29 @@ public static class StatsApi
 			ThreadCount = ushort.Parse(outputArray[2]);
 			TemperatureType = outputArray[3] == "null" ? null : outputArray[3];
 			TemperatureC = temp;
+			AverageFrequencyMHz = await frequencyUpdateTask;
 			LastUpdate = DateTime.Now;
+		}
+
+		public static async Task<int> FetchFrequency()
+		{
+			const string basePath = "/sys/devices/system/cpu/";
+			List<int> coreFrequencies = new(ThreadCount);
+
+			foreach (var cpuDirectory in Directory.EnumerateDirectories(basePath, "cpu*"))
+			{
+				string cpuFreqFile = Path.Combine(cpuDirectory, "cpufreq", "scaling_cur_freq");
+				if (!File.Exists(cpuFreqFile)) continue;
+
+				coreFrequencies.Add(int.Parse(await File.ReadAllTextAsync(cpuFreqFile)));
+			}
+
+			return coreFrequencies.Count switch
+			{
+				0 => 0,
+				1 => coreFrequencies[0],
+				_ => (int) Math.Round(coreFrequencies.Average())
+			};
 		}
 
 		/// <summary>
@@ -202,6 +227,7 @@ public static class StatsApi
 			{
 				{ nameof(Name), Name },
 				{ nameof(UtilizationPerc), UtilizationPerc },
+				{ nameof(AverageFrequencyMHz), AverageFrequencyMHz },
 				{ nameof(PhysicalCoreCount), PhysicalCoreCount },
 				{ nameof(ThreadCount), ThreadCount },
 				{ nameof(TemperatureC), TemperatureC },

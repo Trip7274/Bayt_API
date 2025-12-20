@@ -15,12 +15,12 @@ PCIID="$2"
 # $STAT can be:
 #
 # GPU Brand = gpu_brand (NVIDIA, Intel, AMD, Virtio)
-# GPU Name = gpu_name (NVIDIA, Intel [Basic], AMD, Virtio [Basic])
+# GPU Name = gpu_name (NVIDIA, Intel {NVTOP}, AMD, Virtio [Basic])
 # GPU Type (isDedicatedGpu?) = gpu.dedicated (AMD)
 # PCI IDs of every GPU = gpu_ids (All)
 #
-# Graphics Util (%) = utilization.gpu (NVIDIA, Intel [3D Util], AMD)
-# Graphics Frequency (MHz) = clocks.current.graphics (NVIDIA, Intel [Overall freq.], AMD)
+# Graphics Util (%) = utilization.gpu (NVIDIA, Intel [3D Util, highly unstable], AMD)
+# Graphics Frequency (MHz) = clocks.current.graphics (NVIDIA, Intel [Overall freq. {NVTOP}], AMD)
 #
 # VRAM Total (Bytes) = memory.total (AMD, NVIDIA)
 # VRAM Used (Bytes) = memory.used (AMD, NVIDIA)
@@ -315,7 +315,8 @@ getIntel() {
             ;;
 
     		"gpu_name")
-                echo "Intel GPU"
+    			# I wish we could specify the GPU, or figure it out, but alas, we must just hope that the user only has one
+                echo "$OUTPUTNVTOP" | jq '.[0]["device_name"]'
             ;;
 
             "utilization.gpu")
@@ -331,7 +332,7 @@ getIntel() {
             ;;
 
             "clocks.current.graphics")
-            	echo "$OUTPUT" | jq '.["frequency"]["actual"]'
+            	echo "$OUTPUTNVTOP" | jq '.[0]["gpu_clock"]' | grep -o "[0-9]*"
             ;;
 
             "power.draw")
@@ -348,12 +349,18 @@ getIntel() {
 		logHelper "intel_gpu_top seems to not have the CAP_PERFMON capability set or haven't been installed. Null data will be returned."
 	    return
 	fi
+	if ! nvtop -v > /dev/null; then
+		logHelper "NVTOP seems to be missing or not setup correctly. Null data will be returned."
+	    return
+	fi
 
 
 	logHelper "Fetching intel_gpu_top output for '$PCIID' device"
 	# intel_gpu_top doesn't have a one-shot mode for some reason, so we have to limit it
-	OUTPUT=$(timeout 0.1 intel_gpu_top -J -d sys:/sys/devices/pci0000:00/0000:"$PCIID")
-    OUTPUT=$(echo "$OUTPUT" | tail -n +3)
+	OUTPUT="$(timeout 0.1 intel_gpu_top -J -d sys:/sys/devices/pci0000:00/0000:"$PCIID")"
+    OUTPUT="$(echo "$OUTPUT" | tail -n +3)"
+    logHelper "Fetching NVTOP output for '$PCIID' device"
+    OUTPUTNVTOP="$(nvtop -s)"
 
 	CATTEDOUTPUT=""
 	if [ "$STAT" != "" ]; then

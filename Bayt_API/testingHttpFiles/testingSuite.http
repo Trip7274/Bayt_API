@@ -44,10 +44,10 @@ GET {{Bayt_API_BaseAddress}}/config/getList
         client.assert(response.body.hasOwnProperty("BackendName"), "BackendName property missing");
         client.assert(response.body.hasOwnProperty("SecondsToUpdate"), "SecondsToUpdate property missing");
         client.assert(response.body.hasOwnProperty("PathToDataFolder"), "PathToDataFolder property missing");
+        client.assert(response.body.hasOwnProperty("PathToLogFolder"), "PathToLogFolder property missing");
         client.assert(response.body.hasOwnProperty("PathToComposeFolder"), "PathToComposeFolder property missing");
         client.assert(response.body.hasOwnProperty("DockerIntegrationEnabled"), "DockerIntegrationEnabled property missing");
-        client.assert(response.body.hasOwnProperty("KeepMoreLogs"), "KeepMoreLogs property missing");
-        client.assert(response.body.hasOwnProperty("ShowTimestampsInLogs"), "ShowTimestampsInLogs property missing");
+        client.assert(response.body.hasOwnProperty("LogVerbosity"), "LogVerbosity property missing");
         client.assert(response.body.hasOwnProperty("WatchedMounts"), "WatchedMounts property missing");
         client.assert(response.body.hasOwnProperty("WolClients"), "WolClients property missing");
 

@@ -94,6 +94,12 @@ if echo "$gpuList" | grep -q "Intel"; then
     else
     	logHelper "intel_gpu_top was detected!" "OK"
     fi
+
+    if ! nvtop -v > /dev/null; then
+    	logHelper "NVTOP check failed. Make sure it's installed. (Try running 'nvtop -v' in a terminal?)" "ERROR"
+    else
+    	logHelper "NVTOP was detected!" "OK"
+    fi
 fi
 
 printf "\n"

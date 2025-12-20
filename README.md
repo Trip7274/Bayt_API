@@ -47,10 +47,11 @@ Currently, Bayt is only supported on Linux using the [ASP.NET Core Runtime 10](h
 but the default scripts require the following, depending on your GPU:
 - NVIDIA Systems: (looking for testers; progress paused)
 	- `nvidia-smi`
-- Intel GPU Systems:
+- Intel GPU Systems: (only 1 GPU at a time is supported, highly unstable)
 	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as sudo beforehand)
+    - [NVTOP](https://github.com/Syllo/nvtop)
 - AMD GPU Systems:
-	- `amdgpu_top` (Currently requires a build that contains the commit [04983eb](https://github.com/Umio-Yasuno/amdgpu_top/commit/04983ebf5563982c9d685e587a8a1f2a48252811). Either compile manually or use the [amdgpu_top-git](https://aur.archlinux.org/packages/amdgpu_top-git) AUR package)
+	- `amdgpu_top`
 
 Along with utilites you probably already have, such as `bash`, `grep` (GNU), `head`, `jq`, `net-tools`, and `df`.
 
@@ -66,7 +67,7 @@ You can find the proper format and documentation in each script's head.
 
 ## Installation and usage
 Bayt is still in an early stage, thus the compiled binaries are unavailable.
-Code compilation is straightforward, though! 
+Code compilation is straightforward, though!
 
 Make sure you have the [.NET Core 10 SDK](https://learn.microsoft.com/en-us/dotnet/core/install/linux) installed and follow these steps in a terminal:
 

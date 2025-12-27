@@ -85,9 +85,10 @@ getTemps() {
 	TEMPVAL="null"
 
 	for zone in /sys/class/thermal/thermal_zone*; do
-		if [ "$(cat "$zone/type")" = "x86_pkg_temp" ]; then
+		if [ "$(cat "$zone/type")" = "x86_pkg_temp" ] && [ -s "$zone/temp" ]; then
 		    TEMPVAL="$(cat "$zone/temp")"
 			TEMPTYPE="thermalZone"
+			break
 		fi
 	done
 

@@ -1,10 +1,29 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 
 namespace Bayt_API;
 
 public static class ParsingMethods
 {
+	public static T? ParseNullable<T>(this JsonElement value) where T : struct, IParsable<T>
+	{
+		if (value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined or JsonValueKind.Array or JsonValueKind.Object) return null;
+
+		if (!T.TryParse(value.GetRawText(), CultureInfo.CurrentCulture, out var result))
+		{
+			return null;
+		}
+
+		if (result is float f)
+		{
+			// This is a bit of a mess
+			result = (T) (object) MathF.Round(f, 2);
+		}
+
+		return result;
+	}
+
 	public static T? ParseNullable<T>(this string value) where T : struct, IParsable<T>
 	{
 		if (value == "null" || !T.TryParse(value, CultureInfo.CurrentCulture, out var result))

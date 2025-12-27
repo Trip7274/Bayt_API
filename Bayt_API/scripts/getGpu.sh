@@ -3,6 +3,7 @@
 STAT="$1"
 PCIID="$2"
 
+# Execution format: ./getGpu.sh "$STAT" "$PCIID"
 # Expected output: "GPU Brand [string]|GPU Name [string?]|GPU Type [Bool?]|Graphics Util Perc [float?]|VRAM Util Perc [float?]|VRAM Total Bytes [ulong?]|VRAM Used Bytes [ulong?]|Encoder Util [float?]|Decoder Util [float?]|Video Enhance Util [float?]|Graphics Frequency [float?]|Encoder/Decoder Frequency [float?]|Power Usage [float?]|TemperatureC [sbyte?]|FanSpeedRPM [ushort?]"
 # The only REQUIRED output is the GPU Brand, everything else can be "null". If the GPU Name is reported as null, the GPU will be reported as missing.
 # When the $STAT is "gpu_ids", the expected output is a newline-seperated list of PCI IDs. For example:
@@ -93,76 +94,87 @@ elif [ "$STAT" = "gpu_brand" ]; then
     exit 0
 fi
 
+declare -A gpuStats=(
+	["gpu_brand"]="null"
+	["gpu_name"]="null"
+	["gpu.dedicated"]="null"
+	["utilization.gpu"]="null"
+	["clocks.current.graphics"]="null"
+	["utilization.memory"]="null"
+	["memory.total"]="null"
+	["memory.used"]="null"
+	["memory.gtt.util"]="null"
+	["utilization.encoder"]="null"
+	["utilization.decoder"]="null"
+	["utilization.videoenhance"]="null"
+	["clocks.current.video"]="null"
+	["power.draw"]="null"
+	["power.cap"]="null"
+	["temperature.gpu"]="null"
+	["fan.speed"]="null"
+)
 
-POSSIBLESTATS=("gpu_brand" "gpu_name" "gpu.dedicated" "utilization.gpu" "clocks.current.graphics" \
- 				"utilization.memory" "memory.total" "memory.used" "memory.gtt.util" "utilization.encoder" \
- 				"utilization.decoder" "utilization.videoenhance" "clocks.current.video" "power.draw" \
-				"power.cap" "temperature.gpu" "fan.speed")
 
 getNvidia() {
 	getNvidiaStat() {
-		case $STAT in
+		case "$1" in
 			"gpu_brand")
-				echo "NVIDIA"
+				gpuStats["gpu_brand"]="NVIDIA"
 			;;
 
 			"gpu_name")
-				nvidia-smi --query-gpu="$STAT" --format=csv,noheader,nounits --id="$PCIID"
+				gpuStats["gpu_name"]="$(nvidia-smi --query-gpu="gpu_name" --format=csv,noheader,nounits --id="$PCIID")"
 			;;
 
      		"utilization.gpu")
-     			echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?GPU\s+:\s*\K\d+'
+     			gpuStats["utilization.gpu"]="$(echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?GPU\s+:\s*\K\d+')"
      		;;
 
    			"utilization.memory")
    				UNTRIMMED_OUTPUT="$(echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?Memory\s+:\s*\K\d+ '| tr -d '\0')"
-                echo "${UNTRIMMED_OUTPUT%% *}"
+                gpuStats["utilization.memory"]="${UNTRIMMED_OUTPUT%% *}"
    			;;
 
 			"memory.total")
 				(( FINAL_VALUE = "$(echo "$OUTPUT" | grep -oPz '(?s)FB Memory Usage.*?Total\s+:\s*\K\d+' | tr -d '\0')" * 1048576 ))
 
-				echo "$FINAL_VALUE"
+				gpuStats["memory.total"]="$FINAL_VALUE"
 			;;
 
 			"memory.used")
 				(( FINAL_VALUE = "$(echo "$OUTPUT" | grep -oPz '(?s)FB Memory Usage.*?Used\s+:\s*\K\d+' | tr -d '\0')" * 1048576 ))
 
-                echo "$FINAL_VALUE"
+				gpuStats["memory.used"]="$FINAL_VALUE"
 			;;
 
      		"utilization.encoder")
-     			echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?Encoder\s+:\s*\K\d+'
+     		     gpuStats["utilization.encoder"]="$(echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?Encoder\s+:\s*\K\d+')"
      		;;
 
    			"utilization.decoder")
-     			echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?Decoder\s+:\s*\K\d+'
+   				gpuStats["utilization.decoder"]="$(echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?Decoder\s+:\s*\K\d+')"
      		;;
-
-        	"utilization.videoenhance")
-        		echo "null"
-        	;;
 
      		"clocks.current.graphics")
      			UNTRIMMED_OUTPUT="$(echo "$OUTPUT" | grep -oPz '(?s)Clocks.*?Graphics\s+:\s*\K\d+ '| tr -d '\0')"
-				echo "${UNTRIMMED_OUTPUT%% *}"
+				gpuStats["clocks.current.graphics"]="${UNTRIMMED_OUTPUT%% *}"
      		;;
 
    			"clocks.current.video")
    				UNTRIMMED_OUTPUT="$(echo "$OUTPUT" | grep -oPz '(?s)Clocks.*?Video\s+:\s*\K\d+ '| tr -d '\0')"
-                echo "${UNTRIMMED_OUTPUT%% *}"
+   				gpuStats["clocks.current.video"]="${UNTRIMMED_OUTPUT%% *}"
    			;;
 
   			"power.draw")
-  				 echo "$OUTPUT" | grep -oPz '(?s)Power Samples.*?Avg\s+:\s*\K\d+.?\d*'
+  				gpuStats["power.draw"]="$(echo "$OUTPUT" | grep -oPz '(?s)Power Samples.*?Avg\s+:\s*\K\d+.?\d*')"
   			;;
 
  			"temperature.gpu")
- 				echo "$OUTPUT" | grep -oPz '(?s)Temperature.*?GPU Current Temp\s+:\s*\K\d+'
+ 				gpuStats["temperature.gpu"]="$(echo "$OUTPUT" | grep -oPz '(?s)Temperature.*?GPU Current Temp\s+:\s*\K\d+')"
  			;;
 
         	*)
-        		echo "null"
+                [[ -n "${gpuStats["$1"]}" ]] && gpuStats["$1"]="null"
         	;;
         esac
 	}
@@ -174,79 +186,61 @@ getNvidia() {
 
 	OUTPUT="$(nvidia-smi -q -d MEMORY,UTILIZATION,TEMPERATURE,ENCODER_STATS,POWER,CLOCK | tail -n +10)"
 
-	CATTEDOUTPUT=""
 	if [ "$STAT" != "" ]; then
-		logHelper "Specific stat requested, returning '$STAT'"
+		logHelper "Specific stat requested, fetching '$STAT'"
 
-	    CATTEDOUTPUT=$(getNvidiaStat | tr -d '\0')
+		getNvidiaStat "$STAT"
 	else
 		logHelper "All stats requested, returning array"
 
-        for i in "${POSSIBLESTATS[@]}"; do
-        	STAT="$i"
-        	CATTEDOUTPUT+="$(getNvidiaStat | tr -d '\0')|"
-        done
+		for i in "${!gpuStats[@]}"; do
+			getNvidiaStat "$i"
+		done
 	fi
-
-	logHelper "$CATTEDOUTPUT" "stdout"
-	logHelper "---Exiting (OK)---"
-    exit 0
 }
 
 getAmd() {
 	getAmdStat() {
-		case $STAT in
+		case "$1" in
             "gpu_brand")
-                echo "AMD"
+                gpuStats["gpu_brand"]="AMD"
             ;;
 
             "gpu_name")
-                echo "$OUTPUT" | jq '.[0]["DeviceName"]'
+            	gpuStats["gpu_name"]="$(echo "$OUTPUT" | jq -r '.[0]["DeviceName"]')"
             ;;
 
         	"gpu.dedicated")
-        		TYPE="$(echo "$OUTPUT" | jq '.[0]["GPU Type"]')"
+        		TYPE="$(echo "$OUTPUT" | jq -r '.[0]["GPU Type"]')"
 
-        		case $TYPE in
-        		'"dGPU"')
-        			echo "true"
-        		;;
-
-      			'"APU"')
-      				echo "false"
-      			;;
-
-     			*)
-     				logHelper "Failed getting GPU type. Got '$TYPE' instead of 'dGPU'/'APU'. Outputting null..."
-     				echo "null"
-     			;;
-        		esac
+        		[[ $TYPE == "dGPU" ]] && gpuStats["gpu.dedicated"]="true" || gpuStats["gpu.dedicated"]="false"
         	;;
 
             "utilization.gpu")
-            	echo "$OUTPUT" | jq '.[0]["gpu_activity"]["GFX"]["value"]'
+            	gpuStats["utilization.gpu"]="$(echo "$OUTPUT" | jq '.[0]["gpu_activity"]["GFX"]["value"]')"
             ;;
 
         	"memory.total") # Convert from source MiB to Bytes, in case it wasnt clear
         		(( FINAL_VALUE="$(echo "$OUTPUT" | jq '.[0]["VRAM"]["Total VRAM"]["value"]')" * 1048576 ))
-        		echo "$FINAL_VALUE"
+
+        		gpuStats["memory.total"]="$FINAL_VALUE"
         	;;
 
      		"memory.used")
         		(( FINAL_VALUE="$(echo "$OUTPUT" | jq '.[0]["VRAM"]["Total VRAM Usage"]["value"]')" * 1048576 ))
-        		echo "$FINAL_VALUE"
+        		gpuStats["memory.used"]="$FINAL_VALUE"
         	;;
 
      		"memory.gtt.util")
-     			echo "$OUTPUT" | jq '.[0]["gpu_activity"]["Memory"]["value"]'
+     			gpuStats["memory.gtt.util"]="$(echo "$OUTPUT" | jq '.[0]["gpu_activity"]["Memory"]["value"]')"
      		;;
 
             "utilization.encoder")
-            	echo "$OUTPUT" | jq '.[0]["gpu_activity"]["MediaEngine"]["value"]'
+            	gpuStats["utilization.encoder"]="$(echo "$OUTPUT" | jq '.[0]["gpu_activity"]["MediaEngine"]["value"]')"
             ;;
 
             "clocks.current.graphics")
-            	echo "$OUTPUT" | jq '.[0]["Sensors"]["GFX_SCLK"]["value"]'
+            	gpuStats["clocks.current.graphics"]="$(echo "$OUTPUT" | jq '.[0]["Sensors"]["GFX_SCLK"]["value"]')"
             ;;
 
             "power.draw")
@@ -254,27 +248,26 @@ getAmd() {
             if [[ $possiblePower == "null" ]]; then
             	possiblePower=$(echo "$OUTPUT" | jq '.[0]["Sensors"]["Input Power"]["value"]')
             fi
-            echo "$possiblePower"
+
+            gpuStats["power.draw"]="$possiblePower"
             ;;
 
         	"power.cap")
-            	echo "$OUTPUT" | jq '.[0]["Power Cap"]["current"]'
+            	gpuStats["power.cap"]="$(echo "$OUTPUT" | jq '.[0]["Power Cap"]["current"]')"
             ;;
 
         	"temperature.gpu")
-        		echo "$OUTPUT" | jq '.[0]["Sensors"]["Edge Temperature"]["value"]'
+        		gpuStats["temperature.gpu"]="$(echo "$OUTPUT" | jq '.[0]["Sensors"]["Edge Temperature"]["value"]')"
         	;;
 
      		"fan.speed")
-     		if [ "$(echo "$OUTPUT" | jq '.[0]["Sensors"]["Fan"]')" != "null" ]; then
-     		    echo "$OUTPUT" | jq '.[0]["Sensors"]["Fan"]["value"]'
-     		else
-     			echo "null"
+     		if [[ "$(echo "$OUTPUT" | jq '.[0]["Sensors"]["Fan"]')" != "null" ]]; then
+     		    gpuStats["fan.speed"]="$(echo "$OUTPUT" | jq '.[0]["Sensors"]["Fan"]["value"]')"
      		fi
      		;;
 
             *)
-            	echo null
+            	gpuStats["$1"]="null"
             ;;
         esac
 	}
@@ -288,59 +281,53 @@ getAmd() {
 	logHelper "Fetching amdgpu_top output for '$PCIID' device"
 	OUTPUT=$(amdgpu_top -d --pci 0000:"$PCIID" --single --json)
 
-	CATTEDOUTPUT=""
     if [ "$STAT" != "" ]; then
-    	logHelper "Specific stat requested, returning '$STAT'"
+    	logHelper "Specific stat requested, fetching '$STAT'"
 
-        CATTEDOUTPUT=$(getAmdStat)
+        getAmdStat "$STAT"
     else
-    	logHelper "All stats requested, returning array"
+    	logHelper "All stats requested"
 
-    	for i in "${POSSIBLESTATS[@]}"; do
-    		STAT="$i"
-    		CATTEDOUTPUT+="$(getAmdStat)|"
-    	done
+    	for i in "${!gpuStats[@]}"; do
+        	getAmdStat "$i"
+        done
     fi
-
-	logHelper "$CATTEDOUTPUT" "stdout"
-	logHelper "---Exiting (OK)---"
-	exit 0
 }
 
 getIntel() {
 	getIntelStat() {
-    	case $STAT in
+    	case "$1" in
     		"gpu_brand")
-            	echo "Intel"
+    			gpuStats["gpu_brand"]="Intel"
             ;;
 
     		"gpu_name")
     			# I wish we could specify the GPU, or figure it out, but alas, we must just hope that the user only has one
-                echo "$OUTPUTNVTOP" | jq '.[0]["device_name"]'
+                gpuStats["gpu_name"]="$(echo "$OUTPUTNVTOP" | jq '.[0]["device_name"]')"
             ;;
 
             "utilization.gpu")
-            	echo "$OUTPUT" | jq '.["engines"]["Render/3D"]["busy"]'
+            	gpuStats["utilization.gpu"]="$(echo "$OUTPUT" | jq '.["engines"]["Render/3D"]["busy"]')"
             ;;
 
             "utilization.encoder")
-            	echo "$OUTPUT" | jq '.["engines"]["Video"]["busy"]'
+                gpuStats["utilization.encoder"]="$(echo "$OUTPUT" | jq '.["engines"]["Video"]["busy"]')"
             ;;
 
             "utilization.videoenhance")
-            	echo "$OUTPUT" | jq '.["engines"]["VideoEnhance"]["busy"]'
+           		gpuStats["utilization.videoenhance"]="$(echo "$OUTPUT" | jq '.["engines"]["VideoEnhance"]["busy"]')"
             ;;
 
             "clocks.current.graphics")
-            	echo "$OUTPUTNVTOP" | jq '.[0]["gpu_clock"]' | grep -o "[0-9]*"
+            	gpuStats["clocks.current.graphics"]="$(echo "$OUTPUTNVTOP" | jq '.[0]["gpu_clock"]' | grep -o "[0-9]*")"
             ;;
 
             "power.draw")
-                echo "$OUTPUT" | jq '.["power"]["Package"]'
+            	gpuStats["power.draw"]="$(echo "$OUTPUT" | jq '.["power"]["Package"]')"
             ;;
 
             *)
-            	echo null
+                [[ -n "${gpuStats["$1"]}" ]] && gpuStats["$1"]="null"
             ;;
             esac
     	}
@@ -362,62 +349,72 @@ getIntel() {
     logHelper "Fetching NVTOP output for '$PCIID' device"
     OUTPUTNVTOP="$(nvtop -s)"
 
-	CATTEDOUTPUT=""
 	if [ "$STAT" != "" ]; then
 		logHelper "Specific stat requested, returning '$STAT'"
 
-        CATTEDOUTPUT=$(getIntelStat)
+        getIntelStat "$STAT"
 
 	else
 		logHelper "All stats requested, returning array"
 
-		for i in "${POSSIBLESTATS[@]}"; do
-			STAT="$i"
-			CATTEDOUTPUT+="$(getIntelStat)|"
+		for i in "${!gpuStats[@]}"; do
+			getIntelStat "$i"
 		done
 	fi
-
-	logHelper "$CATTEDOUTPUT" "stdout"
-	logHelper "---Exiting (OK)---"
-	exit 0
 }
 
 getVirtio() {
-	CATTEDOUTPUT="Virtio|Virtual GPU|null|null|null|null|null|null|null|null|null|null|null"
-
-	logHelper "$CATTEDOUTPUT" "stdout"
-    logHelper "---Exiting (OK)---"
-    exit 0
+	gpuStats["gpu_brand"]="Virtio"
+	gpuStats["gpu_name"]="Virtual GPU"
 }
 
 case $BRAND in
 	"NVIDIA")
 		logHelper "Chose NVIDIA branch"
 		getNvidia
+		logHelper "Successfully fetched and processed NVIDIA GPU stats."
 	;;
 
 	"AMD")
 		logHelper "Chose AMD branch"
 		getAmd
+		logHelper "Successfully fetched and processed AMD GPU stats."
 	;;
 
 	"Intel")
 		logHelper "Chose Intel branch"
 		getIntel
+		logHelper "Successfully fetched and processed Intel GPU stats."
 	;;
 
 	"Virtio")
 		logHelper "Chose Virtio branch"
 		getVirtio
+		logHelper "Successfully fetched and processed Virtio GPU stats."
 	;;
 esac
 
-for i in "${POSSIBLESTATS[@]}"; do
-    CATTEDOUTPUT+="null|"
-done
+jqArgs=("-n")
+[[ "$BAYT_SUBPROCESS" == "1" ]] && logHelper "Running under Bayt. Returning compact JSON." && jqArgs+=("-c" "-M")
 
-# TODO: Output in CBOR/MessagePack for easier parsing and more readable code in C#
-echo "$CATTEDOUTPUT"
+jq "${jqArgs[@]}"                                                                                 \
+--arg "Brand"                          "${gpuStats["gpu_brand"]:="Unknown"}"                      \
+--arg "Name"                           "${gpuStats["gpu_name"]:="Unknown"}"                       \
+--argjson "isDedicated"                "${gpuStats["gpu.dedicated"]:="null"}"                     \
+--argjson "Graphics Utilization"       "${gpuStats["utilization.gpu"]:="null"}"                   \
+--argjson "Graphics Frequency"         "${gpuStats["clocks.current.graphics"]:="null"}"           \
+--argjson "VRAM Utilization"           "${gpuStats["utilization.memory"]:="null"}"                \
+--argjson "VRAM Total Bytes"           "${gpuStats["memory.total"]:="null"}"                      \
+--argjson "VRAM Used Bytes"            "${gpuStats["memory.used"]:="null"}"                       \
+--argjson "VRAM GTT Utilization"       "${gpuStats["utilization.gtt.util"]:="null"}"              \
+--argjson "Encoder Utilization"        "${gpuStats["utilization.encoder"]:="null"}"               \
+--argjson "Decoder Utilization"        "${gpuStats["utilization.decoder"]:="null"}"               \
+--argjson "VideoEnhance Utilization"   "${gpuStats["utilization.videoenhance"]:="null"}"          \
+--argjson "EncDec Frequency"           "${gpuStats["clocks.current.video"]:="null"}"              \
+--argjson "Power Draw"                 "${gpuStats["power.draw"]:="null"}"                        \
+--argjson "Power Cap"                  "${gpuStats["power.cap"]:="null"}"                         \
+--argjson "Temperature"                "${gpuStats["temperature.gpu"]:="null"}"                   \
+--argjson "Fan Speed"                  "${gpuStats["fan.speed"]:="null"}"                         \
+'$ARGS.named'
 
-logHelper "Was unable to fetch any stats and returned nulls for device '$PCIID' of the brand '$BRAND'"
-logHelper "---Exiting (Fail)---"
+logHelper "--- Exiting ---"

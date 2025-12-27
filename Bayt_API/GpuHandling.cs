@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Bayt_API;
 
 public static class GpuHandling
@@ -134,10 +136,6 @@ public static class GpuHandling
 
 		internal void UpdateData()
 		{
-			// Format should be:
-			// "GPU Brand|GPU Name|IsGpuDedicated?|Graphics Util Perc|Graphics Frequency|VRAM Util Perc?|VRAM Total Bytes?|VRAM Used Bytes?|VRAM GTT Usage Perc?|Encoder Util|Decoder Util?|Video Enhance Util?|Encoder/Decoder Frequency?|Power Usage|CurrentPowerCap?|TemperatureC?|FanSpeedRPM?"
-			// TODO: This REALLY needs to be refactored to use JSON or *anything*.
-
 			var shellTimeout = TimeSpan.FromMilliseconds(2500);
 			if (Name == null)
 			{
@@ -147,60 +145,54 @@ public static class GpuHandling
 			var shellScriptProcess =
 					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", ["All", GpuId], shellTimeout).Result;
 
-			string[] arrayOutput = shellScriptProcess.StandardOutput.TrimEnd('|').Split('|');
-			if (arrayOutput.Length < 17)
+			var arrayOutput = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(shellScriptProcess.StandardOutput) ?? [];
+			if (arrayOutput.Count == 0)
 			{
 				Logs.LogBook.Write(new(StreamId.Error, "GPU Fetch",
 					$"Error while parsing data for GPU '{GpuId}'! (Script exit code: {shellScriptProcess.ExitCode} Log: {ApiConfig.BaseExecutablePath}/logs/GPU.log)"));
 				return;
 			}
 
-			if (arrayOutput[1] == "null")
+			Brand = arrayOutput["Brand"].GetString();
+
+			if (arrayOutput["Name"].ValueKind == JsonValueKind.Null)
 			{
-				Brand = arrayOutput[0];
 				IsMissing = true;
-
 				return;
 			}
-
-			if (arrayOutput[0] == "Virtio")
-			{
-				Brand = arrayOutput[0];
-				Name = arrayOutput[1].Trim('"');
-				IsMissing = false;
-
-				return;
-			}
-
-			if (arrayOutput[5] == "null" && arrayOutput[6] != "null" && arrayOutput[7] != "null")
-			{
-				// Workaround for the AMD GPU interface not providing a VRAM usage percentage
-				arrayOutput[5] =
-					$"{MathF.Round(float.Parse(arrayOutput[7]) / float.Parse(arrayOutput[6]) * 100, 2)}";
-			}
-
-			Brand = arrayOutput[0];
-			Name = arrayOutput[1].Trim('"');
-			IsDedicated = arrayOutput[2].ParseNullable<bool>();
+			Name = arrayOutput["Name"].GetString();
 			IsMissing = false;
 
-			GraphicsUtilPerc = arrayOutput[3].ParseNullable<float>();
-			GraphicsFrequency = arrayOutput[4].ParseNullable<float>();
+			if (arrayOutput["Brand"].GetString() == "Virtio") return;
 
-			VramUtilPerc = arrayOutput[5].ParseNullable<float>();
-			VramTotalBytes = arrayOutput[6].ParseNullable<ulong>();
-			VramUsedBytes = arrayOutput[7].ParseNullable<ulong>();
-			VramGttUtilPerc = arrayOutput[8].ParseNullable<sbyte>();
+			float? vramUtilPerc = null;
+			if (arrayOutput["VRAM Utilization"].ValueKind == JsonValueKind.Null &&
+			    arrayOutput["VRAM Total Bytes"].ValueKind != JsonValueKind.Null &&
+			    arrayOutput["VRAM Used Bytes"].ValueKind != JsonValueKind.Null)
+			{
+				// Workaround for the AMD GPU interface not providing a VRAM usage percentage
+				vramUtilPerc = MathF.Round(arrayOutput["VRAM Used Bytes"].GetUInt64() / (float) arrayOutput["VRAM Total Bytes"].GetUInt64() * 100, 2);
+			}
 
-			EncoderUtilPerc = arrayOutput[9].ParseNullable<float>();
-			DecoderUtilPerc = arrayOutput[10].ParseNullable<float>();
-			VideoEnhanceUtilPerc = arrayOutput[11].ParseNullable<float>();
-			EncDecFrequency = arrayOutput[12].ParseNullable<float>();
+			IsDedicated = arrayOutput["isDedicated"].ParseNullable<bool>();
 
-			PowerDraw = arrayOutput[13].ParseNullable<float>();
-			CurrentPowerCap = arrayOutput[14].ParseNullable<ushort>();
-			TemperatureC = arrayOutput[15].ParseNullable<sbyte>();
-			FanSpeedRpm = arrayOutput[16].ParseNullable<ushort>();
+			GraphicsUtilPerc = arrayOutput["Graphics Utilization"].ParseNullable<float>();
+			GraphicsFrequency = arrayOutput["Graphics Frequency"].ParseNullable<float>();
+
+			VramUtilPerc = vramUtilPerc ?? arrayOutput["VRAM Utilization"].ParseNullable<float>();
+			VramTotalBytes = arrayOutput["VRAM Total Bytes"].ParseNullable<ulong>();
+			VramUsedBytes = arrayOutput["VRAM Used Bytes"].ParseNullable<ulong>();
+			VramGttUtilPerc = arrayOutput["VRAM GTT Utilization"].ParseNullable<sbyte>();
+
+			EncoderUtilPerc = arrayOutput["Encoder Utilization"].ParseNullable<float>();
+			DecoderUtilPerc = arrayOutput["Decoder Utilization"].ParseNullable<float>();
+			VideoEnhanceUtilPerc = arrayOutput["VideoEnhance Utilization"].ParseNullable<float>();
+			EncDecFrequency = arrayOutput["EncDec Frequency"].ParseNullable<float>();
+
+			PowerDraw = arrayOutput["Power Draw"].ParseNullable<float>();
+			CurrentPowerCap = arrayOutput["Power Cap"].ParseNullable<ushort>();
+			TemperatureC = arrayOutput["Temperature"].ParseNullable<sbyte>();
+			FanSpeedRpm = arrayOutput["Fan Speed"].ParseNullable<ushort>();
 		}
 	}
 

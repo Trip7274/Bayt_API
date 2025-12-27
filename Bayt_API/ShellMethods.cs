@@ -59,7 +59,7 @@ public static class ShellMethods
 		StringBuilder stderr = new();
 		Dictionary<string, string?> envVars = new()
 		{
-			{ "BAYT_RUN", "1" }
+			{ "BAYT_SUBPROCESS", "1" }
 		};
 		if (environmentVariables != null)
 		{

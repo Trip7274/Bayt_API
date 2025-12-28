@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -62,8 +63,7 @@ if (Environment.OSVersion.Platform != PlatformID.Unix)
 }
 
 
-
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts) =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (HttpResponse response, bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts) =>
 	{
 		Dictionary<ApiConfig.SystemStats, bool?> requestedStatsRaw = new() {
 			{ ApiConfig.SystemStats.Meta, meta },
@@ -128,6 +128,7 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (bool? meta, bo
 		await Task.WhenAll(fetchTasks);
 
 		// Request assembly
+		List <DateTime> lastUpdateStamps = [];
 		foreach (var requestedStat in requestedStats)
 		{
 			switch (requestedStat)
@@ -156,24 +157,28 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (bool? meta, bo
 				case ApiConfig.SystemStats.Cpu:
 				{
 					responseDictionary.Add("CPU", [ StatsApi.CpuData.ToDictionary() ]);
+					lastUpdateStamps.Add(StatsApi.CpuData.LastUpdate);
 					break;
 				}
 
 				case ApiConfig.SystemStats.Gpu:
 				{
 					responseDictionary.Add("GPU", GpuHandling.FullGpusData.ToDictionary());
+					lastUpdateStamps.Add(GpuHandling.FullGpusData.LastUpdate);
 					break;
 				}
 
 				case ApiConfig.SystemStats.Memory:
 				{
 					responseDictionary.Add("Memory", [ StatsApi.MemoryData.ToDictionary()! ]);
+					lastUpdateStamps.Add(StatsApi.MemoryData.LastUpdate);
 					break;
 				}
 
 				case ApiConfig.SystemStats.Mounts:
 				{
 					responseDictionary.Add("Mounts", DiskHandling.FullDisksData.ToDictionary());
+					lastUpdateStamps.Add(DiskHandling.FullDisksData.LastUpdate);
 					break;
 				}
 				default:
@@ -182,8 +187,15 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (bool? meta, bo
 				}
 			}
 		}
+
+		var latestUpdate = lastUpdateStamps.Max();
+		response.Headers.Append("Expires", (latestUpdate + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate))
+			.ToString(new DateTimeFormatInfo().RFC1123Pattern));
+		await response.Body.WriteAsync( JsonSerializer.SerializeToUtf8Bytes(responseDictionary));
+		await response.CompleteAsync();
+
 		Logs.LogBook.Write(new (StreamId.Verbose, "GetStats", $"Sent off the response with {responseDictionary.Count} fields."));
-		return Results.Json(responseDictionary);
+		return null;
 	}).Produces(StatusCodes.Status200OK)
 	.Produces(StatusCodes.Status400BadRequest)
 	.WithSummary("Returns the stats/metrics of the server according to what was requested. Defaults to all in case none were specified.")

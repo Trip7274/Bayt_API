@@ -140,10 +140,10 @@ public static class GpuHandling
 			var shellScriptProcess =
 					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", ["All", GpuId], shellTimeout).Result;
 
-			Dictionary<string, JsonElement> arrayOutput;
+			Dictionary<string, JsonElement> scriptOutput;
 			try
 			{
-				arrayOutput = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(shellScriptProcess.StandardOutput) ?? [];
+				scriptOutput = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(shellScriptProcess.StandardOutput) ?? [];
 			}
 			catch (Exception e)
 			{
@@ -152,52 +152,52 @@ public static class GpuHandling
 				return;
 			}
 
-			if (arrayOutput.Count == 0)
+			if (scriptOutput.Count == 0)
 			{
 				Logs.LogBook.Write(new(StreamId.Error, "GPU Fetch",
 					$"Error while parsing data for GPU '{GpuId}'! Got 0 entries (Script exit code: {shellScriptProcess.ExitCode})"));
 				return;
 			}
 
-			Brand = arrayOutput["Brand"].GetString();
+			Brand = scriptOutput["Brand"].GetString();
 
-			if (arrayOutput["Name"].ValueKind == JsonValueKind.Null)
+			if (scriptOutput["Name"].ValueKind == JsonValueKind.Null)
 			{
 				IsMissing = true;
 				return;
 			}
-			Name = arrayOutput["Name"].GetString();
+			Name = scriptOutput["Name"].GetString();
 			IsMissing = false;
 
-			if (arrayOutput["Brand"].GetString() == "Virtio") return;
+			if (scriptOutput["Brand"].GetString() == "Virtio") return;
 
-			if (arrayOutput["VRAM Total Bytes"].ValueKind != JsonValueKind.Null &&
-			    arrayOutput["VRAM Used Bytes"].ValueKind != JsonValueKind.Null)
+			if (scriptOutput["VRAM Total Bytes"].ValueKind != JsonValueKind.Null &&
+			    scriptOutput["VRAM Used Bytes"].ValueKind != JsonValueKind.Null)
 			{
-				VramUtilPerc = MathF.Round(arrayOutput["VRAM Used Bytes"].GetUInt64() / (float) arrayOutput["VRAM Total Bytes"].GetUInt64() * 100, 2);
+				VramUtilPerc = MathF.Round(scriptOutput["VRAM Used Bytes"].GetUInt64() / (float) scriptOutput["VRAM Total Bytes"].GetUInt64() * 100, 2);
 			}
 			else
 			{
 				VramUtilPerc = null;
 			}
 
-			IsDedicated = arrayOutput["isDedicated"].ParseNullable<bool>();
+			IsDedicated = scriptOutput["isDedicated"].ParseNullable<bool>();
 
-			GraphicsUtilPerc = arrayOutput["Graphics Utilization"].ParseNullable<float>();
-			GraphicsFrequency = arrayOutput["Graphics Frequency"].ParseNullable<float>();
+			GraphicsUtilPerc = scriptOutput["Graphics Utilization"].ParseNullable<float>();
+			GraphicsFrequency = scriptOutput["Graphics Frequency"].ParseNullable<float>();
 
-			VramTotalBytes = arrayOutput["VRAM Total Bytes"].ParseNullable<ulong>();
-			VramUsedBytes = arrayOutput["VRAM Used Bytes"].ParseNullable<ulong>();
+			VramTotalBytes = scriptOutput["VRAM Total Bytes"].ParseNullable<ulong>();
+			VramUsedBytes = scriptOutput["VRAM Used Bytes"].ParseNullable<ulong>();
 
-			EncoderUtilPerc = arrayOutput["Encoder Utilization"].ParseNullable<float>();
-			DecoderUtilPerc = arrayOutput["Decoder Utilization"].ParseNullable<float>();
-			VideoEnhanceUtilPerc = arrayOutput["VideoEnhance Utilization"].ParseNullable<float>();
-			EncDecFrequency = arrayOutput["EncDec Frequency"].ParseNullable<float>();
+			EncoderUtilPerc = scriptOutput["Encoder Utilization"].ParseNullable<float>();
+			DecoderUtilPerc = scriptOutput["Decoder Utilization"].ParseNullable<float>();
+			VideoEnhanceUtilPerc = scriptOutput["VideoEnhance Utilization"].ParseNullable<float>();
+			EncDecFrequency = scriptOutput["EncDec Frequency"].ParseNullable<float>();
 
-			PowerDraw = arrayOutput["Power Draw"].ParseNullable<float>();
-			CurrentPowerCap = arrayOutput["Power Cap"].ParseNullable<ushort>();
-			TemperatureC = arrayOutput["Temperature"].ParseNullable<sbyte>();
-			FanSpeedRpm = arrayOutput["Fan Speed"].ParseNullable<ushort>();
+			PowerDraw = scriptOutput["Power Draw"].ParseNullable<float>();
+			CurrentPowerCap = scriptOutput["Power Cap"].ParseNullable<ushort>();
+			TemperatureC = scriptOutput["Temperature"].ParseNullable<sbyte>();
+			FanSpeedRpm = scriptOutput["Fan Speed"].ParseNullable<ushort>();
 		}
 	}
 

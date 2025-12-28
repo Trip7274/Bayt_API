@@ -80,7 +80,10 @@ public static class StatsApi
 				throw new Exception($"Failed to get CPU name from getCpu.sh ({rawOutput.ExitCode}).");
 			}
 			// "(R)" -> "®" (Common in Intel CPU names)
-			Name = rawOutput.StandardOutput.Replace("(R)", "\u00AE");
+			// "(TM)" -> "™" (Common in Intel CPU names)
+			Name = rawOutput.StandardOutput
+				.Replace("(R)", "\u00AE")
+				.Replace("(TM)", "\u2122");
 		}
 
 		/// <summary>

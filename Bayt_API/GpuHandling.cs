@@ -140,11 +140,22 @@ public static class GpuHandling
 			var shellScriptProcess =
 					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", ["All", GpuId], shellTimeout).Result;
 
-			var arrayOutput = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(shellScriptProcess.StandardOutput) ?? [];
+			Dictionary<string, JsonElement> arrayOutput;
+			try
+			{
+				arrayOutput = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(shellScriptProcess.StandardOutput) ?? [];
+			}
+			catch (Exception e)
+			{
+				Logs.LogBook.Write(new(StreamId.Error, "GPU Fetch",
+					$"Exception '{e}' when parsing JSON from GPU '{GpuId}'! (Script exit code: {shellScriptProcess.ExitCode})"));
+				return;
+			}
+
 			if (arrayOutput.Count == 0)
 			{
 				Logs.LogBook.Write(new(StreamId.Error, "GPU Fetch",
-					$"Error while parsing data for GPU '{GpuId}'! (Script exit code: {shellScriptProcess.ExitCode} Log: {ApiConfig.BaseExecutablePath}/logs/GPU.log)"));
+					$"Error while parsing data for GPU '{GpuId}'! Got 0 entries (Script exit code: {shellScriptProcess.ExitCode})"));
 				return;
 			}
 

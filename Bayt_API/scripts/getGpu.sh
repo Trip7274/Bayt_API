@@ -74,22 +74,19 @@ BRAND="$(echo "$LSPCIOUTPUT" | grep "$PCIID" | grep -o -E -- "(NVIDIA)?(AMD)?(In
 
 if [ "$STAT" = "gpu_ids" ]; then
     IDS="$(echo "$LSPCIOUTPUT" | grep -oE -- "[0-9]+:[0-9]+\.[0-9]+(\.[0-9]+)?")"
-    logHelper "PCI ID list was requested. Returning array"
+    logHelper "PCI ID list was requested. Returning array..."
 
     logHelper "$IDS" "stdout"
     logHelper "---Exiting (OK)---"
     exit 0
 
 elif [ "$PCIID" = "" ]; then
-	logHelper "No PCI ID was provided, unable to continue"
+	logHelper "No PCI ID was provided, unable to continue."
 	logHelper "---Exiting (Fail 01)---"
     exit 01
-elif [ "$STAT" = "gpu_brand" ]; then
-	logHelper "GPU Brand requested. Returning '$BRAND'"
-    logHelper "$BRAND" "stdout"
 
-    logHelper "---Exiting (OK)---"
-    exit 0
+else
+	logHelper "Ignoring non-brand stat and returning all stats..."
 fi
 
 declare -A gpuStats=(
@@ -180,19 +177,13 @@ getNvidia() {
 		return
 	fi
 
+	logHelper "Fetching nvidia-smi output for '$PCIID' device..."
 	OUTPUT="$(nvidia-smi -q -d MEMORY,UTILIZATION,TEMPERATURE,ENCODER_STATS,POWER,CLOCK | tail -n +10)"
 
-	if [ "$STAT" != "" ]; then
-		logHelper "Specific stat requested, fetching '$STAT'"
 
-		getNvidiaStat "$STAT"
-	else
-		logHelper "All stats requested, returning array"
-
-		for i in "${!gpuStats[@]}"; do
-			getNvidiaStat "$i"
-		done
-	fi
+	for i in "${!gpuStats[@]}"; do
+		getNvidiaStat "$i"
+	done
 }
 
 getAmd() {
@@ -269,21 +260,13 @@ getAmd() {
 		return
 	fi
 
-
-	logHelper "Fetching amdgpu_top output for '$PCIID' device"
+	logHelper "Fetching amdgpu_top output for '$PCIID' device..."
 	OUTPUT=$(amdgpu_top -d --pci 0000:"$PCIID" --single --json)
 
-    if [ "$STAT" != "" ]; then
-    	logHelper "Specific stat requested, fetching '$STAT'"
 
-        getAmdStat "$STAT"
-    else
-    	logHelper "All stats requested"
-
-    	for i in "${!gpuStats[@]}"; do
-        	getAmdStat "$i"
-        done
-    fi
+    for i in "${!gpuStats[@]}"; do
+    	getAmdStat "$i"
+    done
 }
 
 getIntel() {
@@ -346,32 +329,24 @@ getIntel() {
 
 	else
 		# intel_gpu_top doesn't have a one-shot mode for some reason, so we have to limit it
-		logHelper "Fetching intel_gpu_top output for '$PCIID' device"
+		logHelper "Fetching intel_gpu_top output for '$PCIID' device..."
 		OUTPUT="$(timeout 0.1 intel_gpu_top -J -d sys:/sys/devices/pci0000:00/0000:"$PCIID")"
 		OUTPUT="$(echo "$OUTPUT" | tail -n +3)"
 	fi
+
 	if ! nvtop -v > /dev/null; then
 		logHelper "NVTOP seems to be missing or not setup correctly. Some data will be missing."
 
 	else
 		# I wish we could specify the GPU, or figure it out, but alas, we must just hope that the user only has one
-		logHelper "Fetching NVTOP output for '$PCIID' device"
+		logHelper "Fetching NVTOP output for '$PCIID' device..."
 		OUTPUTNVTOP="$(nvtop -s)"
 	fi
 
 
-	if [ "$STAT" != "" ]; then
-		logHelper "Specific stat requested, returning '$STAT'"
-
-        getIntelStat "$STAT"
-
-	else
-		logHelper "All stats requested, returning array"
-
-		for i in "${!gpuStats[@]}"; do
-			getIntelStat "$i"
-		done
-	fi
+	for i in "${!gpuStats[@]}"; do
+		getIntelStat "$i"
+	done
 }
 
 getVirtio() {
@@ -379,21 +354,22 @@ getVirtio() {
 	gpuStats["gpu_name"]="Virtual GPU"
 }
 
+logHelper "Stats requested."
 case $BRAND in
 	"NVIDIA")
-		logHelper "Chose NVIDIA branch"
+		logHelper "Chose NVIDIA branch."
 		getNvidia
 		logHelper "Successfully fetched and processed NVIDIA GPU stats."
 	;;
 
 	"AMD")
-		logHelper "Chose AMD branch"
+		logHelper "Chose AMD branch."
 		getAmd
 		logHelper "Successfully fetched and processed AMD GPU stats."
 	;;
 
 	"Intel")
-		logHelper "Chose Intel branch"
+		logHelper "Chose Intel branch."
 		getIntel
 		logHelper "Successfully fetched and processed Intel GPU stats."
 	;;

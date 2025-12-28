@@ -298,8 +298,8 @@ public static class GpuHandling
 
 				gpuDataDicts.Add(new()
 				{
-					{ nameof(gpuData.Name), gpuData.Name },
 					{ nameof(gpuData.Brand), gpuData.Brand },
+					{ nameof(gpuData.Name), gpuData.Name },
 					{ nameof(gpuData.IsDedicated), gpuData.IsDedicated },
 					{ nameof(gpuData.IsMissing), gpuData.IsMissing },
 

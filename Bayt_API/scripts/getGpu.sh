@@ -267,7 +267,7 @@ getAmd() {
      		;;
 
             *)
-            	gpuStats["$1"]="null"
+            	[[ -n "${gpuStats["$1"]}" ]] && gpuStats["$1"]="null"
             ;;
         esac
 	}

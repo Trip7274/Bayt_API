@@ -175,6 +175,34 @@ public static class GpuHandling
 			}
 
 			IsDedicated = arrayOutput["isDedicated"].ParseNullable<bool>();
+			// Try to guess if the GPU is dedicated or integrated based on the GPU name and brand
+			if (IsDedicated == null)
+			{
+				switch (Brand)
+				{
+					case "NVIDIA":
+					{
+						// NVIDIA mostly only makes dedicated GPUs.
+						IsDedicated = true;
+						break;
+					}
+					case "Intel" when Name is not null:
+					{
+						if (Name.Contains("Arc") || Name.Contains("Battlemage"))
+						{
+							IsDedicated = true;
+							break;
+						}
+
+						// The (U)HD and Iris (Xe) series GPUs are largely integrated.
+						if (Name.Contains("HD") || Name.Contains("Iris"))
+						{
+							IsDedicated = false;
+						}
+						break;
+					}
+				}
+			}
 
 			GraphicsUtilPerc = arrayOutput["Graphics Utilization"].ParseNullable<float>();
 			GraphicsFrequency = arrayOutput["Graphics Frequency"].ParseNullable<float>();

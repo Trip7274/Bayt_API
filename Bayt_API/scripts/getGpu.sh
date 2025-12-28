@@ -302,8 +302,11 @@ getIntel() {
             ;;
 
     		"gpu_name")
-    			# I wish we could specify the GPU, or figure it out, but alas, we must just hope that the user only has one
-                gpuStats["gpu_name"]="$(echo "$OUTPUTNVTOP" | jq '.[0]["device_name"]')"
+    			if [ -z "$OUTPUTNVTOP" ]; then
+    			    gpuStats["gpu_name"]="Intel GPU"
+    			else
+    			    gpuStats["gpu_name"]="$(echo "$OUTPUTNVTOP" | jq -r '.[0]["device_name"]')"
+    			fi
             ;;
 
             "utilization.gpu")
@@ -319,6 +322,7 @@ getIntel() {
             ;;
 
             "clocks.current.graphics")
+            	[ -z "$OUTPUTNVTOP" ] && return
             	gpuStats["clocks.current.graphics"]="$(echo "$OUTPUTNVTOP" | jq '.[0]["gpu_clock"]' | grep -o "[0-9]*")"
             ;;
 
@@ -334,20 +338,23 @@ getIntel() {
 
 	if ! intel_gpu_top -h > /dev/null; then
 		logHelper "intel_gpu_top seems to not have the CAP_PERFMON capability set or haven't been installed. Null data will be returned."
-	    return
+		return
+
+	else
+		# intel_gpu_top doesn't have a one-shot mode for some reason, so we have to limit it
+		logHelper "Fetching intel_gpu_top output for '$PCIID' device"
+		OUTPUT="$(timeout 0.1 intel_gpu_top -J -d sys:/sys/devices/pci0000:00/0000:"$PCIID")"
+		OUTPUT="$(echo "$OUTPUT" | tail -n +3)"
 	fi
 	if ! nvtop -v > /dev/null; then
-		logHelper "NVTOP seems to be missing or not setup correctly. Null data will be returned."
-	    return
+		logHelper "NVTOP seems to be missing or not setup correctly. Some data will be missing."
+
+	else
+		# I wish we could specify the GPU, or figure it out, but alas, we must just hope that the user only has one
+		logHelper "Fetching NVTOP output for '$PCIID' device"
+		OUTPUTNVTOP="$(nvtop -s)"
 	fi
 
-
-	logHelper "Fetching intel_gpu_top output for '$PCIID' device"
-	# intel_gpu_top doesn't have a one-shot mode for some reason, so we have to limit it
-	OUTPUT="$(timeout 0.1 intel_gpu_top -J -d sys:/sys/devices/pci0000:00/0000:"$PCIID")"
-    OUTPUT="$(echo "$OUTPUT" | tail -n +3)"
-    logHelper "Fetching NVTOP output for '$PCIID' device"
-    OUTPUTNVTOP="$(nvtop -s)"
 
 	if [ "$STAT" != "" ]; then
 		logHelper "Specific stat requested, returning '$STAT'"

@@ -15,13 +15,13 @@ public static class ParsingMethods
 			return null;
 		}
 
-		if (result is float f)
+		return result switch
 		{
-			// This is a bit of a mess
-			result = (T) (object) MathF.Round(f, 2);
-		}
+			float f => (T) (object) MathF.Round(f, 2),
+			double d => (T) (object) Math.Round(d, 2),
+			_ => result
+		};
 
-		return result;
 	}
 
 	public static T? ParseNullable<T>(this string value) where T : struct, IParsable<T>
@@ -31,13 +31,12 @@ public static class ParsingMethods
 			return null;
 		}
 
-		if (result is float f)
+		return result switch
 		{
-			// This is a bit of a mess
-			result = (T) (object) MathF.Round(f, 2);
-		}
-
-		return result;
+			float f => (T) (object) MathF.Round(f, 2),
+			double d => (T) (object) Math.Round(d, 2),
+			_ => result
+		};
 	}
 	/// <summary>
 	/// Creates a "slug" from a string that can be used as part of a valid URL.

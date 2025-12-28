@@ -25,8 +25,6 @@ PCIID="$2"
 #
 # VRAM Total (Bytes) = memory.total (AMD, NVIDIA)
 # VRAM Used (Bytes) = memory.used (AMD, NVIDIA)
-# VRAM Util (%) = utilization.memory (NVIDIA)
-# VRAM GTT Util (%) = memory.gtt.util (AMD)
 #
 # GPU Encoder Util (%) = utilization.encoder (NVIDIA, Intel ["Video" Engine], AMD [Average of Enc+Dec])
 # GPU Decoder Util (%) = utilization.decoder (NVIDIA)
@@ -100,10 +98,8 @@ declare -A gpuStats=(
 	["gpu.dedicated"]="null"
 	["utilization.gpu"]="null"
 	["clocks.current.graphics"]="null"
-	["utilization.memory"]="null"
 	["memory.total"]="null"
 	["memory.used"]="null"
-	["memory.gtt.util"]="null"
 	["utilization.encoder"]="null"
 	["utilization.decoder"]="null"
 	["utilization.videoenhance"]="null"
@@ -126,14 +122,14 @@ getNvidia() {
 				gpuStats["gpu_name"]="$(nvidia-smi --query-gpu="gpu_name" --format=csv,noheader,nounits --id="$PCIID")"
 			;;
 
+			"gpu.dedicated")
+				# NVIDIA mostly only makes dedicated GPUs.
+				gpuStats["gpu.dedicated"]="true"
+			;;
+
      		"utilization.gpu")
      			gpuStats["utilization.gpu"]="$(echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?GPU\s+:\s*\K\d+')"
      		;;
-
-   			"utilization.memory")
-   				UNTRIMMED_OUTPUT="$(echo "$OUTPUT" | grep -oPz '(?s)Utilization.*?Memory\s+:\s*\K\d+ '| tr -d '\0')"
-                gpuStats["utilization.memory"]="${UNTRIMMED_OUTPUT%% *}"
-   			;;
 
 			"memory.total")
 				(( FINAL_VALUE = "$(echo "$OUTPUT" | grep -oPz '(?s)FB Memory Usage.*?Total\s+:\s*\K\d+' | tr -d '\0')" * 1048576 ))
@@ -231,10 +227,6 @@ getAmd() {
         		gpuStats["memory.used"]="$FINAL_VALUE"
         	;;
 
-     		"memory.gtt.util")
-     			gpuStats["memory.gtt.util"]="$(echo "$OUTPUT" | jq '.[0]["gpu_activity"]["Memory"]["value"]')"
-     		;;
-
             "utilization.encoder")
             	gpuStats["utilization.encoder"]="$(echo "$OUTPUT" | jq '.[0]["gpu_activity"]["MediaEngine"]["value"]')"
             ;;
@@ -308,6 +300,18 @@ getIntel() {
     			    gpuStats["gpu_name"]="$(echo "$OUTPUTNVTOP" | jq -r '.[0]["device_name"]')"
     			fi
             ;;
+
+			"gpu.dedicated")
+				# Try to guess if the GPU is dedicated or integrated based on the GPU name
+				if [[ "${gpuStats["gpu_name"]}" =~ (Arc|Battlemage) ]]; then
+					gpuStats["gpu.dedicated"]="true"
+					return
+				fi
+
+        		if [[ "${gpuStats["gpu_name"]}" =~ (HD|Iris) ]]; then
+        			gpuStats["gpu.dedicated"]="false"
+        		fi
+        	;;
 
             "utilization.gpu")
             	gpuStats["utilization.gpu"]="$(echo "$OUTPUT" | jq '.["engines"]["Render/3D"]["busy"]')"
@@ -406,14 +410,12 @@ jqArgs=("-n")
 
 jq "${jqArgs[@]}"                                                                                 \
 --arg "Brand"                          "${gpuStats["gpu_brand"]:="Unknown"}"                      \
---arg "Name"                           "${gpuStats["gpu_name"]:="Unknown"}"                       \
+--arg "Name"                           "${gpuStats["gpu_name"]:="null"}"                          \
 --argjson "isDedicated"                "${gpuStats["gpu.dedicated"]:="null"}"                     \
 --argjson "Graphics Utilization"       "${gpuStats["utilization.gpu"]:="null"}"                   \
 --argjson "Graphics Frequency"         "${gpuStats["clocks.current.graphics"]:="null"}"           \
---argjson "VRAM Utilization"           "${gpuStats["utilization.memory"]:="null"}"                \
 --argjson "VRAM Total Bytes"           "${gpuStats["memory.total"]:="null"}"                      \
 --argjson "VRAM Used Bytes"            "${gpuStats["memory.used"]:="null"}"                       \
---argjson "VRAM GTT Utilization"       "${gpuStats["utilization.gtt.util"]:="null"}"              \
 --argjson "Encoder Utilization"        "${gpuStats["utilization.encoder"]:="null"}"               \
 --argjson "Decoder Utilization"        "${gpuStats["utilization.decoder"]:="null"}"               \
 --argjson "VideoEnhance Utilization"   "${gpuStats["utilization.videoenhance"]:="null"}"          \

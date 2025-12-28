@@ -26,10 +26,12 @@ public static class GpuHandling
 		/// </remarks>
 		public string? Brand { get; private set; }
 		/// <summary>
-		/// Whether the GPU is considered an APU or dGPU. Purely cosmetic
+		/// Whether the GPU is considered an iGPU or dGPU. Purely cosmetic
 		/// </summary>
 		/// <remarks>
-		///	Currently AMD-only
+		///	AMD: API-provided <br/>
+		/// NVIDIA: Always true <br/>
+		/// Intel: Guessed based on the GPU name, or null if it could not be determined.
 		/// </remarks>
 		public bool? IsDedicated { get; private set; }
 		/// <summary>
@@ -67,13 +69,6 @@ public static class GpuHandling
 		///	Currently AMD + NVIDIA only
 		/// </remarks>
 		public ulong? VramUsedBytes { get; private set; }
-		/// <summary>
-		/// GTT (Graphics Translation Tables) utilization. Different from <c>VramUtilPerc</c>
-		/// </summary>
-		/// <remarks>
-		///	Currently AMD only
-		/// </remarks>
-		public sbyte? VramGttUtilPerc { get; private set; }
 
 		/// <summary>
 		/// Utilization percentage of the encoder engine.
@@ -165,52 +160,23 @@ public static class GpuHandling
 
 			if (arrayOutput["Brand"].GetString() == "Virtio") return;
 
-			float? vramUtilPerc = null;
-			if (arrayOutput["VRAM Utilization"].ValueKind == JsonValueKind.Null &&
-			    arrayOutput["VRAM Total Bytes"].ValueKind != JsonValueKind.Null &&
+			if (arrayOutput["VRAM Total Bytes"].ValueKind != JsonValueKind.Null &&
 			    arrayOutput["VRAM Used Bytes"].ValueKind != JsonValueKind.Null)
 			{
-				// Workaround for the AMD GPU interface not providing a VRAM usage percentage
-				vramUtilPerc = MathF.Round(arrayOutput["VRAM Used Bytes"].GetUInt64() / (float) arrayOutput["VRAM Total Bytes"].GetUInt64() * 100, 2);
+				VramUtilPerc = MathF.Round(arrayOutput["VRAM Used Bytes"].GetUInt64() / (float) arrayOutput["VRAM Total Bytes"].GetUInt64() * 100, 2);
+			}
+			else
+			{
+				VramUtilPerc = null;
 			}
 
 			IsDedicated = arrayOutput["isDedicated"].ParseNullable<bool>();
-			// Try to guess if the GPU is dedicated or integrated based on the GPU name and brand
-			if (IsDedicated == null)
-			{
-				switch (Brand)
-				{
-					case "NVIDIA":
-					{
-						// NVIDIA mostly only makes dedicated GPUs.
-						IsDedicated = true;
-						break;
-					}
-					case "Intel" when Name is not null:
-					{
-						if (Name.Contains("Arc") || Name.Contains("Battlemage"))
-						{
-							IsDedicated = true;
-							break;
-						}
-
-						// The (U)HD and Iris (Xe) series GPUs are largely integrated.
-						if (Name.Contains("HD") || Name.Contains("Iris"))
-						{
-							IsDedicated = false;
-						}
-						break;
-					}
-				}
-			}
 
 			GraphicsUtilPerc = arrayOutput["Graphics Utilization"].ParseNullable<float>();
 			GraphicsFrequency = arrayOutput["Graphics Frequency"].ParseNullable<float>();
 
-			VramUtilPerc = vramUtilPerc ?? arrayOutput["VRAM Utilization"].ParseNullable<float>();
 			VramTotalBytes = arrayOutput["VRAM Total Bytes"].ParseNullable<ulong>();
 			VramUsedBytes = arrayOutput["VRAM Used Bytes"].ParseNullable<ulong>();
-			VramGttUtilPerc = arrayOutput["VRAM GTT Utilization"].ParseNullable<sbyte>();
 
 			EncoderUtilPerc = arrayOutput["Encoder Utilization"].ParseNullable<float>();
 			DecoderUtilPerc = arrayOutput["Decoder Utilization"].ParseNullable<float>();
@@ -337,7 +303,6 @@ public static class GpuHandling
 					{ nameof(gpuData.VramUtilPerc), gpuData.VramUtilPerc },
 					{ nameof(gpuData.VramTotalBytes), gpuData.VramTotalBytes },
 					{ nameof(gpuData.VramUsedBytes), gpuData.VramUsedBytes },
-					{ nameof(gpuData.VramGttUtilPerc), gpuData.VramGttUtilPerc },
 
 					{ nameof(gpuData.EncoderUtilPerc), gpuData.EncoderUtilPerc },
 					{ nameof(gpuData.DecoderUtilPerc), gpuData.DecoderUtilPerc },

@@ -117,7 +117,6 @@ public static class ShellMethods
 	/// <param name="scriptPath">The path to the script file.</param>
 	/// <returns>Array of all announced features. Empty if any check failed.</returns>
 	/// <seealso cref="CheckScriptSupports"/>
-	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
 	public static string[] GetScriptSupports(string scriptPath)
 	{
 		if (!File.Exists(scriptPath) || (File.GetUnixFileMode(scriptPath) & UnixFileMode.UserExecute) == 0)
@@ -144,7 +143,6 @@ public static class ShellMethods
 	/// <param name="requiredSupports">List of features it's expected to support. Leave empty to skip feature checks.</param>
 	/// <returns>Whether the script passed all the checks.</returns>
 	/// <seealso cref="GetScriptSupports"/>
-	[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility")]
 	public static bool CheckScriptSupports(string scriptPath, List<string> requiredSupports)
 	{
 		if (!File.Exists(scriptPath) || (File.GetUnixFileMode(scriptPath) & UnixFileMode.UserExecute) == 0)

@@ -84,7 +84,6 @@ public static class ShellMethods
 				.WithValidation(CommandResultValidation.None)
 				.WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdout))
 				.WithStandardErrorPipe(PipeTarget.ToStringBuilder(stderr))
-				.WithWorkingDirectory(Directory.GetCurrentDirectory())
 				.WithEnvironmentVariables(envVars)
 				.ExecuteAsync(new CancellationTokenSource(timeout.Value).Token);
 			processTimer.Stop();

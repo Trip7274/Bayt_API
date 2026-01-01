@@ -35,6 +35,10 @@ if (!ParsingMethods.IsEnvVarTrue("BAYT_DISABLE_SOCK"))
 Logs.LogBook.Write(new (StreamId.Notice, "Configuration",
 	$"Loaded configuration from: '{ApiConfig.ConfigFilePath}'"));
 
+Logs.LogBook.Write(new (StreamId.Notice, "Logging",
+	$"Saving logs in: '{Path.Combine(ApiConfig.ApiConfiguration.PathToLogFolder,
+		$"[{DateOnly.FromDateTime(DateTime.Now).ToString("O")}] baytLog.log")}'"));
+
 Logs.LogBook.Write(new (StreamId.Notice, "Client Data",
 	$"Serving clientData from: '{ApiConfig.ApiConfiguration.PathToDataFolder}'"));
 

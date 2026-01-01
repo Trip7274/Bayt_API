@@ -36,7 +36,7 @@ Logs.LogBook.Write(new (StreamId.Notice, "Configuration",
 	$"Loaded configuration from: '{ApiConfig.ConfigFilePath}'"));
 
 Logs.LogBook.Write(new (StreamId.Notice, "Client Data",
-	$"Loaded clientData from: '{ApiConfig.ApiConfiguration.PathToDataFolder}'"));
+	$"Serving clientData from: '{ApiConfig.ApiConfiguration.PathToDataFolder}'"));
 
 if (DockerLocal.IsDockerComposeAvailable)
 {

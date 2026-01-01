@@ -9,7 +9,7 @@ namespace Bayt_API;
 /// <summary>
 /// Represents the result of executing a shell command.
 /// </summary>
-public class ShellResult
+public sealed record ShellResult
 {
 	/// <summary>
 	/// Contains the standard output produced by the process.

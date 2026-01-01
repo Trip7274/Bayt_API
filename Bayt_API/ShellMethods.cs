@@ -33,6 +33,10 @@ public sealed record ShellResult
 	/// Contains a value indicating whether the process completed successfully.
 	/// </summary>
 	public bool IsSuccess => ExitCode == 0;
+
+	public override string ToString() => StandardOutput;
+	public static implicit operator int(ShellResult shellResult) => shellResult.ExitCode;
+	public static implicit operator bool(ShellResult shellResult) => shellResult.IsSuccess;
 }
 
 public static class ShellMethods

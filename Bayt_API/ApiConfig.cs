@@ -15,7 +15,7 @@ public static class ApiConfig
 	/// <summary>
 	/// String containing the semver-aligned version of the current Bayt instance.
 	/// </summary>
-	public const string Version = "0.13.18";
+	public const string Version = "0.16.18";
 	/// <summary>
 	/// Represents the current Bayt instance's MAJOR version in semver.
 	/// </summary>

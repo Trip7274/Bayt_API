@@ -48,7 +48,7 @@ public static class ApiConfig
 	/// <summary>
 	/// Abs. path to the Bayt binary's directory
 	/// </summary>
-	public static readonly string BaseExecutablePath = Path.GetDirectoryName(Environment.ProcessPath) ?? Environment.CurrentDirectory;
+	public static readonly string BaseExecutablePath = AppContext.BaseDirectory;
 
 	/// <summary>
 	/// Abs. path to the configuration directory. E.g. <c>/home/{user}/.config/baytConfig/</c>.

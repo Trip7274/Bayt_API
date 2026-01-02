@@ -87,7 +87,15 @@ public static class ApiConfig
 	/// <summary>
 	/// All the supported stats one can request from the <c>getStats</c> endpoint
 	/// </summary>
-	public static readonly SystemStats[] PossibleStats = [SystemStats.Meta, SystemStats.System, SystemStats.Cpu, SystemStats.Gpu, SystemStats.Memory, SystemStats.Mounts];
+	public static readonly SystemStats[] PossibleStats = [
+		SystemStats.Meta,
+		SystemStats.System,
+		SystemStats.Cpu,
+		SystemStats.Gpu,
+		SystemStats.Memory,
+		SystemStats.Mounts,
+		SystemStats.Batteries
+	];
 
 	/// <summary>
 	/// Enum containing all the stats this API can fetch.
@@ -100,7 +108,8 @@ public static class ApiConfig
 		Cpu,
 		Gpu,
 		Memory,
-		Mounts
+		Mounts,
+		Batteries
 	}
 
 	// Config management

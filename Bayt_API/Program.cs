@@ -67,7 +67,7 @@ if (Environment.OSVersion.Platform != PlatformID.Unix)
 }
 
 
-app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (HttpResponse response, bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts) =>
+app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (HttpResponse response, bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts, bool? batteries) =>
 	{
 		Dictionary<ApiConfig.SystemStats, bool?> requestedStatsRaw = new() {
 			{ ApiConfig.SystemStats.Meta, meta },
@@ -75,7 +75,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (HttpResponse r
 			{ ApiConfig.SystemStats.Cpu, cpu },
 			{ ApiConfig.SystemStats.Gpu, gpu },
 			{ ApiConfig.SystemStats.Memory, memory },
-			{ ApiConfig.SystemStats.Mounts, mounts }
+			{ ApiConfig.SystemStats.Mounts, mounts },
+			{ ApiConfig.SystemStats.Batteries, batteries },
 		};
 		List<ApiConfig.SystemStats> requestedStats = [];
 		if (requestedStatsRaw.All(stat => !stat.Value.HasValue))
@@ -125,6 +126,11 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (HttpResponse r
 				case ApiConfig.SystemStats.Mounts:
 				{
 					fetchTasks.Add(Task.Run(DiskHandling.FullDisksData.UpdateDataIfNecessary));
+					break;
+				}
+				case ApiConfig.SystemStats.Batteries:
+				{
+					fetchTasks.Add(Task.Run(StatsApi.BatteryList.UpdateDataIfNecessary));
 					break;
 				}
 			}
@@ -183,6 +189,13 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (HttpResponse r
 				{
 					responseDictionary.Add("Mounts", DiskHandling.FullDisksData.ToDictionary());
 					lastUpdateStamps.Add(DiskHandling.FullDisksData.LastUpdate);
+					break;
+				}
+
+				case ApiConfig.SystemStats.Batteries:
+				{
+					responseDictionary.Add("Batteries", StatsApi.BatteryList.ToDictionary());
+					lastUpdateStamps.Add(StatsApi.BatteryList.LastUpdate);
 					break;
 				}
 				default:
@@ -1173,7 +1186,8 @@ else
 		Task.Run(StatsApi.CpuData.UpdateDataIfNecessary),
 		Task.Run(GpuHandling.FullGpusData.UpdateDataIfNecessary),
 		Task.Run(StatsApi.MemoryData.UpdateDataIfNecessary),
-		Task.Run(DiskHandling.FullDisksData.UpdateDataIfNecessary)
+		Task.Run(DiskHandling.FullDisksData.UpdateDataIfNecessary),
+		Task.Run(StatsApi.BatteryList.UpdateDataIfNecessary)
 	];
 
 	if (DockerLocal.IsDockerAvailable)

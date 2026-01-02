@@ -351,6 +351,285 @@ public static class StatsApi
 		}
 	}
 
+	/// <summary>
+	/// Best-effort collection of data about a specific connected battery.
+	/// </summary>
+	/// <remarks>
+	///	Most of this is taken from the Linux kernel.<br/>
+	/// More documentation regarding a lot of this can be found here: https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
+	/// </remarks>
+	/// <seealso cref="BatteryList"/>
+	public sealed class BatteryData
+	{
+		public BatteryData(string supplyName)
+		{
+			if (string.IsNullOrWhiteSpace(supplyName))
+				throw new ArgumentException("Supply name cannot be null or whitespace.", nameof(supplyName));
+
+			if (!Directory.Exists($"/sys/class/power_supply/{supplyName}"))
+				throw new ArgumentException($"Supplied supply name '{supplyName}' does not exist.", nameof(supplyName));
+
+			var basePath = $"/sys/class/power_supply/{supplyName}";
+
+			SupplyName = supplyName;
+			Manufacturer = File.ReadAllText($"{basePath}/manufacturer").TrimEnd();
+			Name = File.ReadAllText($"{basePath}/model_name").TrimEnd();
+			Type = File.ReadAllText($"{basePath}/type").TrimEnd();
+			Technology = File.ReadAllText($"{basePath}/technology").TrimEnd();
+
+			UpdateData().Wait();
+		}
+
+		/// <summary>
+		/// The name of the battery supply, as it appears in the <c>/sys/class/power_supply/</c> directory. (e.g., 'BAT0')
+		/// </summary>
+		private string SupplyName { get; }
+
+		/// <summary>
+		/// Reports the name of the device manufacturer.
+		/// </summary>
+		/// <remarks>
+		///	Found in <c>/sys/class/power_supply/{SupplyName}/manufacturer</c>
+		/// </remarks>
+		public string Manufacturer { get; }
+		/// <summary>
+		/// Reports the name of the device model.
+		/// </summary>
+		/// <remarks>
+		///	Found in <c>/sys/class/power_supply/{SupplyName}/model_name</c>
+		/// </remarks>
+		public string Name { get; }
+		/// <summary>
+		/// Describes the main type of the supply.
+		/// </summary>
+		/// <remarks>
+		///	Either "Battery" or "UPS"<br/>
+		/// Found in <c>/sys/class/power_supply/{SupplyName}/type</c>
+		/// </remarks>
+		public string Type { get; }
+		/// <summary>
+		///	Describes the battery technology supported by the supply.
+		/// </summary>
+		/// <remarks>
+		///	Either "Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd", or "LiMn"<br/>
+		/// Found in <c>/sys/class/power_supply/{SupplyName}/technology</c>
+		/// </remarks>
+		public string Technology { get; }
+		/// <summary>
+		/// Reports whether a battery is present or not in the system.
+		/// </summary>
+		/// <remarks>
+		///	Found in <c>/sys/class/power_supply/{SupplyName}/present</c> (if the file is missing, the battery is assumed to be present)
+		/// </remarks>
+		public bool Present { get; private set; }
+		/// <summary>
+		/// Reports whether the battery's status is "Discharging" or not.
+		/// </summary>
+		/// <remarks>
+		///	Processed from <c>/sys/class/power_supply/{SupplyName}/status</c>
+		/// </remarks>
+		public bool? Discharging { get; private set; }
+
+		/// <summary>
+		///	Reports an instant, single VBAT voltage reading for the battery. This value is not averaged/smoothed.
+		/// </summary>
+		/// <remarks>
+		///	Unit is Volts rounded to 2 decimal places.<br/>
+		/// Found in <c>/sys/class/power_supply/{SupplyName}/voltage_now</c>
+		/// </remarks>
+		public float? VoltageNowV { get; private set; }
+
+		/// <summary>
+		/// Reports how much the battery can hold, compared to its original design capacity.
+		/// </summary>
+		/// <remarks>
+		///	Unit is percentage rounded to 2 decimal places.<br/>
+		/// This is processed from '<see cref="FullChargeWh"/> / <see cref="DesignFullChargeWh"/>'
+		/// </remarks>
+		public float? Health { get; private set; }
+
+		/// <summary>
+		/// Fine grain representation of battery capacity.
+		/// </summary>
+		/// <remarks>
+		///	Unit is percentage. Do note that this is a byte and not a float
+		/// </remarks>
+		public byte? CapacityPerc { get; private set; }
+		/// <summary>
+		/// Represents a battery percentage level, above which charging will stop. (usually to protect the battery's health)
+		/// </summary>
+		/// <remarks>
+		///	Unit is percentage (byte).<br/>
+		/// Found in <c>/sys/class/power_supply/{SupplyName}/charge_control_end_threshold</c>
+		/// </remarks>
+		public byte? CapacityLimitPerc { get; private set; }
+
+		/// <summary>
+		///	Represents the current battery charge in Wh.
+		/// </summary>
+		/// <remarks>
+		///	Calculated from '<c>/sys/class/power_supply/{SupplyName}/charge_now</c> * <see cref="VoltageNowV"/>'
+		/// </remarks>
+		public float?  CurrentChargeWh { get; private set; }
+		/// <summary>
+		/// Represents the last full battery charge in Wh.
+		/// </summary>
+		/// <remarks>
+		///	Calculated from '<c>/sys/class/power_supply/{SupplyName}/charge_full</c> * <see cref="VoltageNowV"/>'
+		/// </remarks>
+		public float? FullChargeWh { get; private set; }
+		/// <summary>
+		///	Represents the original design battery capacity in Wh.
+		/// </summary>
+		/// <remarks>
+		///	Calculated from '<c>/sys/class/power_supply/{SupplyName}/charge_full_design</c> * <see cref="VoltageNowV"/>'
+		/// </remarks>
+		public float? DesignFullChargeWh { get; private set; }
+
+		public uint? CycleCount { get; private set; }
+
+
+		public async Task UpdateData()
+		{
+			var basePath = $"/sys/class/power_supply/{SupplyName}";
+
+			Present = !File.Exists($"{basePath}/present") || (await File.ReadAllTextAsync($"{basePath}/present")).StartsWith('1');
+			if (!Present)
+			{
+				return;
+			}
+
+			Discharging = (await File.ReadAllTextAsync($"{basePath}/status")).StartsWith("Discharging");
+
+			VoltageNowV = await ParsingMethods.TryReadFileAsync<float>($"{basePath}/voltage_now") / 1_000_000F;
+
+			CapacityPerc = await ParsingMethods.TryReadFileAsync<byte>($"{basePath}/capacity");
+			CapacityLimitPerc = await ParsingMethods.TryReadFileAsync<byte>($"{basePath}/charge_control_end_threshold");
+
+			if (VoltageNowV.HasValue)
+			{
+				// Wh = Ah * V
+				// Source: https://www.inchcalculator.com/ah-to-wh-calculator/#idx_ah_to_wh_conversion_formula
+				var currentChargeMicroAh = await ParsingMethods.TryReadFileAsync<ulong>($"{basePath}/charge_now") / 1_000_000F;
+				if (currentChargeMicroAh.HasValue) CurrentChargeWh = MathF.Round(currentChargeMicroAh.Value * VoltageNowV.Value, 2);
+
+				var fullChargeMicroAh = await ParsingMethods.TryReadFileAsync<ulong>($"{basePath}/charge_full") / 1_000_000F;
+				if (fullChargeMicroAh.HasValue) FullChargeWh = MathF.Round(fullChargeMicroAh.Value * VoltageNowV.Value, 2);
+
+				var designFullChargeMicroAh = await ParsingMethods.TryReadFileAsync<ulong>($"{basePath}/charge_full_design") / 1_000_000F;
+				if (designFullChargeMicroAh.HasValue) DesignFullChargeWh = MathF.Round(designFullChargeMicroAh.Value * VoltageNowV.Value, 2);
+
+				VoltageNowV = MathF.Round(VoltageNowV.Value, 2);
+			}
+
+			if (FullChargeWh.HasValue && DesignFullChargeWh.HasValue)
+				Health = MathF.Round(FullChargeWh.Value / DesignFullChargeWh.Value * 100, 2);
+
+			CycleCount = await ParsingMethods.TryReadFileAsync<uint>($"{basePath}/cycle_count");
+		}
+	}
+
+	/// <summary>
+	/// Fetches, updates, and serializes all connected batteries.
+	/// </summary>
+	/// <seealso cref="BatteryData"/>
+	public static class BatteryList
+	{
+		static BatteryList()
+		{
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery List", "Loading battery list"));
+			var batteries = Directory.EnumerateDirectories("/sys/class/power_supply/");
+			foreach (var battery in batteries)
+			{
+				var batteryName = Path.GetFileName(battery);
+				if (File.Exists(Path.Combine(battery, "present")) && !File.ReadAllText(Path.Combine(battery, "present")).StartsWith('1') )
+				{
+					Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery List", $"Battery '{batteryName}' is not present, skipping."));
+					continue;
+				}
+				if (File.ReadAllText(Path.Combine(battery, "type")).TrimEnd() is "Mains" or "USB" or "Wireless")
+				{
+					Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery List", $"Battery '{batteryName}' does not seem like a battery, skipping."));
+					continue;
+				}
+
+				List.Add(new BatteryData(batteryName));
+			}
+
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery List", $"Loaded {List.Count} batteries."));
+			LastUpdate = DateTime.Now;
+		}
+
+		public static readonly List<BatteryData> List = [];
+
+		public static DateTime LastUpdate { get; private set; }
+		public static bool ShouldUpdate => LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+		public static Task? UpdatingTask { get; private set; }
+		private static readonly Lock UpdatingLock = new();
+
+		public static async Task UpdateData()
+		{
+			foreach (var battery in List)
+			{
+				await battery.UpdateData();
+			}
+			LastUpdate = DateTime.Now;
+		}
+		public static async Task UpdateDataIfNecessary()
+		{
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Batteries Fetch", "Checking for battery data update..."));
+			if (!ShouldUpdate) return;
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Batteries Fetch", "Updating battery data..."));
+
+			var localTask = UpdatingTask;
+			if (localTask is null)
+			{
+				lock (UpdatingLock)
+				{
+					UpdatingTask ??= UpdateData();
+					localTask = UpdatingTask;
+				}
+			}
+
+			await localTask;
+			lock (UpdatingLock)
+			{
+				UpdatingTask = null;
+			}
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Batteries Fetch", "Battery data updated."));
+		}
+
+		public static Dictionary<string, dynamic?>[] ToDictionary()
+		{
+			var batteryDictionaries = new List<Dictionary<string, dynamic?>>(List.Count);
+
+			batteryDictionaries.AddRange(List.Select(batteryData => new Dictionary<string, dynamic?>
+			{
+				{ nameof(batteryData.Name), batteryData.Name },
+				{ nameof(batteryData.Manufacturer), batteryData.Manufacturer },
+				{ nameof(batteryData.Type), batteryData.Type },
+				{ nameof(batteryData.Technology), batteryData.Technology },
+				{ nameof(batteryData.Present), batteryData.Present },
+				{ nameof(batteryData.Discharging), batteryData.Discharging },
+
+				{ nameof(batteryData.VoltageNowV), batteryData.VoltageNowV },
+
+				{ nameof(batteryData.Health), batteryData.Health },
+				{ nameof(batteryData.CapacityPerc), batteryData.CapacityPerc },
+				{ nameof(batteryData.CapacityLimitPerc), batteryData.CapacityLimitPerc },
+				{ nameof(batteryData.CurrentChargeWh), batteryData.CurrentChargeWh },
+				{ nameof(batteryData.FullChargeWh), batteryData.FullChargeWh },
+				{ nameof(batteryData.DesignFullChargeWh), batteryData.DesignFullChargeWh },
+
+				{ nameof(batteryData.CycleCount), batteryData.CycleCount },
+
+				{ nameof(LastUpdate), LastUpdate.ToUniversalTime() }
+			}));
+
+			return batteryDictionaries.ToArray();
+		}
+	}
+
 	public static IPAddress GetLocalIpAddress()
 	{
 		IPAddress localIp;

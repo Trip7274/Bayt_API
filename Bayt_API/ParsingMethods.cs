@@ -38,6 +38,26 @@ public static class ParsingMethods
 			_ => result
 		};
 	}
+
+	/// <summary>
+	/// Attempts to read the contents of a file at the specified path and parse it into the specified type.
+	/// If the file does not exist or the contents cannot be parsed, returns null.
+	/// </summary>
+	/// <returns>
+	///	The file's contents parsed into the specified type, or null if the file does not exist or contains a literal "null".
+	/// </returns>
+	/// <seealso cref="TryReadFileAsync{T}(string)"/>
+	public static T? TryReadFile<T>(string filePath) where T : struct, IParsable<T>
+	{
+		return !File.Exists(filePath) ? null : File.ReadAllText(filePath).ParseNullable<T>();
+	}
+	/// <summary>
+	/// Asynchronous version of <see cref="TryReadFile{T}(string)"/>.
+	/// </summary>
+	public static async Task<T?> TryReadFileAsync<T>(string filePath) where T : struct, IParsable<T>
+	{
+		return File.Exists(filePath) ? (await File.ReadAllTextAsync(filePath)).ParseNullable<T>() : null;
+	}
 	/// <summary>
 	/// Creates a "slug" from a string that can be used as part of a valid URL.
 	///

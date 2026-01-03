@@ -51,12 +51,20 @@ public static class ParsingMethods
 	{
 		return !File.Exists(filePath) ? null : File.ReadAllText(filePath).ParseNullable<T>();
 	}
+	public static string? TryReadFile(string filePath)
+	{
+		return !File.Exists(filePath) ? null : File.ReadAllText(filePath).TrimEnd();
+	}
 	/// <summary>
 	/// Asynchronous version of <see cref="TryReadFile{T}(string)"/>.
 	/// </summary>
 	public static async Task<T?> TryReadFileAsync<T>(string filePath) where T : struct, IParsable<T>
 	{
 		return File.Exists(filePath) ? (await File.ReadAllTextAsync(filePath)).ParseNullable<T>() : null;
+	}
+	public static async Task<string?> TryReadFileAsync(string filePath)
+	{
+		return !File.Exists(filePath) ? null : (await File.ReadAllTextAsync(filePath)).TrimEnd();
 	}
 	/// <summary>
 	/// Creates a "slug" from a string that can be used as part of a valid URL.

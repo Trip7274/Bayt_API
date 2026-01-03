@@ -40,30 +40,33 @@ public class ParsingMethodsTests
 	[Fact]
 	public void ParseNonExistentFile()
 	{
-		Assert.Null(ParsingMethods.TryReadFile<long>("/theres/No/Way/This/Exists"));
+		Assert.Null(ParsingMethods.TryReadFile<byte>("/theres/No/Way/This/Exists"));
 	}
 	[Fact]
-	public void ParseValidFile()
+	public async Task ParseValidFile()
 	{
 		var tempFileName = Path.GetTempFileName();
-		File.WriteAllText(tempFileName, "1234567890");
-		Assert.Equal(1234567890L, ParsingMethods.TryReadFile<long>(tempFileName));
+		await File.WriteAllTextAsync(tempFileName, "128");
+		Assert.Equal((byte) 128, ParsingMethods.TryReadFile<byte>(tempFileName));
+		Assert.Equal((byte) 128, await ParsingMethods.TryReadFileAsync<byte>(tempFileName));
 		File.Delete(tempFileName);
 	}
 	[Fact]
-	public void ParseInvalidFile()
+	public async Task ParseInvalidFile()
 	{
 		var tempFileName = Path.GetTempFileName();
-		File.WriteAllText(tempFileName, "This is not a number.");
-		Assert.Null(ParsingMethods.TryReadFile<long>(tempFileName));
-		File.Delete(tempFileName);
-	}
-	[Fact]
-	public void ParseNullFile()
-	{
-		var tempFileName = Path.GetTempFileName();
-		File.WriteAllText(tempFileName, "null");
+		await File.WriteAllTextAsync(tempFileName, "This is not a number.");
 		Assert.Null(ParsingMethods.TryReadFile<byte>(tempFileName));
+		Assert.Null(await ParsingMethods.TryReadFileAsync<byte>(tempFileName));
+		File.Delete(tempFileName);
+	}
+	[Fact]
+	public async Task ParseNullFile()
+	{
+		var tempFileName = Path.GetTempFileName();
+		await File.WriteAllTextAsync(tempFileName, "null");
+		Assert.Null(ParsingMethods.TryReadFile<byte>(tempFileName));
+		Assert.Null(await ParsingMethods.TryReadFileAsync<byte>(tempFileName));
 		File.Delete(tempFileName);
 	}
 

@@ -372,10 +372,10 @@ public static class StatsApi
 			var basePath = $"/sys/class/power_supply/{supplyName}";
 
 			SupplyName = supplyName;
-			Manufacturer = File.ReadAllText($"{basePath}/manufacturer").TrimEnd();
-			Name = File.ReadAllText($"{basePath}/model_name").TrimEnd();
+			Manufacturer = ParsingMethods.TryReadFile($"{basePath}/manufacturer");
+			Name = ParsingMethods.TryReadFile($"{basePath}/model_name") ?? (Manufacturer is not null ? $"{Manufacturer} Battery" : SupplyName);
 			Type = File.ReadAllText($"{basePath}/type").TrimEnd();
-			Technology = File.ReadAllText($"{basePath}/technology").TrimEnd();
+			Technology = ParsingMethods.TryReadFile($"{basePath}/technology");
 
 			UpdateData().Wait();
 		}
@@ -391,14 +391,14 @@ public static class StatsApi
 		/// <remarks>
 		///	Found in <c>/sys/class/power_supply/{SupplyName}/manufacturer</c>
 		/// </remarks>
-		public string Manufacturer { get; }
+		public string? Manufacturer { get; }
 		/// <summary>
 		/// Reports the name of the device model.
 		/// </summary>
 		/// <remarks>
 		///	Found in <c>/sys/class/power_supply/{SupplyName}/model_name</c>
 		/// </remarks>
-		public string Name { get; }
+		public string? Name { get; }
 		/// <summary>
 		/// Describes the main type of the supply.
 		/// </summary>
@@ -414,7 +414,7 @@ public static class StatsApi
 		///	Either "Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd", or "LiMn"<br/>
 		/// Found in <c>/sys/class/power_supply/{SupplyName}/technology</c>
 		/// </remarks>
-		public string Technology { get; }
+		public string? Technology { get; }
 		/// <summary>
 		/// Reports whether a battery is present or not in the system.
 		/// </summary>

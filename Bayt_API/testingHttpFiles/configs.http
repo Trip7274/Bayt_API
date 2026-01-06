@@ -7,7 +7,7 @@ Content-Type: application/json
 
 # Changes the cache lifetime (in seconds)
 {
-    "SecondsToUpdate": {{$random.integer(1, 6)}}
+    "CacheLifetime": {{$random.integer(1, 6)}}
 }
 
 

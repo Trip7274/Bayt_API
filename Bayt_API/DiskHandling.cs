@@ -224,7 +224,7 @@ public static partial class DiskHandling
 		/// Returns whether the current data is too stale and should be updated.
 		/// </summary>
 		public static bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+			LastUpdate + ApiConfig.ApiConfiguration.CacheLifetime < DateTime.Now;
 		/// <summary>
 		/// Check if the object's data is stale, if so, update it using <see cref="UpdateData"/>.
 		/// </summary>

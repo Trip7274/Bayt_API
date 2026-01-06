@@ -229,8 +229,7 @@ public static class GpuHandling
 		/// <summary>
 		/// Returns whether the current data is too stale and should be updated.
 		/// </summary>
-		public static bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+		public static bool ShouldUpdate => LastUpdate + ApiConfig.ApiConfiguration.CacheLifetime < DateTime.Now;
 
 		private static Task? UpdatingTask { get; set; }
 		private static readonly Lock UpdatingLock = new();

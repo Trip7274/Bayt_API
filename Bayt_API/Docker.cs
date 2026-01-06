@@ -64,7 +64,7 @@ public static class DockerLocal
 			{
 				Containers.Add(new DockerContainer(containerEntries));
 			}
-			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
+			LastUpdate = DateTime.Now + ApiConfig.ApiConfiguration.ClampedCacheLifetime;
 		}
 
 		/// <summary>
@@ -173,8 +173,7 @@ public static class DockerLocal
 		/// <summary>
 		/// Returns whether the current data is too stale and should be updated.
 		/// </summary>
-		public static bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+		public static bool ShouldUpdate => LastUpdate + ApiConfig.ApiConfiguration.CacheLifetime < DateTime.Now;
 	}
 
 	/// <summary>
@@ -805,7 +804,7 @@ public static class DockerLocal
 			{
 				Images.Add(imageEntry.Deserialize<ImageInfo>()!);
 			}
-			LastUpdate = DateTime.Now + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.ClampedSecondsToUpdate);
+			LastUpdate = DateTime.Now + ApiConfig.ApiConfiguration.ClampedCacheLifetime;
 		}
 
 		/// <summary>
@@ -890,8 +889,7 @@ public static class DockerLocal
 		/// <summary>
 		/// Returns whether the current data is too stale and should be updated.
 		/// </summary>
-		public static bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+		public static bool ShouldUpdate => LastUpdate + ApiConfig.ApiConfiguration.CacheLifetime < DateTime.Now;
 	}
 	/// <summary>
 	/// Represents a Docker image on the system. Provides info about the image.

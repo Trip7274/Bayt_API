@@ -122,8 +122,7 @@ public static class StatsApi
 		/// <summary>
 		/// Returns whether the current data is too stale and should be updated.
 		/// </summary>
-		public static bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+		public static bool ShouldUpdate => LastUpdate + ApiConfig.ApiConfiguration.CacheLifetime < DateTime.Now;
 
 		private static Task? UpdatingTask { get; set; }
 		private static readonly Lock UpdatingLock = new();
@@ -134,7 +133,11 @@ public static class StatsApi
 		public static async Task UpdateDataIfNecessary()
 		{
 			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Checking for CPU data update..."));
-			if (!ShouldUpdate) return;
+			if (!ShouldUpdate)
+			{
+				Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "CPU data is up to date."));
+				return;
+			}
 			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Updating CPU data..."));
 
 			var localTask = UpdatingTask;
@@ -167,7 +170,7 @@ public static class StatsApi
 			{
 				shellTimeout *= 10;
 			}
-			var frequencyUpdateTask = FetchFrequency();
+			var frequencyUpdateTask = Task.Run(FetchFrequency);
 			var rawOutput = await ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getCpu.sh", ["AllUtil"], shellTimeout);
 			if (!rawOutput.IsSuccess)
 			{
@@ -245,6 +248,11 @@ public static class StatsApi
 	/// </summary>
 	public static class MemoryData
 	{
+		static MemoryData()
+		{
+			UpdateData().Wait();
+			LastUpdate = DateTime.Now + ApiConfig.ApiConfiguration.ClampedCacheLifetime;
+		}
 		/// <summary>
 		/// Total system memory (RAM) in bytes.
 		/// </summary>
@@ -266,12 +274,11 @@ public static class StatsApi
 		/// <summary>
 		/// The last time this object was updated.
 		/// </summary>
-		public static DateTime LastUpdate { get; private set; } = DateTime.MinValue;
+		public static DateTime LastUpdate { get; private set; }
 		/// <summary>
 		/// Returns whether the current data is too stale and should be updated.
 		/// </summary>
-		public static bool ShouldUpdate =>
-			LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+		public static bool ShouldUpdate => LastUpdate + ApiConfig.ApiConfiguration.CacheLifetime < DateTime.Now;
 
 		private static Task? UpdatingTask { get; set; }
 		private static readonly Lock UpdatingLock = new();
@@ -282,7 +289,11 @@ public static class StatsApi
 		public static async Task UpdateDataIfNecessary()
 		{
 			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Checking for RAM data update..."));
-			if (!ShouldUpdate) return;
+			if (!ShouldUpdate)
+			{
+				Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "RAM data is up to date."));
+				return;
+			}
 			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Updating RAM data..."));
 
 			var localTask = UpdatingTask;
@@ -383,7 +394,7 @@ public static class StatsApi
 		/// <summary>
 		/// The name of the battery supply, as it appears in the <c>/sys/class/power_supply/</c> directory. (e.g., 'BAT0')
 		/// </summary>
-		private string SupplyName { get; }
+		public string SupplyName { get; }
 
 		/// <summary>
 		/// Reports the name of the device manufacturer.
@@ -491,11 +502,14 @@ public static class StatsApi
 
 		public async Task UpdateData()
 		{
+			var supplyNameHash = SupplyName.GetHashCode().ToString("X4");
+			Logs.LogBook.Write(new (StreamId.Verbose, $"Battery Fetch [{supplyNameHash}]", $"Updating battery data for '{Name ?? SupplyName}'"));
 			var basePath = $"/sys/class/power_supply/{SupplyName}";
 
 			Present = !File.Exists($"{basePath}/present") || (await File.ReadAllTextAsync($"{basePath}/present")).StartsWith('1');
 			if (!Present)
 			{
+				Logs.LogBook.Write(new (StreamId.Verbose, $"Battery Fetch [{supplyNameHash}]", $"Skipping battery data for '{Name ?? SupplyName}'"));
 				return;
 			}
 
@@ -537,49 +551,75 @@ public static class StatsApi
 	{
 		static BatteryList()
 		{
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery List", "Loading battery list"));
-			var batteries = Directory.EnumerateDirectories("/sys/class/power_supply/");
-			foreach (var battery in batteries)
-			{
-				var batteryName = Path.GetFileName(battery);
-				if (File.Exists(Path.Combine(battery, "present")) && !File.ReadAllText(Path.Combine(battery, "present")).StartsWith('1') )
-				{
-					Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery List", $"Battery '{batteryName}' is not present, skipping."));
-					continue;
-				}
-				if (File.ReadAllText(Path.Combine(battery, "type")).TrimEnd() is "Mains" or "USB" or "Wireless")
-				{
-					Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery List", $"Battery '{batteryName}' does not seem like a battery, skipping."));
-					continue;
-				}
-
-				List.Add(new BatteryData(batteryName));
-			}
-
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery List", $"Loaded {List.Count} batteries."));
-			LastUpdate = DateTime.Now;
+			InitializeList();
+			LastUpdate = DateTime.Now + ApiConfig.ApiConfiguration.ClampedCacheLifetime;
 		}
 
 		public static readonly List<BatteryData> List = [];
 
 		public static DateTime LastUpdate { get; private set; }
-		public static bool ShouldUpdate => LastUpdate.AddSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate) < DateTime.Now;
+		public static bool ShouldUpdate => LastUpdate + ApiConfig.ApiConfiguration.CacheLifetime < DateTime.Now;
 		public static Task? UpdatingTask { get; private set; }
 		private static readonly Lock UpdatingLock = new();
 
+		private static void InitializeList()
+		{
+			if (List.Count > 0) List.Clear();
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Loading battery list"));
+
+			foreach (var battery in Directory.EnumerateDirectories("/sys/class/power_supply/"))
+			{
+				var batteryName = Path.GetFileName(battery);
+				if (File.Exists(Path.Combine(battery, "present")) && !File.ReadAllText(Path.Combine(battery, "present")).StartsWith('1') )
+				{
+					Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", $"Battery '{batteryName}' is not present, skipping."));
+					continue;
+				}
+				if (File.ReadAllText(Path.Combine(battery, "type")).TrimEnd() is "Mains" or "USB" or "Wireless")
+				{
+					Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", $"Battery '{batteryName}' does not seem like a battery, skipping."));
+					continue;
+				}
+
+				try
+				{
+					List.Add(new BatteryData(batteryName));
+				}
+				catch (Exception e)
+				{
+					Logs.LogBook.Write(new (StreamId.Error, "Battery Fetch", $"Error loading battery '{batteryName}': {e.Message}'"));
+				}
+			}
+
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", $"Loaded {List.Count} batteries."));
+		}
+
 		public static async Task UpdateData()
 		{
-			foreach (var battery in List)
+			var powerSupplyDirs = Directory.EnumerateDirectories("/sys/class/power_supply/").ToList();
+			if (powerSupplyDirs.Count != List.Count ||
+			    List.All(battery => powerSupplyDirs.Contains(battery.SupplyName)))
 			{
-				await battery.UpdateData();
+				InitializeList();
+			}
+			else
+			{
+				foreach (var battery in List)
+				{
+					await battery.UpdateData();
+				}
 			}
 			LastUpdate = DateTime.Now;
 		}
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Batteries Fetch", "Checking for battery data update..."));
-			if (!ShouldUpdate) return;
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Batteries Fetch", "Updating battery data..."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Checking for battery data update..."));
+			if (!ShouldUpdate)
+			{
+				Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Battery data is up to date."));
+				return;
+			}
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Updating battery data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -596,7 +636,7 @@ public static class StatsApi
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Batteries Fetch", "Battery data updated."));
+			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Battery data updated."));
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()

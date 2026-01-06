@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -150,8 +149,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (HttpResponse r
 						{
 							{ nameof(ApiConfig.Version), ApiConfig.Version },
 							{ nameof(ApiConfig.ApiVersion), ApiConfig.ApiVersion },
-							{ nameof(ApiConfig.ApiConfiguration.SecondsToUpdate),
-								ApiConfig.ApiConfiguration.SecondsToUpdate },
+							{ nameof(ApiConfig.ApiConfiguration.CacheLifetime),
+								ApiConfig.ApiConfiguration.CacheLifetime },
 							{ "BaytUptime", ApiConfig.BaytStartStopwatch.Elapsed }
 						}
 					]);
@@ -206,8 +205,8 @@ app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (HttpResponse r
 		}
 
 		var latestUpdate = lastUpdateStamps.Max();
-		response.Headers.Append("Expires", (latestUpdate + TimeSpan.FromSeconds(ApiConfig.ApiConfiguration.SecondsToUpdate))
-			.ToString(new DateTimeFormatInfo().RFC1123Pattern));
+		response.Headers.Append("Expires", (latestUpdate + ApiConfig.ApiConfiguration.CacheLifetime)
+			.ToString("R"));
 		await response.Body.WriteAsync( JsonSerializer.SerializeToUtf8Bytes(responseDictionary));
 		await response.CompleteAsync();
 

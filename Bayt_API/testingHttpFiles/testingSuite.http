@@ -42,7 +42,7 @@ GET {{Bayt_API_BaseAddress}}/config/getList
 
         client.assert(response.body.hasOwnProperty("ConfigVersion"), "ConfigVersion property missing");
         client.assert(response.body.hasOwnProperty("BackendName"), "BackendName property missing");
-        client.assert(response.body.hasOwnProperty("SecondsToUpdate"), "SecondsToUpdate property missing");
+        client.assert(response.body.hasOwnProperty("CacheLifetime"), "CacheLifetime property missing");
         client.assert(response.body.hasOwnProperty("PathToDataFolder"), "PathToDataFolder property missing");
         client.assert(response.body.hasOwnProperty("PathToLogFolder"), "PathToLogFolder property missing");
         client.assert(response.body.hasOwnProperty("PathToComposeFolder"), "PathToComposeFolder property missing");
@@ -439,7 +439,7 @@ Accept: application/json
 			const requiredFields = {
 				"Version": "string",
 				"ApiVersion": "number",
-				"SecondsToUpdate": "number"
+				"CacheLifetime": "number"
 			}
 
 			for (const field in requiredFields) {

@@ -263,6 +263,8 @@ public static class Logs
 			if (ApiConfig.ApiConfiguration.PathToLogFolder is null || !Directory.Exists(ApiConfig.ApiConfiguration.PathToLogFolder)) return;
 
 			CreateNewLogFile();
+			// To make it easier to skim through logs, make it clear when a new instance is started.
+			_logWriter?.WriteLine("================|=========|============================|====== New Bayt instance =======================");
 		}
 
 		private static readonly Lock BookWriteLock = new();

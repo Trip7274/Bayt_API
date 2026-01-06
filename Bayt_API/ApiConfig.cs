@@ -159,11 +159,11 @@ public static class ApiConfig
 		/// <remarks>
 		///	Defaults to 5 seconds.
 		/// </remarks>
-		public static ushort SecondsToUpdate { get; private set; } = 5;
+		public static TimeSpan CacheLifetime { get; private set; } = TimeSpan.FromSeconds(5);
 		/// <summary>
-		/// Reflects the user's <see cref="SecondsToUpdate"/> clamped to a minimum of 3 seconds. Used for the initial fetch cycle as to not repeat it a few times.
+		/// Reflects the user's <see cref="CacheLifetime"/> clamped to a minimum of 3 seconds. Used for the initial fetch cycle as to not repeat it a few times.
 		/// </summary>
-		public static ushort ClampedSecondsToUpdate => ushort.Clamp(SecondsToUpdate, 3, ushort.MaxValue);
+		public static TimeSpan ClampedCacheLifetime => CacheLifetime.TotalSeconds < 3 ? TimeSpan.FromSeconds(3) : CacheLifetime;
 
 		/// <summary>
 		///	Abs. path to the client data folder.
@@ -238,7 +238,7 @@ public static class ApiConfig
 			{
 				{ nameof(ConfigVersion), ConfigVersion },
 				{ nameof(BackendName), BackendName },
-				{ nameof(SecondsToUpdate), SecondsToUpdate },
+				{ nameof(CacheLifetime), CacheLifetime.TotalSeconds },
 				{ nameof(PathToDataFolder), PathToDataFolder },
 				{ nameof(PathToLogFolder), PathToLogFolder },
 				{ nameof(PathToComposeFolder), PathToComposeFolder },
@@ -269,7 +269,7 @@ public static class ApiConfig
 			// This needs some cleaning.
 			ConfigVersion = loadedDict.GetProperty(nameof(ConfigVersion)).GetByte();
 			BackendName = loadedDict.TryGetProperty(nameof(BackendName), out var backendName) ? backendName.GetString() ?? BackendName : BackendName;
-			SecondsToUpdate = loadedDict.TryGetProperty(nameof(SecondsToUpdate), out var secondsToUpdate) ? secondsToUpdate.GetUInt16() : SecondsToUpdate;
+			CacheLifetime = loadedDict.TryGetProperty(nameof(CacheLifetime), out var cacheLifetime) ? TimeSpan.FromSeconds(double.Clamp(cacheLifetime.GetInt32(), 0, double.MaxValue)) : CacheLifetime;
 			PathToDataFolder = loadedDict.TryGetProperty(nameof(PathToDataFolder), out var pathToDataFolder) ? pathToDataFolder.GetString() ?? PathToDataFolder : PathToDataFolder;
 			PathToLogFolder = loadedDict.TryGetProperty(nameof(PathToLogFolder), out var pathToLogFolder) ? pathToLogFolder.GetString() ?? PathToLogFolder : PathToLogFolder;
 			PathToComposeFolder = loadedDict.TryGetProperty(nameof(PathToComposeFolder), out var pathToComposeFolder) ? pathToComposeFolder.GetString() ?? PathToComposeFolder : PathToComposeFolder;
@@ -360,6 +360,7 @@ public static class ApiConfig
 				File.Delete($"{ConfigFilePath}.old");
 			}
 			File.Move(ConfigFilePath, $"{ConfigFilePath}.old");
+			SaveConfig();
 		}
 
 		/// <summary>
@@ -374,15 +375,15 @@ public static class ApiConfig
 
 				if (jsonDocument.TryGetProperty(nameof(ConfigVersion), out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() != ApiVersion)
 				{
-					Logs.LogBook.Write(new(StreamId.Warning, "Config", $"Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons."));
+					Logs.LogBook.Write(new(StreamId.Warning, "Configuration", $"Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons."));
 				}
 
 				return jsonDocument.TryGetProperty(nameof(ConfigVersion), out configVersion) && configVersion.ValueKind == JsonValueKind.Number;
 			}
 			catch (JsonException exception)
 			{
-				Logs.LogBook.Write(new(StreamId.Error, "Config", $"Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}."));
-				Logs.LogBook.Write(new(StreamId.Error, "Config", $"Your configuration will be regenerated. You can find your old configuration in {ConfigFilePath}.old"));
+				Logs.LogBook.Write(new(StreamId.Error, "Configuration", $"Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}."));
+				Logs.LogBook.Write(new(StreamId.Error, "Configuration", $"Your configuration will be regenerated. You can find your old configuration in {ConfigFilePath}.old"));
 				return false;
 			}
 		}
@@ -416,14 +417,13 @@ public static class ApiConfig
 				{
 					case nameof(BackendName) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != BackendName:
 					{
-						Logs.LogBook.Write(new(StreamId.Verbose, "Configuration Edit", $"Configuration Edit Requested: {string.Join(", ", newProps.Keys)}"));
 						BackendName = newPropKvp.Value.GetString() ?? BackendName;
 						configChanged = true;
 						break;
 					}
-					case nameof(SecondsToUpdate) when newPropKvp.Value.GetUInt16() != SecondsToUpdate:
+					case nameof(CacheLifetime) when double.Clamp(newPropKvp.Value.GetInt32(), 0, double.MaxValue) != CacheLifetime.TotalSeconds:
 					{
-						SecondsToUpdate = newPropKvp.Value.GetUInt16();
+						CacheLifetime = TimeSpan.FromSeconds(double.Clamp(newPropKvp.Value.GetInt32(), 0, double.MaxValue));
 						configChanged = true;
 						break;
 					}

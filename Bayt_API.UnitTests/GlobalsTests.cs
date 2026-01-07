@@ -1,6 +1,6 @@
 using Xunit.Abstractions;
 
-namespace Bayt_API.Testing;
+namespace Bayt_API.UnitTests;
 
 public class GlobalsTests(ITestOutputHelper testOutputHelper)
 {

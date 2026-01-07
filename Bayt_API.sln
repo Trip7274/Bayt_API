@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bayt_API", "Bayt_API\Bayt_API.csproj", "{895F7376-7FD0-428A-AE34-D86E3C11E460}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bayt_API.Testing", "Bayt_API.Testing\Bayt_API.Testing.csproj", "{E9EA142F-FA08-4374-9D74-39AF8013B046}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bayt_API.UnitTests", "Bayt_API.UnitTests\Bayt_API.UnitTests.csproj", "{E9EA142F-FA08-4374-9D74-39AF8013B046}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

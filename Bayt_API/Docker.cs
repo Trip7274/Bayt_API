@@ -1445,13 +1445,13 @@ public static class DockerHub
 			}
 		}
 
-		public Dictionary<string, dynamic?> ToDictionary(bool filterIncompatible = true)
+		public Dictionary<string, Dictionary<string, dynamic?>?> ToDictionary(bool filterIncompatible = true)
 		{
-			var resultDict = new Dictionary<string, dynamic?>();
+			var resultDict = new Dictionary<string, Dictionary<string, dynamic?>?>();
 
 			foreach (var image in Images.Where(image => !filterIncompatible || image.IsCompatible()))
 			{
-				resultDict.Add(image.Digest, image.ToDictionary());
+				resultDict.Add(image.Digest, image);
 			}
 
 			return resultDict;
@@ -1501,6 +1501,7 @@ public static class DockerHub
 				{ nameof(IsCompatible), IsCompatible() }
 			};
 		}
+		public static implicit operator Dictionary<string, dynamic?>(ImageDetails image) => image.ToDictionary();
 
 		public string Architecture => ArchVariant is not null ? ArchitectureRaw + ArchVariant : ArchitectureRaw;
 		public required string ArchitectureRaw { get; init; }

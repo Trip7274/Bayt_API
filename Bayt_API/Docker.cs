@@ -1229,7 +1229,10 @@ public static class DockerLocal
 			}
 		};
 
-		return new HttpClient(handler);
+		return new HttpClient(handler)
+		{
+			BaseAddress = new Uri("http://localhost")
+		};
 	}
 
 	/// <summary>
@@ -1306,8 +1309,7 @@ public static class DockerLocal
 		responseToClient.Headers.Append("Cache-Control", "no-cache");
 		responseToClient.Headers.Append("Connection", "keep-alive");
 
-		var client = GetDockerClient();
-		client.BaseAddress = new Uri("http://localhost");
+		using var client = GetDockerClient();
 
 		try
 		{

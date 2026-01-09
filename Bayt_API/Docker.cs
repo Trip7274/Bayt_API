@@ -1079,7 +1079,7 @@ public static class DockerLocal
 	private static List<string> GetIconUrls(Dictionary<string, string>? labelsDict, string? preferredIconLink = null)
 	{
 		List<string> iconUrls = [];
-		if (preferredIconLink is not null) iconUrls.Add(GetUrlFromRepos(preferredIconLink));
+		if (preferredIconLink is not null and not GenericIconLink) iconUrls.Add(GetUrlFromRepos(preferredIconLink));
 		if (labelsDict is not null)
 		{
 			foreach (var labelKvp in labelsDict)

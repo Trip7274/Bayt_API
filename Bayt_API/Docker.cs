@@ -1449,7 +1449,7 @@ public static class DockerHub
 		{
 			var resultDict = new Dictionary<string, dynamic?>();
 
-			foreach (var image in Images.Where(image => !filterIncompatible || image.ImageMatches()))
+			foreach (var image in Images.Where(image => !filterIncompatible || image.IsCompatible()))
 			{
 				resultDict.Add(image.Digest, image.ToDictionary());
 			}
@@ -1459,7 +1459,7 @@ public static class DockerHub
 
 		public bool ContainsCompatibleImage()
 		{
-			return Images.Any(image => image.ImageMatches());
+			return Images.Any(image => image.IsCompatible());
 		}
 		public string Name { get; }
 		public List<ImageDetails> Images { get; } = [];
@@ -1467,7 +1467,7 @@ public static class DockerHub
 
 	public sealed record ImageDetails
 	{
-		public bool ImageMatches()
+		public bool IsCompatible()
 		{
 			var systemArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture;
 			switch (systemArch)
@@ -1498,7 +1498,7 @@ public static class DockerHub
 				{ nameof(OsName), OsName },
 				{ nameof(Size), Size },
 				{ nameof(LastPushed), LastPushed },
-				{ nameof(ImageMatches), ImageMatches() }
+				{ nameof(IsCompatible), IsCompatible() }
 			};
 		}
 

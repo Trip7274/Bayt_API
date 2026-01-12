@@ -28,9 +28,11 @@ public class ParsingMethodsTests
 		Assert.Equal("", ParsingMethods.ConvertTextToSlug(indianNumbersTest));
 		Assert.Equal("this-is-a-test-string-that-is-to", ParsingMethods.ConvertTextToSlug(tooLongTest));
 		Assert.Equal(32, ParsingMethods.ConvertTextToSlug(tooLongTest).Length);
-		Assert.Equal("", ParsingMethods.ConvertTextToSlug(emptyTest));
-		Assert.Equal("", ParsingMethods.ConvertTextToSlug(whitespaceTest));
-		Assert.Equal("", ParsingMethods.ConvertTextToSlug(nullTest));
+
+		Assert.Throws<ArgumentNullException>(() => ParsingMethods.ConvertTextToSlug(emptyTest));
+		Assert.Throws<ArgumentNullException>(() => ParsingMethods.ConvertTextToSlug(whitespaceTest));
+		Assert.Throws<ArgumentNullException>(() => ParsingMethods.ConvertTextToSlug(nullTest));
+
 		Assert.Equal("test-for-trailing-whitespace", ParsingMethods.ConvertTextToSlug(trailingWhitespaceTest));
 		Assert.Equal("test-for-leading-whitespace", ParsingMethods.ConvertTextToSlug(leadingWhitespaceTest));
 		Assert.Equal("both-whitespace-tests", ParsingMethods.ConvertTextToSlug(leadingAndTrailingWhitespaceTest));

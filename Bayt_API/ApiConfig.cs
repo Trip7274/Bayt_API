@@ -69,7 +69,7 @@ public static class ApiConfig
 																Environment.GetEnvironmentVariable("XDG_STATE_HOME") ??
 																BaseExecutablePath, "BaytApi.sock");
 	/// <summary>
-	/// Abs. path to the baytData directory. Used for <see cref="ApiConfiguration.PathToDataFolder"/> and <see cref="ApiConfiguration.PathToComposeFolder"/>. E.g. <c>/home/{user}/.local/share/baytData/</c>.
+	/// Abs. path to the baytData directory. Used for <see cref="ApiConfiguration.PathToDataFolder"/> and <see cref="ApiConfiguration.PathToDockerFolder"/>. E.g. <c>/home/{user}/.local/share/baytData/</c>.
 	/// </summary>
 	/// <remarks>
 	///	Tries to fetch the env var <c>BAYT_DATA_DIRECTORY</c> first, then <c>XDG_DATA_HOME</c>. Falls back to "<see cref="BaseExecutablePath"/>/baytData" if neither are set.
@@ -174,12 +174,22 @@ public static class ApiConfig
 		public static string PathToDataFolder { get; private set; } = Path.Combine(BaseDataPath, "clientData");
 
 		/// <summary>
-		/// Abs. path to the folder containing all the docker compose folders.
+		/// Abs. path to the folder containing all the docker-related folders.
 		/// </summary>
 		/// <remarks>
-		///	Defaults to "<see cref="BaseDataPath"/>/containers".
+		///	Defaults to "<see cref="BaseDataPath"/>/docker".
 		/// </remarks>
-		public static string PathToComposeFolder { get; private set; } = Path.Combine(BaseDataPath, "containers");
+		public static string PathToDockerFolder { get; private set; } = Path.Combine(BaseDataPath, "docker");
+
+		/// <summary>
+		/// Abs. path to the folder containing all the Docker compose folders.
+		/// </summary>
+		/// <remarks>
+		///	Defaults to "<see cref="PathToDockerFolder"/>/containers".<br/>
+		/// This is derived from <see cref="PathToDockerFolder"/> and cannot be changed separately.
+		/// </remarks>
+		public static string PathToComposeFolder { get; } = Path.Combine(PathToDockerFolder, "containers");
+
 		/// <summary>
 		/// Abs. path to the folder containing all the logs.
 		/// </summary>
@@ -241,7 +251,7 @@ public static class ApiConfig
 				{ nameof(CacheLifetime), CacheLifetime.TotalSeconds },
 				{ nameof(PathToDataFolder), PathToDataFolder },
 				{ nameof(PathToLogFolder), PathToLogFolder },
-				{ nameof(PathToComposeFolder), PathToComposeFolder },
+				{ nameof(PathToDockerFolder), PathToDockerFolder },
 				{ nameof(DockerIntegrationEnabled), DockerIntegrationEnabled },
 				{ nameof(LogVerbosity), LogVerbosity },
 				{ nameof(WatchedMounts), WatchedMounts },
@@ -272,7 +282,7 @@ public static class ApiConfig
 			CacheLifetime = loadedDict.TryGetProperty(nameof(CacheLifetime), out var cacheLifetime) ? TimeSpan.FromSeconds(double.Clamp(cacheLifetime.GetInt32(), 0, double.MaxValue)) : CacheLifetime;
 			PathToDataFolder = loadedDict.TryGetProperty(nameof(PathToDataFolder), out var pathToDataFolder) ? pathToDataFolder.GetString() ?? PathToDataFolder : PathToDataFolder;
 			PathToLogFolder = loadedDict.TryGetProperty(nameof(PathToLogFolder), out var pathToLogFolder) ? pathToLogFolder.GetString() ?? PathToLogFolder : PathToLogFolder;
-			PathToComposeFolder = loadedDict.TryGetProperty(nameof(PathToComposeFolder), out var pathToComposeFolder) ? pathToComposeFolder.GetString() ?? PathToComposeFolder : PathToComposeFolder;
+			PathToDockerFolder = loadedDict.TryGetProperty(nameof(PathToDockerFolder), out var pathToDockerFolder) ? pathToDockerFolder.GetString() ?? PathToDockerFolder : PathToDockerFolder;
 			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
 			LogVerbosity = loadedDict.TryGetProperty(nameof(LogVerbosity), out var logVerbosity) ? logVerbosity.GetByte() : LogVerbosity;
 
@@ -339,18 +349,32 @@ public static class ApiConfig
 				Directory.CreateDirectory(PathToDataFolder);
 				File.WriteAllText(Path.Combine(PathToDataFolder, "README"), defaultReadmeContent);
 			}
-			if (!Directory.Exists(PathToComposeFolder))
+
+			if (!Directory.Exists(PathToDockerFolder))
 			{
 				const string defaultReadmeContent = """
-				                                    This folder contains all the Docker compose files made by Bayt API.
+				                                    This folder contains all the Docker-related files made and managed by Bayt API.
 
-				                                    You should be safe manually deleting these files, provided the container is not running.
+				                                    You should be safe manually deleting/editing these files, provided the relevant container, and Bayt, are not running.
+
+				                                    Short description of the folders/files:
+				                                    -> "containers": Stores the folders for the Bayt-created Docker Compose containers.
+				                                    -> "imageData.json": Stores the metadata for Docker images fetched by Bayt API.
+
 				                                    This folder was made by Bayt API. More info: https://github.com/Trip7274/Bayt_API
 				                                    """;
 
-				Directory.CreateDirectory(PathToComposeFolder);
-				File.WriteAllText(Path.Combine(PathToComposeFolder, "README"), defaultReadmeContent);
+				Directory.CreateDirectory(PathToDockerFolder);
+				File.WriteAllText(Path.Combine(PathToDockerFolder, "README"), defaultReadmeContent);
 			}
+			if (!Directory.Exists(PathToComposeFolder)) Directory.CreateDirectory(PathToComposeFolder);
+
+			if (!File.Exists(DockerLocal.PathToImageDataFile))
+			{
+				Dictionary<string, string[]> defaultDict = [];
+				File.WriteAllText(DockerLocal.PathToImageDataFile, JsonSerializer.Serialize(defaultDict, BaytJsonSerializerOptions));
+			}
+
 			if (!Directory.Exists(PathToLogFolder)) Directory.CreateDirectory(PathToLogFolder);
 			if (ValidateConfigSyntax()) return;
 
@@ -439,9 +463,9 @@ public static class ApiConfig
 						configChanged = true;
 						break;
 					}
-					case nameof(PathToComposeFolder) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != PathToComposeFolder:
+					case nameof(PathToDockerFolder) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != PathToDockerFolder:
 					{
-						PathToComposeFolder = newPropKvp.Value.GetString() ?? PathToComposeFolder;
+						PathToDockerFolder = newPropKvp.Value.GetString() ?? PathToDockerFolder;
 						configChanged = true;
 						break;
 					}

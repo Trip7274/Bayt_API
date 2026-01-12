@@ -79,7 +79,8 @@ public static class ParsingMethods
 	/// <remarks>This method was originally taken from https://www.codeproject.com/Articles/80882/Converting-Text-to-a-URL-Slug</remarks>
 	public static string ConvertTextToSlug(string? input)
 	{
-		if (string.IsNullOrWhiteSpace(input)) return "";
+		if (string.IsNullOrWhiteSpace(input)) throw new ArgumentNullException(nameof(input));
+
 		input = input.Trim();
 		if (input.Length > 32) input = input[..32];
 

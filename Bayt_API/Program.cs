@@ -43,8 +43,8 @@ Logs.LogBook.Write(new (StreamId.Notice, "Client Data",
 
 if (DockerLocal.IsDockerComposeAvailable)
 {
-	Logs.LogBook.Write(new (StreamId.Notice, "Containers",
-		$"Loaded containers from: '{ApiConfig.ApiConfiguration.PathToComposeFolder}'"));
+	Logs.LogBook.Write(new (StreamId.Notice, "Docker",
+		$"Fetching Docker folders from: '{ApiConfig.ApiConfiguration.PathToDockerFolder}'"));
 }
 
 
@@ -856,6 +856,10 @@ app.MapPost($"{baseDockerUrl}/containers/own", async (string? containerId) =>
 
 	var composeDir = Path.GetDirectoryName(targetContainer.ComposePath) ?? "/";
 	File.WriteAllText(Path.Combine(composeDir, ".BaytMetadata.json"), defaultSidecarContents);
+
+	// Fetch image icons
+	string[] imageIcons = await DockerLocal.LoadImageIcons(targetContainer.ImageName);
+	await DockerLocal.SetImageIcons(targetContainer.ImageName, imageIcons);
 
 	return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent)

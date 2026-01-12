@@ -48,6 +48,7 @@ public static class DockerLocal
 	/// The default icon to use if a container doesn't have a preferred icon.
 	/// </summary>
 	private const string GenericIconLink = "https://api.iconify.design/mdi/cube-outline.svg";
+	public static string PathToImageDataFile { get; } = Path.Combine(ApiConfig.ApiConfiguration.PathToDockerFolder, "imageData.json");
 
 	/// <summary>
 	/// Provides methods and properties for interacting with the system's Docker containers.
@@ -203,7 +204,7 @@ public static class DockerLocal
 			GetContainerNames(dockerOutput);
 			ImageDescription = GetDescription(_labels);
 			GetHrefFromLabels();
-			IconUrls = GetIconUrls(_labels, PreferredIconLink);
+			IconUrls = GetIconUrls(ImageName, _labels, PreferredIconLink);
 
 			ImageID = dockerOutput.GetProperty(nameof(ImageID)).GetString() ?? throw new ArgumentException("Docker container image ID is null.");
 			ImageUrl = GetImageUrl(_labels);
@@ -949,7 +950,7 @@ public static class DockerLocal
 		/// List of URLs pointing to this image's icon. Resolved from the image's labels, if any. Ordered by priority/confidence.
 		/// </summary>
 		/// <seealso cref="DockerLocal.GetIconUrls"/>
-		public List<string> IconUrls => GetIconUrls(Labels);
+		public List<string> IconUrls => GetIconUrls(Names.Last(), Labels);
 		/// <summary>
 		/// The version of this image.
 		/// </summary>
@@ -1039,6 +1040,7 @@ public static class DockerLocal
 			nameToAdd = nameToAdd.Split(':').First();
 
 			names.Add(nameToAdd);
+			if (!nameToAdd.Contains('/')) names.Add("library/" + nameToAdd);
 		}
 
 		// If no names have been found yet, try to get the base image name at the very least.
@@ -1073,10 +1075,11 @@ public static class DockerLocal
 	/// <summary>
 	/// Retrieves a list of icon URLs based on the provided label dictionary and an optional preferred icon link. Falls back to <see cref="GenericIconLink"/> if no icon links are found.
 	/// </summary>
+	/// <param name="imageName">The image's name with the repository. E.g., "jellyfin/jellyfin" or "python"</param>
 	/// <param name="labelsDict">A dictionary containing labels associated with the container or image, typically extracted from the Docker daemon's output.</param>
 	/// <param name="preferredIconLink">An optional preferred icon link to use first.</param>
 	/// <returns>A list of absolute icon URLs.</returns>
-	private static List<string> GetIconUrls(Dictionary<string, string>? labelsDict, string? preferredIconLink = null)
+	private static List<string> GetIconUrls(string imageName, Dictionary<string, string>? labelsDict, string? preferredIconLink = null)
 	{
 		List<string> iconUrls = [];
 		if (preferredIconLink is not null and not GenericIconLink) iconUrls.Add(GetUrlFromRepos(preferredIconLink));
@@ -1093,6 +1096,11 @@ public static class DockerLocal
 						break;
 				}
 			}
+		}
+
+		if (CheckImageHasIcons(imageName))
+		{
+			iconUrls.AddRange(GetImageIconUrls(imageName));
 		}
 
 		if (iconUrls.Count == 0)
@@ -1305,6 +1313,27 @@ public static class DockerLocal
 
 		var responseToClient = context.Response;
 
+		// Check that the image (and tag) exists
+		using (var tagCheckClient = new HttpClient())
+		{
+			var tagCheckResponse = await tagCheckClient.GetAsync($"https://hub.docker.com/v2/repositories/{imageName}/tags/{tagOrDigest}", HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+			if (!tagCheckResponse.IsSuccessStatusCode)
+			{
+				responseToClient.StatusCode = (int) tagCheckResponse.StatusCode;
+				responseToClient.ContentType = tagCheckResponse.Content.Headers.ContentType?.MediaType ?? "text/plain";
+				await tagCheckResponse.Content.CopyToAsync(responseToClient.Body, context.RequestAborted);
+				await responseToClient.CompleteAsync();
+				return;
+			}
+		}
+
+		Task<string[]>? iconFetchTask = null;
+		bool imageHasIcons = CheckImageHasIcons(imageName);
+		if (!imageHasIcons)
+		{
+			iconFetchTask = Task.Run(() => LoadImageIcons(imageName, new CancellationTokenSource(TimeSpan.FromSeconds(15)).Token));
+		}
+
 		responseToClient.ContentType = "text/event-stream";
 		responseToClient.Headers.Append("Cache-Control", "no-cache");
 		responseToClient.Headers.Append("Connection", "keep-alive");
@@ -1373,6 +1402,135 @@ public static class DockerLocal
 		{
 			await responseToClient.CompleteAsync();
 		}
+
+		if (!imageHasIcons)
+		{
+			await SetImageIcons(imageName, await iconFetchTask!);
+		}
+	}
+
+	internal static async Task SetImageIcons(string imageName, string[] imageIconUrls)
+	{
+		imageName = imageName.ToLowerInvariant();
+		if (imageName.Contains(':')) imageName = imageName.Split(':')[0];
+		imageName = ParsingMethods.ConvertTextToSlug(imageName);
+
+		var fileStream = new FileStream(PathToImageDataFile, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+
+		Dictionary<string, string[]> fileJson;
+		try
+		{
+			fileJson = await JsonSerializer.DeserializeAsync<Dictionary<string, string[]>>(fileStream) ?? [];
+		}
+		catch (Exception e)
+		{
+			Logs.LogBook.Write(new (StreamId.Error, "Docker Pull [iconSet]", $"imageData.json seems invalid and will be regenerated. Your last imageData.json will be moved to imageData.json.old (Error: {e.Message})"));
+			File.Move(PathToImageDataFile, PathToImageDataFile + ".old", true);
+
+			await fileStream.DisposeAsync();
+			fileStream = new FileStream(PathToImageDataFile, FileMode.Create, FileAccess.ReadWrite);
+
+			fileJson = [];
+		}
+
+		fileJson[imageName] = imageIconUrls;
+		fileStream.Seek(0, SeekOrigin.Begin);
+		await JsonSerializer.SerializeAsync(fileStream, fileJson, ApiConfig.BaytJsonSerializerOptions);
+
+		await fileStream.DisposeAsync();
+	}
+
+	public static string[] GetImageIconUrls(string imageName)
+	{
+		imageName = imageName.ToLowerInvariant();
+		if (imageName.Contains(':')) imageName = imageName.Split(':')[0];
+		imageName = ParsingMethods.ConvertTextToSlug(imageName);
+
+		Dictionary<string, string[]> fileJson;
+		try
+		{
+			fileJson = JsonSerializer.Deserialize<Dictionary<string, string[]>>(File.ReadAllText(PathToImageDataFile)) ?? [];
+		}
+		catch (JsonException e)
+		{
+			Logs.LogBook.Write(new (StreamId.Error, "Docker Pull [iconFetch]", $"imageData.json seems invalid. Error: {e.Message}"));
+			return [];
+		}
+
+		return fileJson.TryGetValue(imageName, out var imageIconUrls) ? imageIconUrls : [];
+	}
+
+	public static bool CheckImageHasIcons(string imageName)
+	{
+		imageName = imageName.ToLowerInvariant();
+		if (imageName.Contains(':')) imageName = imageName.Split(':')[0];
+		imageName = ParsingMethods.ConvertTextToSlug(imageName);
+
+		Dictionary<string, string[]> fileJson;
+		try
+		{
+			fileJson = JsonSerializer.Deserialize<Dictionary<string, string[]>>(File.ReadAllText(PathToImageDataFile)) ?? [];
+		}
+		catch (JsonException e)
+		{
+			Logs.LogBook.Write(new (StreamId.Error, "Docker Pull [iconCheck]", $"imageData.json seems invalid. Error: {e.Message}"));
+			return false;
+		}
+
+		return fileJson.TryGetValue(imageName, out var imageIconUrls) && imageIconUrls.Length > 0;
+	}
+
+	public static async Task<string[]> LoadImageIcons(string imageName, CancellationToken cancellationToken = default)
+	{
+		string?[] iconList = [null, null, null];
+		imageName = imageName.Split('/').Last();
+		if (imageName.Contains(':')) imageName = imageName.Split(':')[0];
+		imageName = imageName.ToLowerInvariant();
+
+		Logs.LogBook.Write(new (StreamId.Verbose, "Image icon fetch", $"Fetching icons for image {imageName}..."));
+
+		using var client = new HttpClient();
+
+		Task<HttpResponseMessage>[] fetchTasks =
+		[
+			client.GetAsync($"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/{imageName}.svg", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+			client.GetAsync($"https://cdn.jsdelivr.net/gh/selfhst/icons/svg/{imageName}.svg", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+			client.GetAsync($"https://cdn.jsdelivr.net/gh/selfhst/icons/png/{imageName}.png", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+			client.GetAsync($"https://cdn.jsdelivr.net/npm/simple-icons@v15/icons/{imageName}.svg", HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+		];
+
+		await foreach (var fetchTask in Task.WhenEach(fetchTasks).WithCancellation(cancellationToken))
+		{
+			if (!fetchTask.Result.IsSuccessStatusCode) continue;
+
+			var possibleUrl = fetchTask.Result.RequestMessage?.RequestUri;
+
+			switch (possibleUrl?.LocalPath.Split('/')[2])
+			{
+				case "homarr-labs":
+				{
+					iconList[0] = possibleUrl.OriginalString;
+					break;
+				}
+				case "selfhst":
+				{
+					// If this is an svg, overwrite the png version, but if we haven't found any icons, use the png
+					if (iconList[1] is null || iconList[1]!.EndsWith(".png"))
+					{
+						iconList[1] = possibleUrl.OriginalString;
+					}
+					break;
+				}
+				case "simple-icons@v15":
+				{
+					iconList[2] = possibleUrl.OriginalString;
+					break;
+				}
+			}
+		}
+
+		Logs.LogBook.Write(new (StreamId.Verbose, "Image icon fetch", $"Fetched {iconList.Length} icons for image {imageName}."));
+		return iconList.Where(url => url is not null).ToArray()!;
 	}
 
 	/// <summary>

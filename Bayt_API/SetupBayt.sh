@@ -61,8 +61,10 @@ else
 fi
 
 
-printf "\n"
+printf "\n\n"
 logHelper "Permission checks done, now running checks for dependencies..."
+
+#### GPU checks ####
 
 gpuList="$(lspci | grep ' VGA ' | grep -oE "(NVIDIA)?(AMD)?(Intel)?")"
 
@@ -102,14 +104,37 @@ if echo "$gpuList" | grep -q "Intel"; then
     fi
 fi
 
-printf "\n"
+#### GPU checks complete ####
+
+
+printf "\n\n"
 
 logHelper "Checking for net-tools..."
 if ! ifconfig -V > /dev/null; then
-    	logHelper "net-tools check failed. Make sure it's installed (We only really need the ifconfig command)" "WARNING"
-    	logHelper "Bayt will run without this, but you may encounter issues when trying to add some WoL clients." "WARNING"
-    else
-    	logHelper "net-tools was detected!" "OK"
+	logHelper "net-tools check failed. Make sure it's installed (We only really need the ifconfig command)" "WARNING"
+	logHelper "Bayt will run without this, but you may encounter issues when trying to add some WoL clients." "WARNING"
+else
+	logHelper "net-tools was detected!" "OK"
+fi
+
+printf "\n"
+
+logHelper "Checking for jq..."
+if ! jq -V > /dev/null; then
+	logHelper "jq check failed. This is necessary for many functions of the default Bayt scripts. Bayt will not function without it." "ERROR"
+else
+	logHelper "jq was detected!" "OK"
+fi
+
+printf "\n"
+
+logHelper "Testing grep..."
+TEST_STRING="test123test"
+TEST_STRING_FILTERED="$(echo "$TEST_STRING" | grep -oP "[a-z]+\K123.*")"
+if [[ "$TEST_STRING_FILTERED" != "123test" ]]; then
+	logHelper "grep test failed. Please make sure you have the GNU version installed." "ERROR"
+else
+	logHelper "grep test passed!" "OK"
 fi
 
 printf "\n"

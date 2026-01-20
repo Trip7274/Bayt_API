@@ -1313,20 +1313,6 @@ public static class DockerLocal
 
 		var responseToClient = context.Response;
 
-		// Check that the image (and tag) exists
-		using (var tagCheckClient = new HttpClient())
-		{
-			var tagCheckResponse = await tagCheckClient.GetAsync($"https://hub.docker.com/v2/repositories/{imageName}/tags/{tagOrDigest}", HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
-			if (!tagCheckResponse.IsSuccessStatusCode)
-			{
-				responseToClient.StatusCode = (int) tagCheckResponse.StatusCode;
-				responseToClient.ContentType = tagCheckResponse.Content.Headers.ContentType?.MediaType ?? "text/plain";
-				await tagCheckResponse.Content.CopyToAsync(responseToClient.Body, context.RequestAborted);
-				await responseToClient.CompleteAsync();
-				return;
-			}
-		}
-
 		Task<string[]>? iconFetchTask = null;
 		bool imageHasIcons = CheckImageHasIcons(imageName);
 		if (!imageHasIcons)

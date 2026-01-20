@@ -1294,6 +1294,8 @@ public static class DockerLocal
 	{
 		if (!IsDockerAvailable)
 		{
+			context.Response.StatusCode = 500;
+			context.Response.ContentType = "text/plain";
 			await context.Response.WriteAsync("Docker is not available on this system.", context.RequestAborted);
 			await context.Response.CompleteAsync();
 			return;
@@ -1301,6 +1303,8 @@ public static class DockerLocal
 
 		if (string.IsNullOrWhiteSpace(imageName))
 		{
+			context.Response.StatusCode = 400;
+			context.Response.ContentType = "text/plain";
 			await context.Response.WriteAsync("No image name or digest provided.", context.RequestAborted);
 			await context.Response.CompleteAsync();
 			return;
@@ -1320,16 +1324,30 @@ public static class DockerLocal
 			iconFetchTask = Task.Run(() => LoadImageIcons(imageName, new CancellationTokenSource(TimeSpan.FromSeconds(15)).Token));
 		}
 
-		responseToClient.ContentType = "text/event-stream";
-		responseToClient.Headers.Append("Cache-Control", "no-cache");
-		responseToClient.Headers.Append("Connection", "keep-alive");
-
 		using var client = GetDockerClient();
 
 		try
 		{
 			var request = new HttpRequestMessage(HttpMethod.Post, $"/images/create?fromImage={imageName}&tag={tagOrDigest}");
 			var dockerResponse = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+
+			switch (dockerResponse.StatusCode)
+			{
+				case HttpStatusCode.NotFound:
+				{
+					responseToClient.StatusCode = 404;
+					await responseToClient.WriteAsync("Repository does not exist, or no read access.", context.RequestAborted);
+					await responseToClient.CompleteAsync();
+					return;
+				}
+				case HttpStatusCode.InternalServerError:
+				{
+					responseToClient.StatusCode = 500;
+					await dockerResponse.Content.CopyToAsync(responseToClient.Body);
+					await responseToClient.CompleteAsync();
+					return;
+				}
+			}
 
 			await using var stream = await dockerResponse.Content.ReadAsStreamAsync(context.RequestAborted);
 			if (!stream.CanRead)
@@ -1341,6 +1359,11 @@ public static class DockerLocal
 				await responseToClient.CompleteAsync();
 				return;
 			}
+
+			responseToClient.ContentType = "text/event-stream";
+			responseToClient.Headers.Append("Cache-Control", "no-cache");
+			responseToClient.Headers.Append("Connection", "keep-alive");
+
 
 			List<byte> responseBuffer = [];
 			bool seenCarriageReturn = false;
@@ -1380,7 +1403,6 @@ public static class DockerLocal
 		catch (Exception e)
 		{
 			await responseToClient.WriteAsync("data: There was an error reading the progress of the pull. The image may still be downloading, and more details will follow.\n\n", context.RequestAborted);
-			await responseToClient.Body.FlushAsync(context.RequestAborted);
 			await responseToClient.WriteAsync($"data: {e.Message}\n\n", context.RequestAborted);
 			await responseToClient.Body.FlushAsync(context.RequestAborted);
 		}

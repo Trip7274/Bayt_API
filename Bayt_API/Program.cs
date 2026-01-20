@@ -1059,8 +1059,8 @@ app.MapPost($"{baseDockerUrl}/images/pull", DockerLocal.PullImage).Produces(Stat
 	.Produces(StatusCodes.Status409Conflict)
 	.Produces(StatusCodes.Status404NotFound)
 	.Produces(StatusCodes.Status200OK)
-	.WithSummary("Delete a Docker image.")
-	.WithDescription("imageId must contain at least the first 12 characters of the image's ID. force removes the image even if it is being used by stopped containers or has other tags, defaults to false.")
+	.WithSummary("Pull a Docker image.")
+	.WithDescription("imageName must be the full repository + image name (e.g., \"jellyfin/jellyfin\"). tagOrDigest will default to \"latest\".")
 	.WithTags("Docker", "Docker Images")
 	.WithName("PullDockerImage");
 
@@ -1100,9 +1100,9 @@ app.MapGet($"{baseDockerUrl}/images/search", async (string term, byte limit = 15
 	{
 		var imageDict = new Dictionary<string, dynamic>
 		{
-		{ "starCount", dockerImage["star_count"].GetInt32() },
-		{ "isOfficial", dockerImage["is_official"].GetBoolean() },
-		{ "description", dockerImage["description"].GetString()!}
+			{ "starCount", dockerImage["star_count"].GetInt32() },
+			{ "isOfficial", dockerImage["is_official"].GetBoolean() },
+			{ "description", dockerImage["description"].GetString()! }
 		};
 		resultDict.Add(dockerImage["name"].GetString()!, imageDict);
 	}
@@ -1112,7 +1112,7 @@ app.MapGet($"{baseDockerUrl}/images/search", async (string term, byte limit = 15
 }).Produces(StatusCodes.Status500InternalServerError)
 	.Produces(StatusCodes.Status400BadRequest)
 	.Produces(StatusCodes.Status200OK)
-	.WithSummary("Search for a Docker image from DockerHub.")
+	.WithSummary("Search for a Docker image from DockerHub. Sorted by descending star count")
 	.WithDescription("term must be provided and not be whitespace.")
 	.WithTags("Docker", "Docker Images")
 	.WithName("SearchDockerHub");

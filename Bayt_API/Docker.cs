@@ -1500,7 +1500,7 @@ public static class DockerLocal
 				}
 				case "selfhst":
 				{
-					// If this is an svg, overwrite the png version, but if we haven't found any icons, use the png
+					// If this is an SVG, overwrite the PNG version, but if we haven't found any SVGs, use the PNG
 					if (iconList[1] is null || iconList[1]!.EndsWith(".png"))
 					{
 						iconList[1] = possibleUrl.OriginalString;

@@ -36,30 +36,8 @@ PCIID="$2"
 # Temperature (C) = temperature.gpu (NVIDIA, AMD)
 # Fan Speed (RPM) = fan.speed (AMD)
 
-LOGPATH="logs/GPU.log"
-logHelper(){
-	# Truncate the log file if it's over 10K lines
-	if [ "$(cat $LOGPATH | wc -l)" -gt "10000" ]; then
-	    tail -c 8500 "$LOGPATH" > "$LOGPATH.tmp" && mv "$LOGPATH.tmp" "$LOGPATH"
-	fi
-
-	LOGMESSAGE="$1"
-	STDOUT="$2"
-
-	echo "[$(date +%c)] $LOGMESSAGE" | tee -a "$LOGPATH" >&2
-
-	if [ "$STDOUT" = "stdout" ]; then
-	    echo "$LOGMESSAGE"
-	fi
-}
-
-if [ ! -d "$(dirname $LOGPATH)" ]; then
-    mkdir "$(dirname $LOGPATH)"
-fi
-
-if [ ! -f "$LOGPATH" ]; then
-    touch "$LOGPATH"
-fi
+export BAYT_SCRIPT_LOG_PATH="logs/GPU.log"
+. "$(dirname "$0")"/logUtils.sh
 
 logHelper "---getGpu.sh started---"
 

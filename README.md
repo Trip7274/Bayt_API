@@ -21,15 +21,16 @@ please do help out if you have the experience!)
 	- [X] Shutdown and restart endpoints
 	- [X] Arbitrary data exchange endpoints for things like client-wide configs
 	- [X] Docker container management endpoints
-    - [ ] Docker image management endpoints
-    - [ ] DockerHub integration (for searching, checking, and pulling images)
+    - [X] Docker image management endpoints
+    - [X] DockerHub integration (for searching, checking, and pulling images)
+	- [ ] Bayt log streaming endpoints
+    - [ ] SSE version of stats endpoint
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions
 	- [ ] Silo arbitrary data folder to each client
 	- [ ] Add a permission to manage clients (with a dangerous disclaimer)
 	- [ ] Add a way to revoke clients without relying on any clients (OAuth2?)
 	- [ ] Establish permission presets (Simple stat-viewing dashboards need less access than server management clients)
-- [ ] Add Bayt log streaming endpoints
 - [ ] API documentation
 - [ ] Binary distribution across different Linux repos
 - [ ] Docker container implementation (if possible)

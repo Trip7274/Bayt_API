@@ -1123,7 +1123,7 @@ app.MapGet($"{baseDockerUrl}/images/check", async (string imageName, bool filter
 	if (string.IsNullOrWhiteSpace(imageName) || imageName.Length > 256) return Results.BadRequest("Please include a valid image name to search.");
 	if (imageName.Contains(':')) imageName = imageName.Split(':')[0];
 	if (!imageName.Contains('/')) imageName = "library/" + imageName;
-	if (imageName.Count(c => c == '/') > 1) return Results.BadRequest("Image name seems malformed. Example: 'jellyfin/jellyfin' or 'hello-world' (for official images)");
+	if (imageName.Count(c => c == '/') > 1) return Results.BadRequest("Image name seems malformed. Example: 'jellyfin/jellyfin' or 'hello-world' (for official images). Only DockerHub images are supported");
 
 	var imageNamespace = imageName.Split('/')[0];
 	var imageRepository = imageName.Split('/')[1];
@@ -1148,7 +1148,7 @@ app.MapGet($"{baseDockerUrl}/images/check", async (string imageName, bool filter
 			tagElement.GetProperty("name").GetString()!,
 			tagElement.GetProperty("images"))));
 
-	Dictionary<string, dynamic?> resultDict = new();
+	Dictionary<string, dynamic?> resultDict = [];
 	foreach (var tag in tags)
 	{
 		if (filterIncompatible && !tag.ContainsCompatibleImage()) continue;

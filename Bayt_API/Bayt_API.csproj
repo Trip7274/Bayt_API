@@ -16,7 +16,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="CliWrap" Version="3.10.0" />
-		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0"/>
+		<!-- Rider's hot reload feature is currently broken with OpenAPI implemented, and as we don't use this yet, it'll be disabled. -->
+		<!--<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0"/>-->
 	</ItemGroup>
 
 	<!-- Copy scripts to the compile directory -->

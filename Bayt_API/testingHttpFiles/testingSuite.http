@@ -33,7 +33,6 @@ GET {{Bayt_API_BaseAddress}}/config/getList
 
 
         client.log(response.body);
-        client.log(response.body["WatchedMounts"]);
         client.log(`Response execution time: ${timeToRespond}ms`);
 
 
@@ -45,7 +44,7 @@ GET {{Bayt_API_BaseAddress}}/config/getList
         client.assert(response.body.hasOwnProperty("CacheLifetime"), "CacheLifetime property missing");
         client.assert(response.body.hasOwnProperty("PathToDataFolder"), "PathToDataFolder property missing");
         client.assert(response.body.hasOwnProperty("PathToLogFolder"), "PathToLogFolder property missing");
-        client.assert(response.body.hasOwnProperty("PathToComposeFolder"), "PathToComposeFolder property missing");
+        client.assert(response.body.hasOwnProperty("PathToDockerFolder"), "PathToDockerFolder property missing");
         client.assert(response.body.hasOwnProperty("DockerIntegrationEnabled"), "DockerIntegrationEnabled property missing");
         client.assert(response.body.hasOwnProperty("LogVerbosity"), "LogVerbosity property missing");
         client.assert(response.body.hasOwnProperty("WatchedMounts"), "WatchedMounts property missing");

@@ -332,6 +332,12 @@ public static class StatsEndpoints
 			context.Response.Headers.Append("X-Bayt-Lifetime", delayActual.TotalSeconds.ToString(CultureInfo.InvariantCulture));
 
 			return Results.ServerSentEvents(StreamStats(requestedStats, delayActual, streamId, context.RequestAborted));
-		});
+		}).Produces(StatusCodes.Status200OK)
+			.Produces(StatusCodes.Status400BadRequest)
+			.WithSummary("Returns a stream of stats as they update. Defaults to all in case none were specified.")
+			.WithDescription("The delay parameter is optional and acts as a SUGGESTION to the server. If the user's set cache lifetime is higher than this, it will be ignored. Set delayStrict to return a 400 Bad Request in that case.\n" +
+			                 "The final delay will be in the response header 'X-Bayt-Lifetime' in seconds regardless.")
+			.WithTags("Stats")
+			.WithName("GetSystemMetricsSse");
 	}
 }

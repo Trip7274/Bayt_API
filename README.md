@@ -24,7 +24,7 @@ please do help out if you have the experience!)
     - [X] Docker image management endpoints
     - [X] DockerHub integration (for searching, checking, and pulling images)
 	- [ ] Bayt log streaming endpoints
-    - [ ] SSE version of stats endpoint
+    - [X] SSE version of stats endpoint
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions
 	- [ ] Silo arbitrary data folder to each client

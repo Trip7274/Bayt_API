@@ -1,9 +1,136 @@
+using System.Net.ServerSentEvents;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 namespace Bayt_API.Endpoints;
 
 public static class StatsEndpoints
 {
+	private static async IAsyncEnumerable<SseItem<Dictionary<string, dynamic>>> StreamStats(List<ApiConfig.SystemStats> requestedStats, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	{
+		var streamId = (ushort) Random.Shared.Next(ushort.MaxValue);
+		Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", $"Got a request for streaming stats: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
+
+		Dictionary<string, dynamic> responseDictionary = [];
+
+		while (!cancellationToken.IsCancellationRequested)
+		{
+			List<Task> fetchTasks = [];
+			try
+			{
+				foreach (var stat in requestedStats)
+				{
+					switch (stat)
+					{
+						case ApiConfig.SystemStats.Cpu:
+						{
+							fetchTasks.Add(Task.Run(StatsApi.CpuData.UpdateDataIfNecessary, cancellationToken));
+							break;
+						}
+
+						case ApiConfig.SystemStats.Gpu:
+						{
+							fetchTasks.Add(Task.Run(GpuHandling.FullGpusData.UpdateDataIfNecessary, cancellationToken));
+							break;
+						}
+
+						case ApiConfig.SystemStats.Memory:
+						{
+							fetchTasks.Add(Task.Run(StatsApi.MemoryData.UpdateDataIfNecessary, cancellationToken));
+							break;
+						}
+
+						case ApiConfig.SystemStats.Mounts:
+						{
+							fetchTasks.Add(Task.Run(DiskHandling.FullDisksData.UpdateDataIfNecessary, cancellationToken));
+							break;
+						}
+						case ApiConfig.SystemStats.Batteries:
+						{
+							fetchTasks.Add(Task.Run(StatsApi.BatteryList.UpdateDataIfNecessary, cancellationToken));
+							break;
+						}
+					}
+				}
+
+				await Task.WhenAll(fetchTasks);
+			}
+			catch (OperationCanceledException e)
+			{
+				Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", $"Streaming was cancelled abruptly: {e.Message}"));
+				break;
+			}
+
+			// Request assembly
+			foreach (var requestedStat in requestedStats)
+			{
+				switch (requestedStat)
+				{
+					case ApiConfig.SystemStats.Meta:
+					{
+						responseDictionary.Add("Meta",
+							new Dictionary<string, dynamic>
+							{
+								{ nameof(ApiConfig.Version), ApiConfig.Version },
+								{ nameof(ApiConfig.ApiVersion), ApiConfig.ApiVersion },
+								{ nameof(ApiConfig.ApiConfiguration.CacheLifetime), ApiConfig.ApiConfiguration.CacheLifetime },
+								{ "BaytUptime", ApiConfig.BaytStartStopwatch.Elapsed }
+							});
+						break;
+					}
+
+					case ApiConfig.SystemStats.System:
+					{
+						responseDictionary.Add("System", StatsApi.GeneralSpecs.ToDictionary());
+						break;
+					}
+
+					case ApiConfig.SystemStats.Cpu:
+					{
+						responseDictionary.Add("CPU", StatsApi.CpuData.ToDictionary());
+						break;
+					}
+
+					case ApiConfig.SystemStats.Gpu:
+					{
+						responseDictionary.Add("GPU", GpuHandling.FullGpusData.ToDictionary());
+						break;
+					}
+
+					case ApiConfig.SystemStats.Memory:
+					{
+						responseDictionary.Add("Memory", StatsApi.MemoryData.ToDictionary());
+						break;
+					}
+
+					case ApiConfig.SystemStats.Mounts:
+					{
+						responseDictionary.Add("Mounts", DiskHandling.FullDisksData.ToDictionary());
+						break;
+					}
+
+					case ApiConfig.SystemStats.Batteries:
+					{
+						responseDictionary.Add("Batteries", StatsApi.BatteryList.ToDictionary());
+						break;
+					}
+					default:
+					{
+						throw new ArgumentOutOfRangeException(requestedStat.ToString());
+					}
+				}
+			}
+
+			yield return new SseItem<Dictionary<string, dynamic>>(responseDictionary, "StatUpdate");
+			responseDictionary = [];
+
+			await Task.Delay(ApiConfig.ApiConfiguration.CacheLifetime.TotalSeconds == 0 ? TimeSpan.FromSeconds(1) : ApiConfig.ApiConfiguration.CacheLifetime, CancellationToken.None);
+		}
+
+		Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", "Streaming has stopped."));
+	}
+
+
 	public static void MapStatsEndpoints(this IEndpointRouteBuilder app)
 	{
 		app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getCurrent", async (HttpResponse response, bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts, bool? batteries) =>
@@ -156,5 +283,35 @@ public static class StatsEndpoints
 			.WithSummary("Returns the stats/metrics of the server according to what was requested. Defaults to all in case none were specified.")
 			.WithTags("Stats")
 			.WithName("GetSystemMetrics");
+
+		app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getStream", (CancellationToken cancellationToken, bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts, bool? batteries) =>
+		{
+			Dictionary<ApiConfig.SystemStats, bool?> requestedStatsRaw = new() {
+				{ ApiConfig.SystemStats.Meta, meta },
+				{ ApiConfig.SystemStats.System, system },
+				{ ApiConfig.SystemStats.Cpu, cpu },
+				{ ApiConfig.SystemStats.Gpu, gpu },
+				{ ApiConfig.SystemStats.Memory, memory },
+				{ ApiConfig.SystemStats.Mounts, mounts },
+				{ ApiConfig.SystemStats.Batteries, batteries }
+			};
+			List<ApiConfig.SystemStats> requestedStats = [];
+			if (requestedStatsRaw.All(stat => !stat.Value.HasValue))
+			{
+				requestedStats = ApiConfig.PossibleStats.ToList();
+			}
+			else
+			{
+				requestedStats.AddRange(from statKvp in requestedStatsRaw where
+					statKvp.Value.HasValue && statKvp.Value.Value select statKvp.Key);
+			}
+
+			if (requestedStats.Count == 0)
+			{
+				return Results.BadRequest("No stats were requested.");
+			}
+
+			return Results.ServerSentEvents(StreamStats(requestedStats, cancellationToken));
+		});
 	}
 }

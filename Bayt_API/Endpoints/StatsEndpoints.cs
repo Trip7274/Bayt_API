@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.ServerSentEvents;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -6,9 +7,8 @@ namespace Bayt_API.Endpoints;
 
 public static class StatsEndpoints
 {
-	private static async IAsyncEnumerable<SseItem<Dictionary<string, dynamic>>> StreamStats(List<ApiConfig.SystemStats> requestedStats, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	private static async IAsyncEnumerable<SseItem<Dictionary<string, dynamic>>> StreamStats(List<ApiConfig.SystemStats> requestedStats, TimeSpan delay, ushort streamId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		var streamId = (ushort) Random.Shared.Next(ushort.MaxValue);
 		Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", $"Got a request for streaming stats: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
 
 		Dictionary<string, dynamic> responseDictionary = [];
@@ -124,7 +124,7 @@ public static class StatsEndpoints
 			yield return new SseItem<Dictionary<string, dynamic>>(responseDictionary, "StatUpdate");
 			responseDictionary = [];
 
-			await Task.Delay(ApiConfig.ApiConfiguration.CacheLifetime.TotalSeconds == 0 ? TimeSpan.FromSeconds(1) : ApiConfig.ApiConfiguration.CacheLifetime, CancellationToken.None);
+			await Task.Delay(delay, CancellationToken.None);
 		}
 
 		Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", "Streaming has stopped."));
@@ -284,7 +284,7 @@ public static class StatsEndpoints
 			.WithTags("Stats")
 			.WithName("GetSystemMetrics");
 
-		app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getStream", (CancellationToken cancellationToken, bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts, bool? batteries) =>
+		app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getStream", (HttpContext context, bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts, bool? batteries, ushort? delay, bool delayStrict = false) =>
 		{
 			Dictionary<ApiConfig.SystemStats, bool?> requestedStatsRaw = new() {
 				{ ApiConfig.SystemStats.Meta, meta },
@@ -311,7 +311,27 @@ public static class StatsEndpoints
 				return Results.BadRequest("No stats were requested.");
 			}
 
-			return Results.ServerSentEvents(StreamStats(requestedStats, cancellationToken));
+			var streamId = (ushort) Random.Shared.Next(ushort.MaxValue);
+			var delayActual = ApiConfig.ApiConfiguration.CacheLifetime.TotalSeconds == 0 ? TimeSpan.FromSeconds(1) : ApiConfig.ApiConfiguration.CacheLifetime;
+			if (delay.HasValue)
+			{
+				if (delay.Value < delayActual.TotalSeconds)
+				{
+					if (delayStrict)
+					{
+						return Results.BadRequest("Delay was set less than the user-specified cache lifetime.");
+					}
+					Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", $"Requested delay was {delay.Value} seconds, but the minimum cache lifetime is {delayActual.TotalSeconds}s."));
+				}
+				else
+				{
+					delayActual = TimeSpan.FromSeconds(delay.Value);
+				}
+			}
+
+			context.Response.Headers.Append("X-Bayt-Lifetime", delayActual.TotalSeconds.ToString(CultureInfo.InvariantCulture));
+
+			return Results.ServerSentEvents(StreamStats(requestedStats, delayActual, streamId, context.RequestAborted));
 		});
 	}
 }

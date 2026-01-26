@@ -25,11 +25,11 @@ public static class StatsApi
 			KernelArch = ShellMethods.RunShell("uname", ["-m"]).Result.StandardOutput;
 
 			// Recieve hex codes from shell scripts
-			var unprocessedDistroColors = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", ["Distro.Colors"]).Result.StandardOutput;
+			var unprocessedDistroBrandColor = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", ["Distro.Colors"]).Result.StandardOutput;
 
-			if (!string.IsNullOrWhiteSpace(unprocessedDistroColors) && unprocessedDistroColors != "null")
+			if (!string.IsNullOrWhiteSpace(unprocessedDistroBrandColor) && unprocessedDistroBrandColor != "null")
 			{
-				DistroColors = unprocessedDistroColors.Split('|', StringSplitOptions.RemoveEmptyEntries);
+				DistroBrandColor = unprocessedDistroBrandColor;
 			}
 		}
 
@@ -56,7 +56,7 @@ public static class StatsApi
 		/// <summary>
 		/// The user distro's colors, if any were present in /etc/os-release.
 		/// </summary>
-		public static string[]? DistroColors { get; }
+		public static string? DistroBrandColor { get; }
 
 
 		/// <summary>
@@ -73,7 +73,7 @@ public static class StatsApi
 				{ nameof(KernelName), KernelName },
 				{ nameof(KernelVersion), KernelVersion },
 				{ nameof(KernelArch), KernelArch },
-				{ nameof(DistroColors), DistroColors },
+				{ nameof(DistroBrandColor), DistroBrandColor },
 				{ nameof(DockerLocal.IsDockerAvailable), DockerLocal.IsDockerAvailable },
 				{ nameof(DockerLocal.IsDockerComposeAvailable), DockerLocal.IsDockerComposeAvailable },
 				{ nameof(SystemUptime), SystemUptime }

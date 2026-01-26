@@ -44,21 +44,33 @@ getDistroName() {
 
 getDistrocolors() {
 	source "$(dirname "$0")"/helpers/colorMap.sh
-	hexCodes=""
 
 	ansiColors="$(grep -oP '^ANSI_COLOR="\K[^"]*' /etc/os-release)"
-	if [[ -z "$ansiColors" ]]; then
-		echo "null"
-		exit 02
-	fi
 
 	IFS=";"
-	for color in $ansiColors; do
-		hexCodes+="${COLORMAP[$color]}|"
-	done
-	unset IFS
+	case "$ansiColors" in
+		38\;5\;*)
+            read -r _ _ colorCode <<< "$ansiColors"
+            echo "${BYTECOLORMAP[$colorCode]}"
+        ;;
 
-	echo "$hexCodes"
+        38\;2\;*)
+        	read -r _ _ redColor greenColor blueColor <<< "$ansiColors"
+        	echo -n "#"
+        	printf '%X' "$redColor" "$greenColor" "$blueColor"
+        ;;
+
+        [0-9]\;*)
+        	# If this is a 4 bit color, use the appropriate map
+        	read -r _ colorCode <<< "$ansiColors"
+            echo "${FOURBITCOLORMAP[$colorCode]}"
+        ;;
+
+    	*)
+    		echo "null"
+    	;;
+	esac
+	unset IFS
 }
 
 

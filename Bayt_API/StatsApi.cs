@@ -23,6 +23,14 @@ public static class StatsApi
 			KernelName = ShellMethods.RunShell("uname", ["-s"]).Result.StandardOutput;
 			KernelVersion = ShellMethods.RunShell("uname", ["-r"]).Result.StandardOutput;
 			KernelArch = ShellMethods.RunShell("uname", ["-m"]).Result.StandardOutput;
+
+			// Recieve hex codes from shell scripts
+			var unprocessedDistroColors = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", ["Distro.Colors"]).Result.StandardOutput;
+
+			if (!string.IsNullOrWhiteSpace(unprocessedDistroColors) && unprocessedDistroColors != "null")
+			{
+				DistroColors = unprocessedDistroColors.Split('|', StringSplitOptions.RemoveEmptyEntries);
+			}
 		}
 
 		/// <summary>
@@ -45,21 +53,27 @@ public static class StatsApi
 		/// Architecture of the current kernel.
 		/// </summary>
 		public static string KernelArch { get; }
+		/// <summary>
+		/// The user distro's colors, if any were present in /etc/os-release.
+		/// </summary>
+		public static string[]? DistroColors { get; }
+
 
 		/// <summary>
 		/// The current system's uptime.
 		/// </summary>
 		public static TimeSpan SystemUptime => TimeSpan.FromMilliseconds(Environment.TickCount64);
 
-		public static Dictionary<string, dynamic> ToDictionary()
+		public static Dictionary<string, dynamic?> ToDictionary()
 		{
-			return new Dictionary<string, dynamic>
+			return new Dictionary<string, dynamic?>
 			{
 				{ nameof(HostName), HostName },
 				{ nameof(DistroName), DistroName },
 				{ nameof(KernelName), KernelName },
 				{ nameof(KernelVersion), KernelVersion },
 				{ nameof(KernelArch), KernelArch },
+				{ nameof(DistroColors), DistroColors },
 				{ nameof(DockerLocal.IsDockerAvailable), DockerLocal.IsDockerAvailable },
 				{ nameof(DockerLocal.IsDockerComposeAvailable), DockerLocal.IsDockerComposeAvailable },
 				{ nameof(SystemUptime), SystemUptime }

@@ -25,6 +25,9 @@
 		<None Update="scripts/*.sh">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+		<None Update="scripts/helpers/*.sh">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 	</ItemGroup>
 
 	<!-- Copy system setup and removal script -->

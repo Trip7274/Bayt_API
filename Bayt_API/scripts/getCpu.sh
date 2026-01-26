@@ -15,7 +15,7 @@ STAT="$1"
 # "AllUtil" for a list with the format: "UtilPerc|PhysicalCores|ThreadCount|TempType|TempValue"
 
 export BAYT_SCRIPT_LOG_PATH="logs/CPU.log"
-. "$(dirname "$0")"/logUtils.sh
+. "$(dirname "$0")"/helpers/logUtils.sh
 
 logHelper "---getCpu.sh started---"
 

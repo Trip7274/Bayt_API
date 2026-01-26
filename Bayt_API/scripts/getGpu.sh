@@ -37,7 +37,7 @@ PCIID="$2"
 # Fan Speed (RPM) = fan.speed (AMD)
 
 export BAYT_SCRIPT_LOG_PATH="logs/GPU.log"
-. "$(dirname "$0")"/logUtils.sh
+source "$(dirname "$0")"/helpers/logUtils.sh
 
 logHelper "---getGpu.sh started---"
 

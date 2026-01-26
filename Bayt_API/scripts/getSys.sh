@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 STAT="$1"
 
@@ -7,7 +7,7 @@ STAT="$1"
 # STAT can be:
 #
 # "Distro.Name" for the Distro's name [string]
-# TODO: Would be great if we could get the ANSI colors (from /etc/os-release) and convert them to HEX, to help frontend customization.
+# "Distro.Colors" for the Distro's brand colors from /etc/os-release (in Hex) [string[]]
 #
 
 [ "$STAT" = "" ] && exit 01
@@ -42,9 +42,32 @@ getDistroName() {
     return 0
 }
 
+getDistrocolors() {
+	source "$(dirname "$0")"/helpers/colorMap.sh
+	hexCodes=""
+
+	ansiColors="$(grep -oP '^ANSI_COLOR="\K[^"]*' /etc/os-release)"
+	if [[ -z "$ansiColors" ]]; then
+		echo "null"
+		exit 02
+	fi
+
+	IFS=";"
+	for color in $ansiColors; do
+		hexCodes+="${COLORMAP[$color]}|"
+	done
+	unset IFS
+
+	echo "$hexCodes"
+}
+
 
 case $STAT in
 	"Distro.Name")
 		getDistroName
+	;;
+
+	"Distro.Colors")
+		getDistrocolors
 	;;
 esac

@@ -29,6 +29,7 @@ declare -A FOURBITCOLORMAP=(
 	[97]="#FFFFFF" # Bright White
 )
 
+# https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
 declare -A BYTECOLORMAP=(
 	[0]="#000000"
 	[1]="#800000"

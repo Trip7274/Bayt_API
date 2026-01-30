@@ -262,11 +262,6 @@ public static class StatsApi
 	/// </summary>
 	public static class MemoryData
 	{
-		static MemoryData()
-		{
-			UpdateData().Wait();
-			LastUpdate = DateTime.Now + ApiConfig.ApiConfiguration.ClampedCacheLifetime;
-		}
 		/// <summary>
 		/// Total system memory (RAM) in bytes.
 		/// </summary>

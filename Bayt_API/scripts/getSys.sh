@@ -50,15 +50,30 @@ getDistrocolors() {
 	IFS=";"
 	case "$ansiColors" in
 		38\;5\;*)
+			# 8-bit color
             read -r _ _ colorCode <<< "$ansiColors"
             echo "${BYTECOLORMAP[$colorCode]}"
         ;;
 
+    	0\;38\;5\;*)
+    		# 8-bit color, more closely following the standard
+            read -r _ _ _ colorCode <<< "$ansiColors"
+            echo "${BYTECOLORMAP[$colorCode]}"
+        ;;
+
         38\;2\;*)
+        	# TrueColor
         	read -r _ _ redColor greenColor blueColor <<< "$ansiColors"
         	echo -n "#"
         	printf '%X' "$redColor" "$greenColor" "$blueColor"
         ;;
+
+    	0\;38\;2\;*)
+    		# TrueColor, more closely following the standard
+    		read -r _ _ _ redColor greenColor blueColor <<< "$ansiColors"
+            echo -n "#"
+            printf '%X' "$redColor" "$greenColor" "$blueColor"
+    	;;
 
         [0-9]\;*)
         	# If this is a 4 bit color, use the appropriate map

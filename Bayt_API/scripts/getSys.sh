@@ -7,7 +7,7 @@ STAT="$1"
 # STAT can be:
 #
 # "Distro.Name" for the Distro's name [string]
-# "Distro.Colors" for the Distro's brand colors from /etc/os-release (in Hex) [string[]]
+# "Distro.Color" for the Distro's brand color from /etc/os-release (in Hex) [string]
 #
 
 [ "$STAT" = "" ] && exit 01
@@ -42,7 +42,7 @@ getDistroName() {
     return 0
 }
 
-getDistrocolors() {
+getDistrocolor() {
 	source "$(dirname "$0")"/helpers/colorMap.sh
 
 	ansiColors="$(grep -oP '^ANSI_COLOR="\K[^"]*' /etc/os-release)"
@@ -94,7 +94,7 @@ case $STAT in
 		getDistroName
 	;;
 
-	"Distro.Colors")
-		getDistrocolors
+	"Distro.Color")
+		getDistrocolor
 	;;
 esac

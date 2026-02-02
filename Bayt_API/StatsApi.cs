@@ -25,7 +25,7 @@ public static class StatsApi
 			KernelArch = ShellMethods.RunShell("uname", ["-m"]).Result.StandardOutput;
 
 			// Recieve hex codes from shell scripts
-			var unprocessedDistroBrandColor = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", ["Distro.Colors"]).Result.StandardOutput;
+			var unprocessedDistroBrandColor = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getSys.sh", ["Distro.Color"]).Result.StandardOutput;
 
 			if (!string.IsNullOrWhiteSpace(unprocessedDistroBrandColor) && unprocessedDistroBrandColor != "null")
 			{

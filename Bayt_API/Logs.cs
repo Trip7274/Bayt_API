@@ -267,7 +267,7 @@ public static class Logs
 			_logWriter?.WriteLine("================|=========|============================|====== New Bayt instance =======================");
 		}
 
-		private static readonly Lock BookWriteLock = new();
+		internal static readonly Lock BookWriteLock = new();
 		private static readonly Queue<LogEntry> SetupQueue = new();
 		private static DateOnly _lastDateOpened = DateOnly.FromDateTime(DateTime.Now);
 		private static StreamWriter? _logWriter;

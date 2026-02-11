@@ -53,6 +53,7 @@ if (Environment.OSVersion.Platform != PlatformID.Unix)
 		$"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like. This is unsupported, here be dragons."));
 }
 
+app.MapBaytEndpoints();
 
 app.MapStatsEndpoints();
 app.MapConfigEndpoints();

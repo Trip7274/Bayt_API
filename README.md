@@ -23,7 +23,7 @@ please do help out if you have the experience!)
 	- [X] Docker container management endpoints
     - [X] Docker image management endpoints
     - [X] DockerHub integration (for searching, checking, and pulling images)
-	- [ ] Bayt log streaming endpoints
+	- [X] Bayt log streaming endpoints
     - [X] SSE version of stats endpoint
 - [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions

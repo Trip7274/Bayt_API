@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using CliWrap;
 
@@ -63,7 +62,10 @@ public static class ShellMethods
 		StringBuilder stderr = new();
 		Dictionary<string, string?> envVars = new()
 		{
-			{ "BAYT_SUBPROCESS", "1" }
+			{ "BAYT_SUBPROCESS", "1" }, // In the future, also expose the requesting client and user's identifiers/names?
+			{ "BAYT_SUBPROCESS_ID", processIdentifier.ToString() },
+			{ "BAYT_APIVERSION", ApiConfig.ApiVersion.ToString() },
+			{ "BAYT_VERSION", ApiConfig.Version }
 		};
 		if (environmentVariables != null)
 		{

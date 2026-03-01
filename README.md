@@ -103,6 +103,6 @@ Bayt only leaves a few files, in:
 - `~/.local/share/baytData/`
 - `~/.config/baytConfig/`
 
-Please do
+Please do feel free to open an issue if you find any complaints or problems!
 
 

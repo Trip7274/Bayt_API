@@ -1,12 +1,18 @@
-# General Overview
+<h1 align="center">Bayt API</h1>
+<p align="center">
 Bayt aims to be a simple REST API to provide useful statistics and controls relating to your homeserver.
 This provides a stable, yet powerful base for your preferred frontend,
 and the freedom to choose or make your own frontend without the need to reinvent the wheel with a new backend.
+</p>
 
+---
+
+<p align="center">
 The word "Bayt" comes from Arabic and means "House", because a good house provides you with a good,
 reliable foundation to decorate and make your own however you'd like!
+</p>
 
-Bayt is still in an early alpha phase.
+Bayt is still in active development and is not yet ready for everyday use.
 
 ## Planned Features
 - [X] Provide general system information
@@ -81,3 +87,20 @@ Make sure you have the [.NET Core 10 SDK](https://learn.microsoft.com/en-us/dotn
 6. Execute the server binary using `./Bayt_API`
 
 If you encounter any issues or feel like this README can be improved, feel free to open an issue!
+
+### Configuration
+Bayt's configuration can be located in a few places depending on your environment. The best way to find it, is to run Bayt and check the output.
+However, by default, it can be found in the either:
+- `$XDG_CONFIG_HOME/baytConfig/ApiConfiguration.json`
+- `{Bayt's Running Directory}/baytConfig/ApiConfiguration.json`
+
+## Uninstallation
+Make sure to run `./CleanupBayt.sh` before uninstalling.
+
+Bayt only leaves a few files, in:
+- `~/.local/share/baytData/`
+- `~/.config/baytConfig/`
+
+Please do
+
+

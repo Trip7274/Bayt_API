@@ -61,7 +61,7 @@ else
 fi
 
 
-printf "\n\n"
+printf "\n"
 logHelper "Permission checks done, now running checks for dependencies..."
 
 #### GPU checks ####
@@ -107,7 +107,7 @@ fi
 #### GPU checks complete ####
 
 
-printf "\n\n"
+printf "\n"
 
 logHelper "Checking for net-tools..."
 if ! ifconfig -V > /dev/null; then
@@ -117,7 +117,6 @@ else
 	logHelper "net-tools was detected!" "OK"
 fi
 
-printf "\n"
 
 logHelper "Checking for jq..."
 if ! jq -V > /dev/null; then
@@ -126,7 +125,6 @@ else
 	logHelper "jq was detected!" "OK"
 fi
 
-printf "\n"
 
 logHelper "Testing grep..."
 TEST_STRING="test123test"

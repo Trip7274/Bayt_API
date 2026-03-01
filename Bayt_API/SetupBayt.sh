@@ -125,6 +125,12 @@ else
 	logHelper "jq was detected!" "OK"
 fi
 
+logHelper "Checking for libmsquic..."
+if ! ldconfig -p | grep "libmsquic" -q; then
+	logHelper "libmsquic check failed. This enables the use of QUIC, but is not necessary." "WARNING"
+else
+	logHelper "libmsquic was detected!" "OK"
+fi
 
 logHelper "Testing grep..."
 TEST_STRING="test123test"

@@ -4,6 +4,7 @@ using System.Security.Authentication;
 using Bayt_API;
 using Bayt_API.Endpoints;
 using Bayt_API.Endpoints.DockerEndpoints.Local;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +24,11 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 	if (isHttps)
 	{
 		Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{IPAddress.Loopback}:{ApiConfig.HttpsNetworkPort}' (HTTP at {ApiConfig.NetworkPort}) to listen list"));
-		kestrel.Listen(IPAddress.Loopback, ApiConfig.HttpsNetworkPort, listenOptions => listenOptions.UseHttps());
+		kestrel.Listen(IPAddress.Loopback, ApiConfig.HttpsNetworkPort, listenOptions =>
+		{
+			listenOptions.UseHttps();
+			listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+		});
 	}
 	else
 	{
@@ -34,11 +39,15 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 	{
 		var localIp = StatsApi.GetLocalIpAddress();
 
-		kestrel.Listen(localIp, ApiConfig.NetworkPort);
+		kestrel.Listen(localIp, ApiConfig.NetworkPort, options => options.Protocols = HttpProtocols.Http2);
 		if (isHttps)
 		{
 			Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{localIp}:{ApiConfig.HttpsNetworkPort}' (HTTP at {ApiConfig.NetworkPort}) to listen list"));
-			kestrel.Listen(localIp, ApiConfig.HttpsNetworkPort, listenOptions => listenOptions.UseHttps());
+			kestrel.Listen(localIp, ApiConfig.HttpsNetworkPort, listenOptions =>
+			{
+				listenOptions.UseHttps();
+				listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+			});
 		}
 		else
 		{

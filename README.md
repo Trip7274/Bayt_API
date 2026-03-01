@@ -54,13 +54,15 @@ Currently, Bayt is only supported on Linux using the [ASP.NET Core Runtime 10](h
 but the default scripts require the following, depending on your GPU:
 - NVIDIA Systems: (looking for testers; progress paused)
 	- `nvidia-smi`
-- Intel GPU Systems: (only 1 GPU at a time is supported, highly unstable)
-	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as sudo beforehand)
-    - [NVTOP](https://github.com/Syllo/nvtop)
+- Intel GPU Systems: (only 1 GPU at a time is supported, unstable)
+	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as root beforehand)
+    - [NVTOP](https://github.com/Syllo/nvtop) (optional, but strongly recommended)
 - AMD GPU Systems:
 	- `amdgpu_top`
 
 Along with utilites you probably already have, such as `bash`, `grep` (GNU), `head`, `jq`, `net-tools`, and `df`.
+
+`libmsquic` (sometimes called `msquic`) is needed for QUIC support, but is not necessary to run Bayt.
 
 ---
 I mainly test this on CachyOS (Arch-based), but I do try to use as many distro-agnostic features as I can in the default scripts.

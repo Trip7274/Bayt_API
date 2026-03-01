@@ -26,9 +26,15 @@ public static class ApiConfig
 	/// </summary>
 	public static readonly string BaseApiUrlPath = $"/api/v{ApiVersion}";
 	/// <summary>
-	/// Network port to expose the API on. Tries to use the env var <c>BAYT_NETWORK_PORT</c> first, then falls back to 5899.
+	/// HTTP network port to expose the API on. Tries to use the env var <c>BAYT_NETWORK_PORT</c> first, then falls back to 5899.
 	/// </summary>
+	/// <seealso cref="ApiConfig.HttpsNetworkPort"/>
 	public static readonly ushort NetworkPort = (ushort) (ushort.TryParse(Environment.GetEnvironmentVariable("BAYT_NETWORK_PORT"), out var port) ? port : 5899);
+	/// <summary>
+	/// HTTPS network port to expose the API on. Tries to use the env var <c>BAYT_HTTPS_NETWORK_PORT</c> first, then falls back to 5988.
+	/// </summary>
+	/// <seealso cref="ApiConfig.NetworkPort"/>
+	public static readonly ushort HttpsNetworkPort = (ushort) (ushort.TryParse(Environment.GetEnvironmentVariable("BAYT_HTTPS_NETWORK_PORT"), out var port) ? port : 5988);
 
 	/// <summary>
 	/// A stopwatch used to track how long Bayt has been running for. Started on API startup
@@ -56,7 +62,7 @@ public static class ApiConfig
 	/// <remarks>
 	///	Tries to fetch the env var <c>BAYT_CONFIG_DIRECTORY</c> first, then <c>XDG_CONFIG_HOME</c>. Falls back to "<see cref="BaseExecutablePath"/>/baytConfig" if neither are set.
 	/// </remarks>
-	private static readonly string BaseConfigPath = Path.Combine(Environment.GetEnvironmentVariable("BAYT_CONFIG_DIRECTORY") ??
+	public static readonly string BaseConfigPath = Path.Combine(Environment.GetEnvironmentVariable("BAYT_CONFIG_DIRECTORY") ??
 	                                                             Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") ??
 	                                                             BaseExecutablePath, "baytConfig");
 	/// <summary>
@@ -74,7 +80,7 @@ public static class ApiConfig
 	/// <remarks>
 	///	Tries to fetch the env var <c>BAYT_DATA_DIRECTORY</c> first, then <c>XDG_DATA_HOME</c>. Falls back to "<see cref="BaseExecutablePath"/>/baytData" if neither are set.
 	/// </remarks>
-	private static readonly string BaseDataPath = Path.Combine(Environment.GetEnvironmentVariable("BAYT_DATA_DIRECTORY") ??
+	public static readonly string BaseDataPath = Path.Combine(Environment.GetEnvironmentVariable("BAYT_DATA_DIRECTORY") ??
 	                                                           Environment.GetEnvironmentVariable("XDG_DATA_HOME")??
 	                                                           BaseExecutablePath, "baytData");
 

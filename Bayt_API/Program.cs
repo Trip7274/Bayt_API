@@ -1,28 +1,57 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using Bayt_API;
 using Bayt_API.Endpoints;
 using Bayt_API.Endpoints.DockerEndpoints.Local;
 
 var builder = WebApplication.CreateBuilder(args);
 
-Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL '{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list"));
-builder.WebHost.ConfigureKestrel(opts => opts.Listen(IPAddress.Loopback, ApiConfig.NetworkPort));
 
-if (!ParsingMethods.IsEnvVarTrue("BAYT_LOCALHOST_ONLY"))
+builder.WebHost.ConfigureKestrel(kestrel =>
 {
-	var localIp = StatsApi.GetLocalIpAddress();
+	bool isHttps = Security.Certificates.BaytPublicKey is not null;
 
-	Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL '{localIp}:{ApiConfig.NetworkPort}' to listen list"));
-	builder.WebHost.ConfigureKestrel(opts => opts.Listen(localIp, ApiConfig.NetworkPort));
-}
+	kestrel.ConfigureHttpsDefaults(https =>
+	{
+		https.ServerCertificate = Security.Certificates.BaytCertificate;
+		https.SslProtocols = SslProtocols.Tls12 & SslProtocols.Tls13;
+		isHttps = true;
+	});
 
-if (!ParsingMethods.IsEnvVarTrue("BAYT_DISABLE_SOCK"))
-{
-	if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
-	Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list"));
-	builder.WebHost.ConfigureKestrel(opts => opts.ListenUnixSocket(ApiConfig.UnixSocketPath));
-}
+	kestrel.Listen(IPAddress.Loopback, ApiConfig.NetworkPort);
+	if (isHttps)
+	{
+		Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{IPAddress.Loopback}:{ApiConfig.HttpsNetworkPort}' (HTTP at {ApiConfig.NetworkPort}) to listen list"));
+		kestrel.Listen(IPAddress.Loopback, ApiConfig.HttpsNetworkPort, listenOptions => listenOptions.UseHttps());
+	}
+	else
+	{
+		Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'http://{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list"));
+	}
+
+	if (!ParsingMethods.IsEnvVarTrue("BAYT_LOCALHOST_ONLY"))
+	{
+		var localIp = StatsApi.GetLocalIpAddress();
+
+		kestrel.Listen(localIp, ApiConfig.NetworkPort);
+		if (isHttps)
+		{
+			Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{localIp}:{ApiConfig.HttpsNetworkPort}' (HTTP at {ApiConfig.NetworkPort}) to listen list"));
+			kestrel.Listen(localIp, ApiConfig.HttpsNetworkPort, listenOptions => listenOptions.UseHttps());
+		}
+		else
+		{
+			Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'http://{localIp}:{ApiConfig.NetworkPort}' to listen list"));
+		}
+	}
+	if (!ParsingMethods.IsEnvVarTrue("BAYT_DISABLE_SOCK"))
+	{
+		if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
+		Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list"));
+		kestrel.ListenUnixSocket(ApiConfig.UnixSocketPath);
+	}
+});
 
 
 Logs.LogBook.Write(new (StreamId.Notice, "Configuration",
@@ -44,8 +73,6 @@ if (DockerLocal.IsDockerComposeAvailable)
 
 builder.Logging.ClearProviders();
 var app = builder.Build();
-
-app.UseHttpsRedirection();
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {

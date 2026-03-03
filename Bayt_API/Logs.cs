@@ -57,15 +57,10 @@ public sealed class LogEntry
 		{
 			if (value.Length > MaxModuleNameLength) value = value[..MaxModuleNameLength];
 
-			var valueStringBuilder = new StringBuilder();
-
-			foreach (var valueChar in value.Where(valueChar => char.IsAscii(valueChar) && !char.IsControl(valueChar)))
-			{
-				valueStringBuilder.Append(valueChar);
-			}
+			value = ParsingMethods.SanitizeString(value);
 			if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Module name cannot be empty or whitespace.");
 
-			_moduleNameBytes = Encoding.ASCII.GetBytes(valueStringBuilder.ToString());
+			_moduleNameBytes = Encoding.ASCII.GetBytes(value);
 		}
 	}
 	private readonly byte[] _moduleNameBytes = new byte[MaxModuleNameLength];
@@ -77,14 +72,10 @@ public sealed class LogEntry
 		{
 			if (value.Length > MaxContentLength) value = value[..MaxContentLength];
 
-			var valueStringBuilder = new StringBuilder();
-			foreach (var valueChar in value.Where(valueChar => char.IsAscii(valueChar) && !char.IsControl(valueChar)))
-			{
-				valueStringBuilder.Append(valueChar);
-			}
-			if (string.IsNullOrWhiteSpace(valueStringBuilder.ToString())) throw new ArgumentException("Content cannot be null or whitespace.");
+			value = ParsingMethods.SanitizeString(value);
+			if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Content cannot be null or whitespace.");
 
-			ContentBytes = Encoding.ASCII.GetBytes(valueStringBuilder.ToString());
+			ContentBytes = Encoding.ASCII.GetBytes(value);
 		}
 	}
 	public byte[] ContentBytes
@@ -175,7 +166,7 @@ public sealed class LogEntry
 
 	/// <summary>
 	/// Convert this LogEntry to a string with the following format:<br/>
-	/// <c>TimeWritten | STREAM_ID | ModuleName | Content</c>
+	/// <c>TimeWritten | StreamId | ModuleName | Content</c>
 	/// </summary>
 	/// <remarks>
 	///	TimeWritten is converted to LocalTime.

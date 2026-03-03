@@ -90,4 +90,54 @@ public class ParsingMethodsTests
 		var jsonElement = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>("{\"Test\": true}")!;
 		Assert.Null(jsonElement["Test"].ParseNullable<byte>());
 	}
+
+	[Fact]
+	public void SanitizeCorrectString()
+	{
+		const string testString = "This is a test string.";
+
+		Assert.Equal(testString, ParsingMethods.SanitizeString(testString));
+	}
+
+	[Fact]
+	public void SanitizeEmptyString()
+	{
+		const string testString = "";
+
+		Assert.Equal("", ParsingMethods.SanitizeString(testString));
+	}
+
+	[Fact]
+	public void SanitizeDirtyString()
+	{
+		const string testString = "This is a test string! 😄";
+
+		Assert.Equal("This is a test string! ", ParsingMethods.SanitizeString(testString));
+	}
+
+	[Fact]
+	public void SanitizeFullyDirtyString()
+	{
+		// Sanitize a string full of non-ASCII characters.
+		const string testString = "هذاتجربة😄";
+
+		Assert.Equal("", ParsingMethods.SanitizeString(testString));
+	}
+
+	[Fact]
+	public void SanitizeControlCharacters()
+	{
+		// Test a string full of control characters.
+		const string testString = "\e\u0001\n\r\n\a\b\0\u0018";
+
+		Assert.Equal("", ParsingMethods.SanitizeString(testString));
+	}
+
+	[Fact]
+	public void SanitizeAnsiEscapeCodes()
+	{
+		const string testString = "\e[0;32mHello!\e[0m";
+
+		Assert.Equal("[0;32mHello![0m", ParsingMethods.SanitizeString(testString));
+	}
 }

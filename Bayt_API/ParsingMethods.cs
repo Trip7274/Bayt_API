@@ -116,4 +116,22 @@ public static class ParsingMethods
 			_ => bool.TryParse(envVar, out var boolResult) && boolResult
 		};
 	}
+
+	/// <summary>
+	/// This is used primarily in logging to make sure a string is completely ASCII and has no control characters.
+	/// </summary>
+	/// <param name="input">String to be sanitized</param>
+	/// <returns>Sanitized string</returns>
+	public static string SanitizeString(string input)
+	{
+		if (string.IsNullOrWhiteSpace(input)) return input;
+
+		var valueStringBuilder = new StringBuilder();
+
+		foreach (var valueChar in input.Where(valueChar => char.IsAscii(valueChar) && !char.IsControl(valueChar)))
+		{
+			valueStringBuilder.Append(valueChar);
+		}
+		return valueStringBuilder.ToString();
+	}
 }

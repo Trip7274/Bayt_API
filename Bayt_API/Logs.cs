@@ -4,16 +4,16 @@ namespace Bayt_API;
 
 public sealed class LogEntry
 {
-	// Header length: 13-38 bytes
+	// Header length: 13-42 bytes
 	// Serialized Format:
 	// 1 byte: Stream ID
 	// 2 bytes: Content Length
 	// 8 bytes: Time Written
-	// (1-26) bytes: Module Name
+	// (1-30) bytes: Module Name
 	// STX (Start of Text) byte
 	// {Content Length} bytes: Content (1-1024 bytes/chars)
 	private const ushort MaxContentLength = 1024;
-	private const byte MaxModuleNameLength = 26;
+	private const byte MaxModuleNameLength = 30;
 
 	public LogEntry(StreamId streamId, string moduleName, string content, DateTime? timeWritten = null)
 	{
@@ -234,7 +234,14 @@ public enum StreamId : byte
 	/// <remarks>
 	///	Output stylized with a foreground color of <see cref="ConsoleColor.DarkGray"/>.
 	/// </remarks>
-	Verbose
+	Verbose,
+	/// <summary>
+	/// For logging every HTTP request Bayt receives. Disabled by default.
+	/// </summary>
+	/// <remarks>
+	///	Output stylized with a foreground color of <see cref="ConsoleColor.DarkGray"/>.
+	/// </remarks>
+	Request
 }
 
 public static class Logs
@@ -255,7 +262,7 @@ public static class Logs
 
 			CreateNewLogFile();
 			// To make it easier to skim through logs, make it clear when a new instance is started.
-			_logWriter?.WriteLine("================|=========|============================|====== New Bayt instance =======================");
+			_logWriter?.WriteLine("================|=========|================================|====== New Bayt instance ==============================");
 		}
 
 		internal static readonly Lock BookWriteLock = new();
@@ -267,6 +274,7 @@ public static class Logs
 		{
 			if (entry.StreamId == StreamId.None) return;
 			StreamWrittenTo?.Invoke(null, entry);
+			if (entry.StreamIdByte > ApiConfig.ApiConfiguration.LogVerbosity && entry.StreamIdByte > ApiConfig.TerminalVerbosity) return;
 
 			// Buffer log entries up until the `ApiConfig.ApiConfiguration` class is fully initialized.
 			// Then, write them out in order.
@@ -323,7 +331,7 @@ public static class Logs
 
 			var fileIsNew = !File.Exists(fullPath);
 			_logWriter = new(fullPath, true, Encoding.UTF8);
-			if (fileIsNew) _logWriter.WriteLine("Time Written    | Type    | Module Name                | Content"); // Header
+			if (fileIsNew) _logWriter.WriteLine("Time Written    | Type    | Module Name                    | Content"); // Header
 			_logWriter.Flush();
 		}
 

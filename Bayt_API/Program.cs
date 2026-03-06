@@ -4,6 +4,7 @@ using System.Security.Authentication;
 using Bayt_API;
 using Bayt_API.Endpoints;
 using Bayt_API.Endpoints.DockerEndpoints.Local;
+using Bayt_API.Logging;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -82,6 +83,8 @@ if (DockerLocal.IsDockerComposeAvailable)
 
 builder.Logging.ClearProviders();
 var app = builder.Build();
+if (ApiConfig.TerminalVerbosity > (byte) StreamId.Request || ApiConfig.ApiConfiguration.LogVerbosity > (byte) StreamId.Request)
+	app.UseMiddleware<RequestLoggingMiddleware>();
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {

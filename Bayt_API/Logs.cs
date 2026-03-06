@@ -290,9 +290,9 @@ public static class Logs
 				}
 			}
 
-			CheckFileDate();
-
 			if (ApiConfig.ApiConfiguration.LogVerbosity < entry.StreamIdByte) return;
+
+			CheckFileDate();
 
 			lock (BookWriteLock)
 			{

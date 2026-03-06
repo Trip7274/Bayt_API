@@ -277,7 +277,7 @@ public static class StatsEndpoints
 			await response.CompleteAsync();
 
 			Logs.LogBook.Write(new (StreamId.Verbose, "GetStats", $"Sent off the response with {responseDictionary.Count} fields."));
-			return null;
+			return Results.Empty;
 		}).Produces(StatusCodes.Status200OK)
 			.Produces(StatusCodes.Status400BadRequest)
 			.WithSummary("Returns the stats/metrics of the server according to what was requested. Defaults to all in case none were specified.")

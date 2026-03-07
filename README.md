@@ -91,17 +91,17 @@ Make sure you have the [.NET Core 10 SDK](https://learn.microsoft.com/en-us/dotn
 If you encounter any issues or feel like this README can be improved, feel free to open an issue!
 
 ### Configuration
-Bayt's configuration can be located in a few places depending on your environment. The best way to find it, is to run Bayt and check the output.
-However, by default, it can be found in the either:
+Bayt's configuration can be located in a few places depending on your environment.
+The best way to find it is to run Bayt and check the output.
+However, by default, it can be found in either:
 - `$XDG_CONFIG_HOME/baytConfig/ApiConfiguration.json`
 - `{Bayt's Running Directory}/baytConfig/ApiConfiguration.json`
+> [!TIP]
+> (`XDG_CONFIG_HOME` usually defaults to `~/.config`)
 
 ## Uninstallation
-Make sure to run `./CleanupBayt.sh` before uninstalling.
-
-Bayt only leaves a few files, in:
-- `~/.local/share/baytData/`
-- `~/.config/baytConfig/`
+Make sure to run `./CleanupBayt.sh` before uninstalling. This will remove all Bayt-related files,
+and revoke any special permissions issued by `./SetupBayt.sh`.
 
 Please do feel free to open an issue if you find any complaints or problems!
 

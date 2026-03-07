@@ -97,7 +97,7 @@ However, by default, it can be found in either:
 - `$XDG_CONFIG_HOME/baytConfig/ApiConfiguration.json`
 - `{Bayt's Running Directory}/baytConfig/ApiConfiguration.json`
 > [!TIP]
-> (`XDG_CONFIG_HOME` usually defaults to `~/.config`)
+> `XDG_CONFIG_HOME` usually defaults to `~/.config`
 
 ## Uninstallation
 Make sure to run `./CleanupBayt.sh` before uninstalling. This will remove all Bayt-related files,

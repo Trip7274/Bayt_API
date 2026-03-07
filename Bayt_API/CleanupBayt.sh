@@ -78,6 +78,12 @@ else
 	unset baytConfigFolder
 fi
 
+if [ -z "$baytConfigFolder" ] && [ -z "$baytDataFolder" ]; then
+	logHelper "Unable to find any Bayt-related files. Bayt might not have been started yet." "WARNING"
+	logHelper "Another cause of this could be if you set custom 'BAYT_CONFIG/DATA_DIRECTORY' environment variables for Bayt, but not this script. If so, try running this again with those environment variables set."
+	exit 1
+fi
+
 if [ "$SETUP_NON_INTERACTIVE" != "1" ] && [ "$SETUP_DELETE_DATA" != "1" ]; then
 	printf "Would you like to delete Bayt's data? (config files, logs, \e[1;31mDocker container compose files\e[0m, etc.)\n"
 	printf "The identified locations are:\nConfigs: \e[34m%s\e[0m\nData: \e[33m%s\e[0m\n\n" "${baytConfigFolder:-"(Unknown, might be non-existent or custom?)"}" "${baytDataFolder:-"(Unknown, might be non-existent or custom?)"}"

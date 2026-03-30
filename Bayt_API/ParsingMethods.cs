@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -122,13 +123,14 @@ public static class ParsingMethods
 	/// </summary>
 	/// <param name="input">String to be sanitized</param>
 	/// <returns>Sanitized string</returns>
-	public static string SanitizeString(string input)
+	[return: NotNullIfNotNull(nameof(input))]
+	public static string? SanitizeString(string? input)
 	{
 		if (string.IsNullOrWhiteSpace(input)) return input;
 
 		var valueStringBuilder = new StringBuilder();
 
-		foreach (var valueChar in input.Where(valueChar => char.IsAscii(valueChar) && !char.IsControl(valueChar)))
+		foreach (var valueChar in input.Where(valueChar => !char.IsSurrogate(valueChar) && !char.IsControl(valueChar)))
 		{
 			valueStringBuilder.Append(valueChar);
 		}

@@ -4,21 +4,35 @@ using System.Security.Authentication;
 using Bayt_API;
 using Bayt_API.Endpoints;
 using Bayt_API.Endpoints.DockerEndpoints.Local;
+using Bayt_API.Endpoints.SecurityEndpoints;
 using Bayt_API.Logging;
+using Bayt_API.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
 
 var builder = WebApplication.CreateBuilder(args);
 
 
 builder.WebHost.ConfigureKestrel(kestrel =>
 {
-	bool isHttps = Security.Certificates.BaytPublicKey is not null;
+	bool isHttps = Certificates.BaytPublicKey is not null;
 
 	kestrel.ConfigureHttpsDefaults(https =>
 	{
-		https.ServerCertificate = Security.Certificates.BaytCertificate;
+		https.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
+		https.ClientCertificateValidation = (cert, _, _) =>
+		{
+			// Run basic certificate checks
+			var now = DateTime.UtcNow;
+			if (now > cert.NotAfter || now < cert.NotBefore) return false;
+
+			// Make sure the cert isn't too long-lasting. (4-month max lifespan)
+			return cert.NotAfter - cert.NotBefore <= TimeSpan.FromDays(30 * 4);
+		};
+
+		https.ServerCertificate = Certificates.BaytCertificate;
 		https.SslProtocols = SslProtocols.Tls12 & SslProtocols.Tls13;
-		isHttps = true;
 	});
 
 	kestrel.Listen(IPAddress.Loopback, ApiConfig.NetworkPort);
@@ -63,6 +77,11 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 	}
 });
 
+builder.AddAuthenticationSchemes();
+builder.AddAuthorizationSchemes();
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, Permissions.PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, Permissions.PermissionHandler>();
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, Permissions.BaytAuthorizationMessageHandler>();
 
 Logs.LogBook.Write(new (StreamId.Notice, "Configuration",
 	$"Loaded configuration from: '{ApiConfig.ConfigFilePath}'"));
@@ -91,6 +110,13 @@ if (Environment.OSVersion.Platform != PlatformID.Unix)
 	Logs.LogBook.Write(new (StreamId.Warning, "Initialization",
 		$"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like. This is unsupported, here be dragons."));
 }
+
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapClientSecurityEndpoints();
+app.MapUserSecurityEndpoints();
 
 app.MapBaytEndpoints();
 

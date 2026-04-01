@@ -18,7 +18,8 @@ public static class DlImagesEndpoints
 			.Produces(StatusCodes.Status200OK)
 			.WithSummary("Get list of Docker images on the system.")
 			.WithTags("Docker", "Docker Images")
-			.WithName("GetDockerImages");
+			.WithName("GetDockerImages")
+			.RequireAuthorization("MultiAuth", "docker-images:list");
 
 		app.MapPost($"{DlContaintersEndpoints.BaseDockerUrl}/images/pull", DockerLocal.PullImage)
 			.Produces(StatusCodes.Status500InternalServerError)
@@ -28,7 +29,8 @@ public static class DlImagesEndpoints
 			.WithSummary("Pull a Docker image.")
 			.WithDescription("imageName must be the full repository + image name (e.g., \"jellyfin/jellyfin\"). tagOrDigest will default to \"latest\".")
 			.WithTags("Docker", "Docker Images")
-			.WithName("PullDockerImage");
+			.WithName("PullDockerImage")
+			.RequireAuthorization("MultiAuth", "docker-images:pull");
 
 		app.MapDelete($"{DlContaintersEndpoints.BaseDockerUrl}/images/delete", async (string? imageId, bool? force = false) =>
 		{
@@ -47,7 +49,8 @@ public static class DlImagesEndpoints
 			.WithSummary("Delete a Docker image.")
 			.WithDescription("imageId must contain at least the first 12 characters of the image's ID. force removes the image even if it is being used by stopped containers or has other tags, defaults to false.")
 			.WithTags("Docker", "Docker Images")
-			.WithName("DeleteDockerImage");
+			.WithName("DeleteDockerImage")
+			.RequireAuthorization("MultiAuth", "docker-images:delete");
 
 		app.MapGet($"{DlContaintersEndpoints.BaseDockerUrl}/images/search", async (string term, byte limit = 15) =>
 		{
@@ -81,7 +84,8 @@ public static class DlImagesEndpoints
 			.WithSummary("Search for a Docker image from DockerHub. Sorted by descending star count")
 			.WithDescription("term must be provided and not be whitespace.")
 			.WithTags("Docker", "Docker Images")
-			.WithName("SearchDockerHub");
+			.WithName("SearchDockerHub")
+			.RequireAuthorization("MultiAuth", "docker-images:search");
 
 		app.MapGet($"{DlContaintersEndpoints.BaseDockerUrl}/images/check", async (string imageName, bool filterIncompatible = true) =>
 		{
@@ -132,6 +136,7 @@ public static class DlImagesEndpoints
 			.WithDescription("imageName must be provided, and must follow this format: 'jellyfin/jellyfin', or 'python' (for official images). " +
 			                 "filterIncompatible defaults to true, and hides images/tags that don't contain any natively-compatible images for this system")
 			.WithTags("Docker", "Docker Images", "DockerHub")
-			.WithName("CheckDockerImage");
+			.WithName("CheckDockerImage")
+			.RequireAuthorization("MultiAuth", "docker-images:check");
 	}
 }

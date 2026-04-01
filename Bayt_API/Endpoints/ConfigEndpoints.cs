@@ -8,8 +8,6 @@ public static class ConfigEndpoints
 	{
 		app.MapPost($"{ApiConfig.BaseApiUrlPath}/config/edit", ([FromBody] Dictionary<string, dynamic> newConfigs) =>
 		{
-			// TODO: Implement Auth and Rate Limiting before blindly trusting the request.
-
 			return ApiConfig.ApiConfiguration.EditConfig(newConfigs) ? Results.NoContent()
 				: Results.StatusCode(StatusCodes.Status304NotModified);
 		}).Produces(StatusCodes.Status204NoContent)
@@ -18,7 +16,8 @@ public static class ConfigEndpoints
 			.WithDescription("The property cannot be 'WatchedMounts', nor 'WolClients'. Those two have their own endpoints. " +
 			                 "Format: { '${PropertyName}': '${PropertyValue}' }. Expected to be in the body of the request.")
 			.WithTags("Configuration")
-			.WithName("EditConfig");
+			.WithName("EditConfig")
+			.RequireAuthorization("MultiAuth", "config:edit");
 
 
 		app.MapGet($"{ApiConfig.BaseApiUrlPath}/config/getList", () =>
@@ -26,7 +25,8 @@ public static class ConfigEndpoints
 			.Produces(StatusCodes.Status200OK)
 			.WithSummary("Fetch the API's live configs in the form of JSON.")
 			.WithTags("Configuration")
-			.WithName("GetActiveApiConfigs");
+			.WithName("GetActiveApiConfigs")
+			.RequireAuthorization("Client");
 
 
 		app.MapPost($"{ApiConfig.BaseApiUrlPath}/config/update", () =>
@@ -37,7 +37,8 @@ public static class ConfigEndpoints
 		}).Produces(StatusCodes.Status200OK)
 			.WithSummary("Refresh and sync the API's live configs with the file on-disk.")
 			.WithTags("Configuration")
-			.WithName("UpdateLiveConfigs");
+			.WithName("UpdateLiveConfigs")
+			.RequireAuthorization("Client");
 
 		return app;
 	}

@@ -282,7 +282,8 @@ public static class StatsEndpoints
 			.Produces(StatusCodes.Status400BadRequest)
 			.WithSummary("Returns the stats/metrics of the server according to what was requested. Defaults to all in case none were specified.")
 			.WithTags("Stats")
-			.WithName("GetSystemMetrics");
+			.WithName("GetSystemMetrics")
+			.RequireAuthorization("MultiAuth", "stats:get");
 
 		app.MapGet($"{ApiConfig.BaseApiUrlPath}/stats/getStream", (HttpContext context, bool? meta, bool? system, bool? cpu, bool? gpu, bool? memory, bool? mounts, bool? batteries, ushort? delay, bool delayStrict = false) =>
 		{
@@ -338,6 +339,7 @@ public static class StatsEndpoints
 			.WithDescription("The delay parameter is optional and acts as a SUGGESTION to the server. If the user's set cache lifetime is higher than this, it will be ignored. Set delayStrict to return a 400 Bad Request in that case.\n" +
 			                 "The final delay will be in the response header 'X-Bayt-Lifetime' in seconds regardless.")
 			.WithTags("Stats")
-			.WithName("GetSystemMetricsSse");
+			.WithName("GetSystemMetricsSse")
+			.RequireAuthorization("MultiAuth", "stats:get");
 	}
 }

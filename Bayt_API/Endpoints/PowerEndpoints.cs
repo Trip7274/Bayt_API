@@ -25,7 +25,8 @@ public static class PowerEndpoints
 			.Produces(StatusCodes.Status204NoContent)
 			.WithSummary("Shutdown the system.")
 			.WithTags("Power")
-			.WithName("ShutdownServer");
+			.WithName("ShutdownServer")
+			.RequireAuthorization("Client", "power:shutdown");
 
 		app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/restart", async () =>
 		{
@@ -46,6 +47,7 @@ public static class PowerEndpoints
 			.Produces(StatusCodes.Status204NoContent)
 			.WithSummary("Restart the system.")
 			.WithTags("Power")
-			.WithName("RestartServer");
+			.WithName("RestartServer")
+			.RequireAuthorization("Client", "power:restart");
 	}
 }

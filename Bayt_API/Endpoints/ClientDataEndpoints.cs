@@ -37,7 +37,8 @@ public static class ClientDataEndpoints
 			.WithSummary("Fetch a specific file from a specific folder in the base clientData folder.")
 			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. If the file ends with .json, it will be returned as an application/json response. Otherwise, it will be returned as a application/octet-stream object.")
 			.WithTags("clientData")
-			.WithName("GetClientData");
+			.WithName("GetClientData")
+			.RequireAuthorization("Client", "clientData:read");
 
 		app.MapPut($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", async (HttpContext context, string? folderName, string? fileName) =>
 		{
@@ -63,7 +64,8 @@ public static class ClientDataEndpoints
 			.WithSummary("Replace/Set a specific file under a specific folder in the base clientData folder. Will create the folder if it doesn't exist.")
 			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. Expects the file's content in the body of the request.")
 			.WithTags("clientData")
-			.WithName("SetClientData");
+			.WithName("SetClientData")
+			.RequireAuthorization("Client", "clientData:write");
 
 		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", (string? folderName, string? fileName) =>
 		{
@@ -98,7 +100,8 @@ public static class ClientDataEndpoints
 			.WithSummary("Delete the specified file under the clientData folder.")
 			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names.")
 			.WithTags("clientData")
-			.WithName("DeleteClientData");
+			.WithName("DeleteClientData")
+			.RequireAuthorization("Client", "clientData:write");
 
 		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}", (string? folderName) =>
 		{
@@ -132,6 +135,7 @@ public static class ClientDataEndpoints
 			.WithSummary("Delete a specific data folder. Will recursively delete everything inside it.")
 			.WithDescription("folderName must be a valid, non-empty folder name.")
 			.WithTags("clientData")
-			.WithName("DeleteClientDataFolder");
+			.WithName("DeleteClientDataFolder")
+			.RequireAuthorization("Client", "clientData:write");
 	}
 }

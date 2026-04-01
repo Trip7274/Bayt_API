@@ -74,6 +74,7 @@ public static class BaytEndpoints
 			                 "`initialContext` is optional and referres to how many lines of past logs to include at the start of the stream. Defaults to 50 [Range: 0-100]. " +
 			                 "(`initialContext` does not respect `verbosity` and will not include anything higher than Bayt's `LogVerbosity` settings)")
 			.WithTags("Logs")
-			.WithName("GetBaytLogsSse");
+			.WithName("GetBaytLogsSse")
+			.RequireAuthorization("MultiAuth", "logs:view");
 	}
 }

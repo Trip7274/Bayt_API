@@ -189,7 +189,7 @@ public static class UserEndpoints
 		.WithDescription("targetUserId must be a valid GUID, or the string 'me' to add permissions to the currently connected user.")
 		.WithTags("Auth", "User")
 		.WithName("AddUserPermissions")
-		.RequireAuthorization("MultiAuth", "users:add-permissions");
+		.RequireAuthorization("MultiAuth", "users:edit-permissions");
 
 		app.MapDelete($"{BaseUsersUrl}/users/{{targetUserId}}/permissions", (HttpContext context, string targetUserId, [FromBody] Dictionary<string, List<string>> permissionsToRemove) =>
 		{
@@ -232,7 +232,7 @@ public static class UserEndpoints
 		.WithDescription("targetUserId must be a valid GUID, or the string 'me' to remove permissions from the currently connected user.")
 		.WithTags("Auth", "User")
 		.WithName("RemoveUserPermissions")
-		.RequireAuthorization("MultiAuth", "users:remove-permissions");
+		.RequireAuthorization("MultiAuth", "users:edit-permissions");
 
 		app.MapPut($"{BaseUsersUrl}/users/{{targetUserId}}/permissions", (HttpContext context, string targetUserId, [FromBody] Dictionary<string, List<string>> permissionsToSet) =>
 		{
@@ -276,7 +276,7 @@ public static class UserEndpoints
 		                 "This will return a 400 Bad Request if any of the permissions are not in the list of connected user's permissions.")
 		.WithTags("Auth", "User")
 		.WithName("SetUserPermissions")
-		.RequireAuthorization("MultiAuth", "users:set-permissions");
+		.RequireAuthorization("MultiAuth", "users:edit-permissions");
 
 		app.MapGet($"{BaseUsersUrl}/users/list", () =>
 		{

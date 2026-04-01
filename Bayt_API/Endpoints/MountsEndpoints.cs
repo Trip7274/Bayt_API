@@ -11,7 +11,8 @@ public static class MountsEndpoints
 			.Produces(StatusCodes.Status200OK)
 			.WithSummary("Fetch the list of the currently watched mounts.")
 			.WithTags("Mounts")
-			.WithName("GetMountsList");
+			.WithName("GetMountsList")
+			.RequireAuthorization("MultiAuth", "mounts:list");
 
 
 		app.MapPost($"{ApiConfig.BaseApiUrlPath}/mounts/add", ([FromBody] Dictionary<string, string?> mountPoints) =>
@@ -35,7 +36,8 @@ public static class MountsEndpoints
 			.WithSummary("Add one or more mounts to the list of watched mounts.")
 			.WithDescription("Format: { '${MountPoint}': '${MountLabel}' }. Expected to be in the body of the request.")
 			.WithTags("Mounts")
-			.WithName("AddMounts");
+			.WithName("AddMounts")
+			.RequireAuthorization("MultiAuth", "mounts:add");
 
 
 		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/mounts/remove", ([FromBody] Dictionary<string, List<string>> mountPointsFull) =>
@@ -63,7 +65,8 @@ public static class MountsEndpoints
 			.WithSummary("Remove one or more mounts from the list of watched mounts.")
 			.WithDescription("Format: { 'Mounts': ['${Mountpoint1}', '${Mountpoint2}', '...'] }. Expected to be in the body of the request.")
 			.WithTags("Mounts")
-			.WithName("RemoveMounts");
+			.WithName("RemoveMounts")
+			.RequireAuthorization("MultiAuth", "mounts:remove");
 
 
 		return app;

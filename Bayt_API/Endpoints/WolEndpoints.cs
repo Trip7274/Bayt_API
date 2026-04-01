@@ -18,7 +18,8 @@ public static class WolEndpoints
 		.Produces(StatusCodes.Status400BadRequest)
 		.WithSummary("Save a WoL client to this Bayt instance. Both fields are required, and cannot be empty.")
 		.WithTags("Wake-on-LAN")
-		.WithName("AddWolClient");
+		.WithName("AddWolClient")
+		.RequireAuthorization("Client", "wol:add");
 
 		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/WoL/removeClient", (string clientAddress) =>
 		{
@@ -38,14 +39,16 @@ public static class WolEndpoints
 			.Produces(StatusCodes.Status204NoContent)
 			.WithSummary("Remove a saved WoL clients from this Bayt instance.")
 			.WithTags("Wake-on-LAN")
-			.WithName("RemoveWolClient");
+			.WithName("RemoveWolClient")
+			.RequireAuthorization("Client", "wol:remove");
 
 		app.MapGet($"{ApiConfig.BaseApiUrlPath}/WoL/getClients", () =>
 				Results.Json(ApiConfig.ApiConfiguration.WolClients))
 			.Produces(StatusCodes.Status200OK)
 			.WithSummary("Fetch the list of the currently saved WoL clients.")
 			.WithTags("Wake-on-LAN")
-			.WithName("GetWolClients");
+			.WithName("GetWolClients")
+			.RequireAuthorization("Client", "wol:list");
 
 		app.MapPost($"{ApiConfig.BaseApiUrlPath}/WoL/wake", (string? ipAddress) =>
 		{
@@ -68,7 +71,8 @@ public static class WolEndpoints
 			.WithSummary("Send a wake signal to a specific WoL client.")
 			.WithDescription("ipAddress is required. It must be a valid, saved, IPv4 address of the target client.")
 			.WithTags("Wake-on-LAN")
-			.WithName("WakeWolClient");
+			.WithName("WakeWolClient")
+			.RequireAuthorization("Client", "wol:trigger");
 
 		return app;
 	}

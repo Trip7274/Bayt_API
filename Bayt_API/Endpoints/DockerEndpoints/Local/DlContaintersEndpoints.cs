@@ -21,7 +21,8 @@ public static class DlContaintersEndpoints
 			.Produces(StatusCodes.Status200OK)
 			.WithSummary("Fetch all or only the currently active containers in the system.")
 			.WithTags("Docker")
-			.WithName("GetDockerContainers");
+			.WithName("GetDockerContainers")
+			.RequireAuthorization("MultiAuth", "docker-containers:list");
 
 		app.MapPost($"{BaseDockerUrl}/containers/start", async (string? containerId) =>
 		{
@@ -40,7 +41,8 @@ public static class DlContaintersEndpoints
 			.WithSummary("Issues a command to start a specific Docker container.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("StartDockerContainer");
+			.WithName("StartDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-containers:start");
 
 		app.MapPost($"{BaseDockerUrl}/containers/stop", async (string? containerId) =>
 		{
@@ -59,7 +61,8 @@ public static class DlContaintersEndpoints
 			.WithSummary("Issues a command to stop a specific Docker container.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("StopDockerContainer");
+			.WithName("StopDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-containers:stop");
 
 		app.MapPost($"{BaseDockerUrl}/containers/restart", async (string? containerId) =>
 		{
@@ -78,7 +81,8 @@ public static class DlContaintersEndpoints
 			.WithSummary("Issues a command to restart a specific Docker container.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("RestartDockerContainer");
+			.WithName("RestartDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-containers:restart");
 
 		app.MapPost($"{BaseDockerUrl}/containers/kill", async (string? containerId) =>
 		{
@@ -98,7 +102,8 @@ public static class DlContaintersEndpoints
 			.WithSummary("Issues a command to kill a specific Docker container.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("KillDockerContainer");
+			.WithName("KillDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-containers:kill");
 
 		app.MapDelete($"{BaseDockerUrl}/containers/delete", async (string? containerId, bool removeCompose = false, bool removeVolumes = false, bool force = false) =>
 		{
@@ -120,7 +125,8 @@ public static class DlContaintersEndpoints
 			                 "and removeVolumes will remove all anonymous volumes associated with the container if true. " +
 			                 "Both default to false.")
 			.WithTags("Docker")
-			.WithName("DeleteDockerContainer");
+			.WithName("DeleteDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-containers:delete");
 
 		app.MapPost($"{BaseDockerUrl}/containers/pause", async (string? containerId) =>
 		{
@@ -139,7 +145,8 @@ public static class DlContaintersEndpoints
 			.WithSummary("Issues a command to pause a specific Docker container.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("PauseDockerContainer");
+			.WithName("PauseDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-containers:pause");
 
 		app.MapPost($"{BaseDockerUrl}/containers/resume", async (string? containerId) =>
 		{
@@ -158,7 +165,8 @@ public static class DlContaintersEndpoints
 			.WithSummary("Issues a command to resume a specific Docker container.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("ResumeDockerContainer");
+			.WithName("ResumeDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-containers:resume");
 
 		app.MapGet($"{BaseDockerUrl}/containers/streamLogs", async (CancellationToken cancellationToken, string? containerId, bool stdout = true, bool stderr = true, bool timestamps = false) =>
 		{
@@ -179,7 +187,8 @@ public static class DlContaintersEndpoints
 			.WithSummary("Stream the Docker container's live logs.")
 			.WithDescription("containerId is required. stdout, stderr, and timestamps are optional to specify which streams to follow, and whether to prefix each line with a timestamp. Will default to stdout=true, stderr=true, and timestamps=false if not specified.")
 			.WithTags("Docker")
-			.WithName("GetDockerContainerLogs");
+			.WithName("GetDockerContainerLogs")
+			.RequireAuthorization("MultiAuth", "docker-containers:logs");
 
 		app.MapDelete($"{BaseDockerUrl}/containers/prune", async () =>
 		{
@@ -200,7 +209,8 @@ public static class DlContaintersEndpoints
 			.WithSummary("Prune all stopped Docker containers.")
 			.WithDescription("This will delete all stopped Docker containers.")
 			.WithTags("Docker")
-			.WithName("PruneDockerContainers");
+			.WithName("PruneDockerContainers")
+			.RequireAuthorization("MultiAuth", "docker-containers:prune");
 
 		app.MapGet($"{BaseDockerUrl}/containers/getStats", async (string? containerId) =>
 		{
@@ -226,7 +236,8 @@ public static class DlContaintersEndpoints
 			.WithSummary("Fetch the usage stats of a specific Docker container.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("GetDockerContainerStats");
+			.WithName("GetDockerContainerStats")
+			.RequireAuthorization("MultiAuth", "docker-containers:stats");
 
 		app.MapPost($"{BaseDockerUrl}/containers/setMetadata", async (string? containerId, [FromBody] Dictionary<string, string?> metadata) =>
 		{
@@ -249,6 +260,7 @@ public static class DlContaintersEndpoints
 			.WithSummary("Set the metadata of a Docker container, such as PrettyName, Notes, PreferredIconUrl, or WebpageLink.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID. A dictionary<string, string> object is expected in the body in the format: ({ 'metadataKey': 'metadataValue' })")
 			.WithTags("Docker")
-			.WithName("SetDockerContainerMetadata");
+			.WithName("SetDockerContainerMetadata")
+			.RequireAuthorization("MultiAuth", "docker-containers:edit-metadata");
 	}
 }

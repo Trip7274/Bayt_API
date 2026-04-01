@@ -188,7 +188,7 @@ public static class ClientEndpoints
 		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to add permissions to the currently connected client.")
 		.WithTags("Auth", "Client")
 		.WithName("AddClientPermissions")
-		.RequireAuthorization("MultiAuth", "clients:add-permissions");
+		.RequireAuthorization("MultiAuth", "clients:edit-permissions");
 
 		app.MapDelete($"{BaseClientUrl}/clients/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToRemove) =>
 		{
@@ -224,7 +224,7 @@ public static class ClientEndpoints
 		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to remove permissions from the currently connected client.")
 		.WithTags("Auth", "Client")
 		.WithName("RemoveClientPermissions")
-		.RequireAuthorization("MultiAuth", "clients:remove-permissions");
+		.RequireAuthorization("MultiAuth", "clients:edit-permissions");
 
 		app.MapPut($"{BaseClientUrl}/clients/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToSet) =>
 		{
@@ -267,7 +267,7 @@ public static class ClientEndpoints
 		                 "This will return a 400 Bad Request if any of the permissions are not in the list of connected client's permissions.")
 		.WithTags("Auth", "Client")
 		.WithName("SetClientPermissions")
-		.RequireAuthorization("MultiAuth", "clients:set-permissions");
+		.RequireAuthorization("MultiAuth", "clients:edit-permissions");
 
 		app.MapGet($"{BaseClientUrl}/clients/list", () =>
 		{

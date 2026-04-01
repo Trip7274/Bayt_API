@@ -36,7 +36,8 @@ public static class DlComposeEndpoints
 			.WithSummary("Fetch the compose file of a specific Docker container. Will return the exact contents in an 'application/ocetet-stream' response.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("GetDockerContainerCompose");
+			.WithName("GetDockerContainerCompose")
+			.RequireAuthorization("MultiAuth", "docker-compose:read");
 
 		app.MapPut($"{DlContaintersEndpoints.BaseDockerUrl}/containers/setCompose", async (HttpContext context, string? containerId, bool restartContainer = false) =>
 		{
@@ -91,7 +92,8 @@ public static class DlComposeEndpoints
 			.WithSummary("Replace a Docker container's compose file if it's managed by Bayt.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID. Will default to not restarting the container after replacing its compose. The new compose's contents are expected to be in the body of the request.")
 			.WithTags("Docker")
-			.WithName("SetDockerContainerCompose");
+			.WithName("SetDockerContainerCompose")
+			.RequireAuthorization("MultiAuth", "docker-compose:set");
 
 		app.MapPost($"{DlContaintersEndpoints.BaseDockerUrl}/containers/own", async (string? containerId) =>
 		{
@@ -129,7 +131,8 @@ public static class DlComposeEndpoints
 			.WithSummary("Mark a Docker container as managed by Bayt.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("OwnDockerContainer");
+			.WithName("OwnDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-compose:register");
 
 		app.MapDelete($"{DlContaintersEndpoints.BaseDockerUrl}/containers/disown", async (string? containerId) =>
 		{
@@ -161,7 +164,8 @@ public static class DlComposeEndpoints
 			.WithSummary("Mark a Docker container as unmanaged by Bayt.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID.")
 			.WithTags("Docker")
-			.WithName("DisownDockerContainer");
+			.WithName("DisownDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-compose:unregister");
 
 		app.MapPost($"{DlContaintersEndpoints.BaseDockerUrl}/containers/create", async (HttpContext context, string? containerName, bool startContainer = true, bool deleteIfFailed = true) =>
 		{
@@ -224,6 +228,7 @@ public static class DlComposeEndpoints
 			                 "deleteIfFailed defaults to true and deletes the compose directory in case a non-zero exit code was reported by docker-compose. " +
 			                 "startContainer defaults to true The compose file is expected to be in the body of the request.")
 			.WithTags("Docker")
-			.WithName("CreateDockerContainer");
+			.WithName("CreateDockerContainer")
+			.RequireAuthorization("MultiAuth", "docker-compose:create");
 	}
 }

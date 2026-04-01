@@ -58,7 +58,7 @@ but the default scripts require the following, depending on your GPU:
 	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as root beforehand)
     - [NVTOP](https://github.com/Syllo/nvtop) (optional, but strongly recommended)
 - AMD GPU Systems:
-	- `amdgpu_top`
+	- [amdgpu_top](https://github.com/Umio-Yasuno/amdgpu_top)
 
 Along with utilites you probably already have, such as `bash`, `grep` (GNU), `head`, `jq`, `net-tools`, and `df`.
 

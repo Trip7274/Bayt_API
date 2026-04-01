@@ -31,7 +31,7 @@ please do help out if you have the experience!)
     - [X] DockerHub integration (for searching, checking, and pulling images)
 	- [X] Bayt log streaming endpoints
     - [X] SSE version of stats endpoint
-- [ ] Auth & Basic ratelimiting (authorizing both the frontend "client" and user)
+- [ ] Auth (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions
 	- [ ] Silo arbitrary data folder to each client
 	- [ ] Add a permission to manage clients (with a dangerous disclaimer)

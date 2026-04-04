@@ -25,7 +25,7 @@ public static class SecurityMethods
 					OnCertificateValidated = context =>
 					{
 						var thumbprint = context.ClientCertificate.GetCertHashString(HashAlgorithmName.SHA256);
-						if (Clients.TryFetchValidClient(thumbprint, out var client))
+						if (Clients.TryFetchValidClient(thumbprint, out var client, true))
 						{
 							context.Principal = new ClaimsPrincipal(
 								new ClaimsIdentity(
@@ -107,7 +107,14 @@ public static class SecurityMethods
 					policy.AddAuthenticationSchemes(CertificateAuthenticationDefaults.AuthenticationScheme);
 					policy.RequireAuthenticatedUser();
 
-					policy.RequireAssertion(AuthnClient);
+					policy.RequireAssertion(context => AuthnClient(context, false));
+				});
+				options.AddPolicy("ClientAllowPaused", policy =>
+				{
+					policy.AddAuthenticationSchemes(CertificateAuthenticationDefaults.AuthenticationScheme);
+					policy.RequireAuthenticatedUser();
+
+					policy.RequireAssertion(context => AuthnClient(context, true));
 				});
 				options.AddPolicy("MultiAuth", policy =>
 				{
@@ -152,7 +159,7 @@ public static class SecurityMethods
 
 		return Guid.TryParse(userIdentifier, out var guid) && Users.DoesUserExist(guid);
 	}
-	public static bool AuthnClient(AuthorizationHandlerContext context)
+	public static bool AuthnClient(AuthorizationHandlerContext context, bool allowPaused = false)
 	{
 		var clientIdentity = context.User.Identities.FirstOrDefault(identity => identity is
 		{
@@ -162,12 +169,12 @@ public static class SecurityMethods
 		var guidString = clientIdentity?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
 		return Guid.TryParse(guidString, out var guid) &&
-		       Clients.TryFetchValidClient(guid, out var client) &&
-		       !client.IsPaused;
+		       Clients.TryFetchValidClient(guid, out var client, allowPaused) &&
+		       (!client.IsPaused || allowPaused);
 	}
 
 
-	public static Client? GetConnectedClient(HttpContext context)
+	public static Client? GetConnectedClient(HttpContext context, bool allowPaused = false)
 	{
 		var clientIdentity = context.User.Identities.FirstOrDefault(identity => identity is
 		{
@@ -178,7 +185,7 @@ public static class SecurityMethods
 		if (!Guid.TryParse(clientIdentifier, out var guid))
 			return null;
 
-		return Clients.TryFetchValidClient(guid, out var client) ? client : null;
+		return Clients.TryFetchValidClient(guid, out var client, allowPaused) ? client : null;
 	}
 	public static User? GetConnectedUser(HttpContext context)
 	{
@@ -193,8 +200,8 @@ public static class SecurityMethods
 
 		return Users.TryFetchUser(guid, out var user) ? user : null;
 	}
-	public static (Client?, User?) GetConnectedUserAndClient(HttpContext context) => (
-		GetConnectedClient(context),
+	public static (Client?, User?) GetConnectedUserAndClient(HttpContext context, bool allowPaused = false) => (
+		GetConnectedClient(context, allowPaused),
 		GetConnectedUser(context)
 	);
 

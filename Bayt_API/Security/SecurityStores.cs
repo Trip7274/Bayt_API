@@ -17,7 +17,7 @@ internal static class SecurityStores
 		CheckDataStores();
 	}
 
-	private static readonly string BaseSecurityPath = Path.Combine(ApiConfig.BaseDataPath, "security");
+	internal static readonly string BaseSecurityPath = Path.Combine(ApiConfig.BaseDataPath, "security");
 	private static string SecurityStorePath(StoreSection section) => Path.Combine(BaseSecurityPath, $"store{section.ToString()}.msgpack");
 
 	private static readonly Lock UserStoreWriteLock = new();
@@ -101,13 +101,13 @@ internal static class SecurityStores
 	{
 		return typeof(T) == typeof(Client) ? StoreSection.Client : StoreSection.User;
 	}
-	private static Dictionary<string, T> GetStoreContents<T>(StoreSection section, string filePath) where T : HasPermissions
+	private static Dictionary<Guid, T> GetStoreContents<T>(StoreSection section, string filePath) where T : HasPermissions
 	{
 		if (!File.Exists(filePath))
 			InitializeDataFile(section, filePath, "The file abruptly disappeared.");
 
 		var fileData = File.ReadAllBytes(filePath);
-		return MessagePackSerializer.Deserialize<Dictionary<string, T>>(fileData);
+		return MessagePackSerializer.Deserialize<Dictionary<Guid, T>>(fileData);
 	}
 
 	private static T? GetData<T>(Guid key) where T : HasPermissions
@@ -116,9 +116,9 @@ internal static class SecurityStores
 
 		var fileContents = GetStoreContents<T>(section, SecurityStorePath(section));
 
-		return fileContents.GetValueOrDefault(key.ToString());
+		return fileContents.GetValueOrDefault(key);
 	}
-	private static Dictionary<string, T> GetSection<T>() where T : HasPermissions
+	private static Dictionary<Guid, T> GetSection<T>() where T : HasPermissions
 	{
 		// Ah yes, one of the most methods of all time.
 		var section = PickSection<T>();
@@ -134,7 +134,7 @@ internal static class SecurityStores
 		{
 			var fileContents = GetStoreContents<T>(section, securityFilePath);
 
-			fileContents[key.ToString()] = value;
+			fileContents[key] = value;
 			File.WriteAllBytes(securityFilePath, MessagePackSerializer.Serialize(fileContents));
 		}
 	}
@@ -147,7 +147,7 @@ internal static class SecurityStores
 		{
 			var fileContents = GetStoreContents<T>(section, securityFilePath);
 
-			if (fileContents.Remove(key.ToString()))
+			if (fileContents.Remove(key))
 			{
 				File.WriteAllBytes(securityFilePath, MessagePackSerializer.Serialize(fileContents));
 				return true;
@@ -174,12 +174,12 @@ internal static class SecurityStores
 				{
 					case StoreSection.User:
 					{
-						MessagePackSerializer.Deserialize<Dictionary<string, User>>(fileData);
+						MessagePackSerializer.Deserialize<Dictionary<Guid, User>>(fileData);
 						break;
 					}
 					case StoreSection.Client:
 					{
-						MessagePackSerializer.Deserialize<Dictionary<string, Client>>(fileData);
+						MessagePackSerializer.Deserialize<Dictionary<Guid, Client>>(fileData);
 						break;
 					}
 					default:

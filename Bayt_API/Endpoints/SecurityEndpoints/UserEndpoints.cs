@@ -8,11 +8,11 @@ namespace Bayt_API.Endpoints.SecurityEndpoints;
 
 public static class UserEndpoints
 {
-	private static readonly string BaseUsersUrl = ApiConfig.BaseApiUrlPath + "/security" + "/users";
+	private static readonly string BaseUsersUrl = ApiConfig.BaseApiUrlPath + "/security/users";
 
 	public static void MapUserSecurityEndpoints(this IEndpointRouteBuilder app)
 	{
-		app.MapPost($"{BaseUsersUrl}/users/register", (string username, string password, string? profilePictureUrl = null) =>
+		app.MapPost($"{BaseUsersUrl}/register", (string username, string password, string? profilePictureUrl = null) =>
 		{
 			if (Users.DoesUserExist(username)) return Results.Conflict(new { message = "User already exists" });
 
@@ -38,7 +38,7 @@ public static class UserEndpoints
 		.WithName("RegisterUser")
 		.RequireAuthorization("Client", "users:register");
 
-		app.MapPost($"{BaseUsersUrl}/users/login", (string username, string password) =>
+		app.MapPost($"{BaseUsersUrl}/login", (string username, string password) =>
 		{
 			if (!Users.AuthenticateUser(username, password, out var user))
 				return Results.Unauthorized();
@@ -68,7 +68,7 @@ public static class UserEndpoints
 		.WithName("LoginUser")
 		.RequireAuthorization("Client");
 
-		app.MapPost($"{BaseUsersUrl}/users/logout", () =>
+		app.MapPost($"{BaseUsersUrl}/logout", () =>
 				Results.SignOut(authenticationSchemes: [CookieAuthenticationDefaults.AuthenticationScheme]))
 		.Produces(StatusCodes.Status200OK)
 		.Produces(StatusCodes.Status400BadRequest)
@@ -77,7 +77,7 @@ public static class UserEndpoints
 		.WithName("LogoutUser")
 		.RequireAuthorization("Client");
 
-		app.MapPost($"{BaseUsersUrl}/users/{{targetUserId}}/edit", (HttpContext context, [FromBody] Dictionary<string, string?> changes, string targetUserId) =>
+		app.MapPost($"{BaseUsersUrl}/{{targetUserId}}/edit", (HttpContext context, [FromBody] Dictionary<string, string?> changes, string targetUserId) =>
 		{
 			if (changes.Count == 0) return Results.BadRequest("No changes were provided.");
 
@@ -119,7 +119,7 @@ public static class UserEndpoints
 		.WithName("EditUser")
 		.RequireAuthorization("MultiAuth");
 
-		app.MapGet($"{BaseUsersUrl}/users/{{targetUserId}}/info", (HttpContext context, string targetUserId) =>
+		app.MapGet($"{BaseUsersUrl}/{{targetUserId}}/info", (HttpContext context, string targetUserId) =>
 		{
 			var targetUser = SecurityMethods.GetConnectedUser(context);
 			if (Guid.TryParse(targetUserId, out var targetUserGuid))
@@ -148,7 +148,7 @@ public static class UserEndpoints
 		.WithName("GetUserInfo")
 		.RequireAuthorization("MultiAuth");
 
-		app.MapPatch($"{BaseUsersUrl}/users/{{targetUserId}}/permissions", (HttpContext context, string targetUserId, [FromBody] Dictionary<string, List<string>> permissionsToAdd) =>
+		app.MapPatch($"{BaseUsersUrl}/{{targetUserId}}/permissions", (HttpContext context, string targetUserId, [FromBody] Dictionary<string, List<string>> permissionsToAdd) =>
 		{
 			var connectedUser = SecurityMethods.GetConnectedUser(context)!;
 			var targetUser = connectedUser;
@@ -191,7 +191,7 @@ public static class UserEndpoints
 		.WithName("AddUserPermissions")
 		.RequireAuthorization("MultiAuth", "users:edit-permissions");
 
-		app.MapDelete($"{BaseUsersUrl}/users/{{targetUserId}}/permissions", (HttpContext context, string targetUserId, [FromBody] Dictionary<string, List<string>> permissionsToRemove) =>
+		app.MapDelete($"{BaseUsersUrl}/{{targetUserId}}/permissions", (HttpContext context, string targetUserId, [FromBody] Dictionary<string, List<string>> permissionsToRemove) =>
 		{
 			var connectedUser = SecurityMethods.GetConnectedUser(context)!;
 			var targetUser = connectedUser;
@@ -234,7 +234,7 @@ public static class UserEndpoints
 		.WithName("RemoveUserPermissions")
 		.RequireAuthorization("MultiAuth", "users:edit-permissions");
 
-		app.MapPut($"{BaseUsersUrl}/users/{{targetUserId}}/permissions", (HttpContext context, string targetUserId, [FromBody] Dictionary<string, List<string>> permissionsToSet) =>
+		app.MapPut($"{BaseUsersUrl}/{{targetUserId}}/permissions", (HttpContext context, string targetUserId, [FromBody] Dictionary<string, List<string>> permissionsToSet) =>
 		{
 			var connectedUser = SecurityMethods.GetConnectedUser(context)!;
 			var targetUser = connectedUser;
@@ -278,7 +278,7 @@ public static class UserEndpoints
 		.WithName("SetUserPermissions")
 		.RequireAuthorization("MultiAuth", "users:edit-permissions");
 
-		app.MapGet($"{BaseUsersUrl}/users/list", () =>
+		app.MapGet($"{BaseUsersUrl}/list", () =>
 		{
 			return Results.Json(Users.FetchAllUsers());
 		}).Produces(StatusCodes.Status200OK)

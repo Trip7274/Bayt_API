@@ -94,7 +94,7 @@ public static class Permissions
 			// "docker-compose:create" OR "docker-compose:!create"
 			var intersection = PermPowers.Intersect(challengedPerms).ToList();
 			if (hasNegated) intersection.RemoveAll(p => p.StartsWith('!'));
-			return intersection.Count == challengedPerms.Count;
+			return intersection.Count == PermPowers.Count;
 		}
 
 		public string PermPowersString => string.Join(',', PermPowers);

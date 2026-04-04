@@ -255,19 +255,17 @@ public sealed partial class User : HasPermissions, IEquatable<User>
 public sealed partial class Client : HasPermissions, IEquatable<Client>
 {
 	[SerializationConstructor]
-	private Client (string clientName, string thumbprint, Guid guid, string? personalName = null, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false)
+	private Client (string clientName, string thumbprint, Guid guid, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false)
 	{
-		if (string.IsNullOrWhiteSpace(clientName) || (personalName is not null && string.IsNullOrWhiteSpace(personalName)))
-			throw new ArgumentException("Client name and personal name cannot be empty", nameof(clientName) + '/' + nameof(personalName));
+		if (string.IsNullOrWhiteSpace(clientName))
+			throw new ArgumentException("Client name cannot be empty", nameof(clientName));
 
 		if (thumbprint.Length != 64) throw new ArgumentException("Invalid thumbprint", nameof(thumbprint));
 		if (clientName.Length > 128) throw new ArgumentException("Client name too long", nameof(clientName));
-		if (personalName is not null && personalName.Length > 128) throw new ArgumentException("Personal name too long", nameof(personalName));
 
 		// Checks done
 
 		ClientName = ParsingMethods.SanitizeString(clientName);
-		PersonalName = ParsingMethods.SanitizeString(personalName);
 
 		Thumbprint = thumbprint;
 		Guid = guid;
@@ -281,19 +279,17 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		}
 		IsPaused = isPaused;
 	}
-	public Client (string clientName, string thumbprint, string? personalName = null, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false)
+	public Client (string clientName, string thumbprint, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false)
 	{
-		if (string.IsNullOrWhiteSpace(clientName) || (personalName is not null && string.IsNullOrWhiteSpace(personalName)))
-			throw new ArgumentException("Client name and personal name cannot be empty", nameof(clientName) + '/' + nameof(personalName));
+		if (string.IsNullOrWhiteSpace(clientName))
+			throw new ArgumentException("Client name cannot be empty", nameof(clientName));
 
 		if (thumbprint.Length != 64) throw new ArgumentException("Invalid thumbprint", nameof(thumbprint));
 		if (clientName.Length > 128) throw new ArgumentException("Client name too long", nameof(clientName));
-		if (personalName is not null && personalName.Length > 128) throw new ArgumentException("Personal name too long", nameof(personalName));
 
 		// Checks done
 
 		ClientName = ParsingMethods.SanitizeString(clientName);
-		PersonalName = ParsingMethods.SanitizeString(personalName);
 
 		Thumbprint = thumbprint;
 		Guid = Guid.NewGuid();
@@ -309,7 +305,6 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 	}
 
 	public string ClientName { get; private set; }
-	public string? PersonalName { get; private set; }
 	public string Thumbprint { get; private set; }
 	public Guid Guid { get; }
 	public bool IsPaused { get; private set; }
@@ -330,12 +325,6 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 				{
 					if (string.IsNullOrWhiteSpace(value) || ClientName == value) continue;
 					ClientName = ParsingMethods.SanitizeString(value);
-					break;
-				}
-				case nameof(PersonalName):
-				{
-					if (PersonalName == value) continue;
-					PersonalName = ParsingMethods.SanitizeString(value);
 					break;
 				}
 
@@ -375,8 +364,18 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		return true;
 	}
 
-	public void Pause() => IsPaused = true;
-	public void Unpause() => IsPaused = false;
+	public void Pause()
+	{
+		IsPaused = true;
+		SecurityStores.SaveClient(this);
+	}
+
+	public void Unpause()
+	{
+		IsPaused = false;
+		SecurityStores.SaveClient(this);
+	}
+
 	public bool Delete()
 	{
 		Pause();
@@ -388,7 +387,6 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		return new()
 		{
 			{ nameof(ClientName), ClientName },
-			{ nameof(PersonalName), PersonalName },
 			{ nameof(Guid), Guid },
 			{ nameof(Thumbprint), Thumbprint },
 			{ nameof(IsPaused), IsPaused },
@@ -436,14 +434,41 @@ public static class Clients
 			AvailableClients.Add(client.Guid, client);
 			AvailableClientThumbs.Add(client.Thumbprint);
 		}
+
+		// Make sure the requests directory is empty, or load it if an entry is not stale // TODO
 	}
 	private static readonly Dictionary<Guid, Client> AvailableClients = [];
 	private static readonly HashSet<string> AvailableClientThumbs = [];
 
 
+	public static Dictionary<string, Client> PendingClients { get; } = [];
+	public const byte PendingTtlSeconds = 180;
+	public static void AddPendingClient(string registrationKey, Client client, TimeSpan? ttl = null)
+	{
+		ttl ??= TimeSpan.FromSeconds(PendingTtlSeconds);
+
+		PendingClients.Add(registrationKey, client);
+		_ = Task.Run(() => Task.Delay(ttl.Value).ContinueWith(_ => RemovePendingClient(registrationKey, ParsingMethods.ConvertTextToSlug(client.ClientName))));
+		Logs.LogBook.Write(new (StreamId.Info, "Client registration", $"Client {client.ClientName} ({client.Guid}) registered with registration key {registrationKey}. ({ttl.Value.TotalSeconds} second cooldown) DEBUG"));
+	}
+
+	public static void RemovePendingClient(string registrationKey, string clientNameSlug)
+	{
+		PendingClients.Remove(registrationKey);
+
+		string requestFilePath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", $"{clientNameSlug}.json");
+		if (File.Exists(requestFilePath))
+		{
+			File.Delete(requestFilePath);
+		}
+	}
+
+
 	public static List<Dictionary<string, dynamic?>> FetchAllClients() =>
 		AvailableClients.Select(client => client.Value.ToDictionary()).ToList();
 	public static int Count => AvailableClients.Count;
+
+	public static IEnumerable<Client> GetMasterClients => AvailableClients.Values.Where(client => client.CanRegister);
 
 	public static bool DoesClientExist(string thumbprint) => AvailableClientThumbs.Contains(thumbprint);
 	public static bool DoesClientExist(Guid guid) => AvailableClients.ContainsKey(guid);
@@ -460,12 +485,13 @@ public static class Clients
 	/// </summary>
 	/// <param name="thumbprint">The SHA-256 thumbprint of the client's certificate.</param>
 	/// <param name="client">The client object, if found.</param>
-	/// <returns>True if a valid client object is found and is not paused.</returns>
+	/// <param name="allowPaused">Whether to count paused clients as valid. Defaults to false.</param>
+	/// <returns>True if a valid client object is found.</returns>
 	/// <remarks>
-	///	Do note that the <c cref="client">client</c> parameter might be set, while the method still returned false. This means that, while a client was found, it was set to be paused. (thus effectively being invalid) <br/> <br/>
-	/// This method is less efficient than <see cref="TryFetchValidClient(Guid?, out Client?)"/>, as it has to iterate through all clients, thus it should only be used when the other method is inapplicable.
+	/// Do note that the <c cref="client">client</c> parameter might be set, while the method still returned false. This means that, while a client was found, it was set to be paused. <br/><br/>
+	/// This method is less efficient than <see cref="TryFetchValidClient(Guid?, out Client?, bool)"/>, as it has to iterate through all clients, thus it should only be used when the other method is inapplicable.
 	/// </remarks>
-	public static bool TryFetchValidClient([NotNullWhen(true)] string? thumbprint, [NotNullWhen(true)] out Client? client)
+	public static bool TryFetchValidClient([NotNullWhen(true)] string? thumbprint, [NotNullWhen(true)] out Client? client, bool allowPaused = false)
 	{
 		if (string.IsNullOrWhiteSpace(thumbprint) || !DoesClientExist(thumbprint))
 		{
@@ -474,19 +500,21 @@ public static class Clients
 		}
 
 		client = AvailableClients.FirstOrDefault(client => client.Value.Thumbprint == thumbprint).Value;
-		return client is not null && !client.IsPaused;
+		return client is not null && (!client.IsPaused || allowPaused);
 	}
-	/// <summary>
-	/// Attempts to retrieve a valid client object with the provided client's GUID.
-	/// </summary>
-	/// <param name="guid">The GUID of the client to retrieve.</param>
-	/// <param name="client">The client object, if found.</param>
-	/// <returns>True if a valid client object is found and is not paused.</returns>
-	/// <remarks>
-	///	Do note that the <c cref="client">client</c> parameter might be set, while the method still returned false. This means that, while a client was found, it was set to be paused. (thus effectively being invalid) <br/> <br/>
-	/// This method is more efficient than <see cref="TryFetchValidClient(string?, out Client?)"/>, as it does not have to iterate through all clients, thus it should be used whenever possible.
-	/// </remarks>
-	public static bool TryFetchValidClient([NotNullWhen(true)] Guid? guid, [NotNullWhen(true)] out Client? client)
+
+	///  <summary>
+	///  Attempts to retrieve a valid client object with the provided client's GUID.
+	///  </summary>
+	///  <param name="guid">The GUID of the client to retrieve.</param>
+	///  <param name="client">The client object, if found.</param>
+	///  <param name="allowPaused">Whether to count paused clients as valid. Defaults to false.</param>
+	///  <returns>True if a valid client object is found and is not paused (or paused, if <c>allowPaused</c> is set).</returns>
+	///  <remarks>
+	///	 Do note that the <c cref="client">client</c> parameter might be set, while the method still returned false. This means that, while a client was found, it was set to be paused. <br/><br/>
+	///  This method is more efficient than <see cref="TryFetchValidClient(string?, out Bayt_API.Security.Client?, bool)"/>, as it does not have to iterate through all clients, thus it should be used whenever possible.
+	///  </remarks>
+	public static bool TryFetchValidClient([NotNullWhen(true)] Guid? guid, [NotNullWhen(true)] out Client? client, bool allowPaused = false)
 	{
 		if (guid is null || !DoesClientExist(guid.Value))
 		{
@@ -495,7 +523,7 @@ public static class Clients
 		}
 
 		client = AvailableClients.GetValueOrDefault(guid.Value);
-		return client is not null && !client.IsPaused;
+		return client is not null && (!client.IsPaused || allowPaused);
 	}
 
 	public static void RefreshList()

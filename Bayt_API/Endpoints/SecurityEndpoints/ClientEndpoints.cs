@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 using Bayt_API.Security;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,52 +8,171 @@ namespace Bayt_API.Endpoints.SecurityEndpoints;
 
 public static class ClientEndpoints
 {
-	private static readonly string BaseClientUrl = ApiConfig.BaseApiUrlPath + "/security" + "/client";
+	private static readonly string BaseClientUrl = ApiConfig.BaseApiUrlPath + "/security/clients";
 
 	public static void MapClientSecurityEndpoints(this IEndpointRouteBuilder app)
 	{
-		app.MapPost($"{BaseClientUrl}/clients/register", (HttpContext context, string? clientName, string? personalName = null) =>
+		app.MapPost($"{BaseClientUrl}/register", async (HttpContext context, string? clientName,
+				string? clientIcon = null, string? brandColor = null, string? clientDescription = null,
+				[FromBody] Dictionary<string, string?>? requestedPermissions = null) =>
 		{
 			var cert = context.Connection.ClientCertificate;
+			clientName = ParsingMethods.SanitizeString(clientName);
+
 
 			if (cert is null) return Results.BadRequest("Must use a client certificate");
-
-			clientName = ParsingMethods.SanitizeString(clientName);
-			personalName = ParsingMethods.SanitizeString(personalName);
 			if (string.IsNullOrWhiteSpace(clientName)) return Results.BadRequest("Must set a client name");
-			if (personalName is not null && string.IsNullOrWhiteSpace(personalName)) return Results.BadRequest("Personal name cannot be empty");
+			if (clientIcon is not null && !clientIcon.StartsWith("https://")) return Results.BadRequest("Client icon must be a valid HTTPS URL");
+			if (brandColor is not null && (brandColor.Length != 7 || !brandColor.StartsWith('#') ))
+				return Results.BadRequest("Brand color must be a valid HEX code, starting with a '#'.");
 
 			if (Clients.DoesClientExist(cert.GetCertHashString(HashAlgorithmName.SHA256))) return Results.Conflict(new { message = "Client already exists" });
 
-			Logs.LogBook.Write(new (StreamId.Notice, "Client Registration", $"Client '{clientName}' registered!"));
-
-			// If this is the first client, give them admin permissions (for now, this will be changed in the close future)
-			if (Clients.Count == 0)
+			// Parse through the requested permissions
+			Dictionary<string, List<string>> parsedRequestedPermissions = [];
+			if (requestedPermissions is not null)
 			{
-				var adminPerms = new Dictionary<string, List<string>>
+				foreach (var permString in requestedPermissions.Keys)
 				{
-					["admin"] = [ "admin" ]
-				};
-
-				Clients.AddClient(new (clientName, cert.GetCertHashString(HashAlgorithmName.SHA256), personalName, adminPerms));
+					if (Permissions.BaytPermission.TryParse(permString, out var baytPermission))
+					{
+						if (parsedRequestedPermissions.TryGetValue(baytPermission.PermissionString, out var foundPermPowers))
+						{
+							foundPermPowers.AddRange(baytPermission.PermPowers.Except(foundPermPowers));
+						}
+						else
+						{
+							parsedRequestedPermissions.Add(baytPermission.PermissionString, baytPermission.PermPowers);
+						}
+					}
+					else
+					{
+						return Results.BadRequest(new { message = $"Invalid permission string: {permString}" });
+					}
+				}
 			}
-			else
+
+
+			var clientObject = new Client(clientName, cert.GetCertHashString(HashAlgorithmName.SHA256), parsedRequestedPermissions, true);
+
+			// Registration flow
+			// Create a registration key (the registering client must present this, or have a master client present it for it (if MCs exist))
+			var registrationKey = new byte[32];
+			RandomNumberGenerator.Fill(registrationKey);
+			var registrationKeyString = Convert.ToBase64String(registrationKey);
+
+			// We'll store pending requests here before accepting or rejecting them
+			Directory.CreateDirectory(Path.Combine(SecurityStores.BaseSecurityPath, "requests"));
+
+			string clientNameSlug = ParsingMethods.ConvertTextToSlug(clientName);
+			var registrationEntry = new Dictionary<string, dynamic?>
 			{
-				Clients.AddClient(new (clientName, cert.GetCertHashString(HashAlgorithmName.SHA256), personalName));
-			}
+				["FriendlyName"] = clientName,
+				["ClientIcon"] = clientIcon,
+				["BrandColor"] = brandColor,
+				["ClientDescription"] = clientDescription,
 
-			return Results.NoContent();
+				["SlugName"] = clientNameSlug,
+				["ID"] = clientObject.Guid,
+				["Thumbprint"] = clientObject.Thumbprint,
+
+				["RequestedPermissions"] = requestedPermissions ?? new Dictionary<string, string?>(),
+
+				["RequestingIp"] = context.Connection.RemoteIpAddress?.ToString(),
+				["TimeRequested"] = DateTimeOffset.UtcNow,
+				["RegistrationKey"] = registrationKeyString
+			};
+			string registrationEntryPath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", $"{clientNameSlug}.json");
+
+			await File.WriteAllTextAsync(registrationEntryPath, JsonSerializer.Serialize(registrationEntry, ApiConfig.BaytJsonSerializerOptions));
+			Clients.AddPendingClient(registrationKeyString, clientObject);
+			Clients.AddClient(clientObject);
+
+			Logs.LogBook.Write(new (StreamId.Notice, "Client Registration", $"Client '{clientName}' pending registration. To approve, present it with the registration key from '{registrationEntryPath}'"));
+
+			return Results.Accepted($"{BaseClientUrl}/me/confirm", new { message = "Client registration pending. Please provide the registration key at the confirmation endpoint.", ttl = Clients.PendingTtlSeconds, pendingId = clientObject.Guid });
 		}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
 		.WithSummary("Registers a client with this Bayt instance.")
 		.WithDescription("The client must be authenticated with a client certificate. " +
 		                 "The certificate should be self-signed. " +
-		                 "clientName is required and is the official name of the client. " +
-		                 "personalName is optional and may be set by the user at their discretion.")
+		                 "clientName is required and is the official name of the client." +
+		                 "The body is expected to have a Dictionary<string,string?> of requestedPermissions")
 		.WithTags("Auth", "Client")
 		.WithName("RegisterClient");
 
-		app.MapPost($"{BaseClientUrl}/clients/refresh", async (HttpContext context) =>
+		app.MapPost($"{BaseClientUrl}/{{targetClientId}}/confirm", (HttpContext context, string? targetClientId, [FromBody] Dictionary<string, string>? requestDetails) =>
+		{
+			if (requestDetails is null || !requestDetails.TryGetValue("registrationKey", out var registrationKey))
+				return Results.BadRequest(new { message = "Invalid registration key." });
+
+			var connectedClient = SecurityMethods.GetConnectedClient(context, true);
+			var targetClient = connectedClient;
+			if (Guid.TryParse(targetClientId, out var targetUserGuid) && connectedClient is not null)
+			{
+				if (!connectedClient.CanRegister)
+				{
+					return Results.StatusCode(StatusCodes.Status403Forbidden);
+				}
+				Clients.TryFetchValidClient(targetUserGuid, out targetClient);
+			}
+			else if (targetClientId != "me")
+			{
+				return Results.BadRequest(new { message = "Invalid target client ID or a suitable client is not connected." });
+			}
+			if (targetClient is null) return Results.NotFound(new { message = "Invalid target client ID or a suitable client is not connected." });
+			if (!targetClient.IsPaused) return Results.BadRequest(new { message = "Client is already confirmed" });
+
+			if (Clients.PendingClients.TryGetValue(registrationKey, out var pendingClient))
+			{
+				Clients.RemovePendingClient(registrationKey, ParsingMethods.ConvertTextToSlug(targetClient.ClientName));
+				pendingClient.Unpause();
+				return Results.NoContent();
+			}
+
+			return Results.NotFound(new { message = "Invalid registration key." });
+		}).Produces(StatusCodes.Status204NoContent)
+		.Produces(StatusCodes.Status400BadRequest)
+		.Produces(StatusCodes.Status404NotFound)
+		.WithSummary("Confirms a client's registration.")
+		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to confirm the currently connected client's registration.")
+		.WithTags("Auth", "Client")
+		.WithName("ConfirmClientRegistration")
+		.RequireAuthorization("ClientAllowPaused");
+
+		app.MapDelete($"{BaseClientUrl}/{{targetClientId}}", (HttpContext context, string? targetClientId) =>
+		{
+			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
+			var targetClient = connectedClient;
+			if (Guid.TryParse(targetClientId, out var guid))
+			{
+				if (!SecurityMethods.ChallengePermission(context, new("clients", ["delete"])))
+				{
+					return Results.StatusCode(StatusCodes.Status403Forbidden);
+				}
+				Clients.TryFetchValidClient(guid, out targetClient);
+			}
+			else if (targetClientId != "me")
+			{
+				return Results.BadRequest(new { message = "Invalid target client ID" });
+			}
+			if (targetClient is null) return Results.NotFound();
+
+			if (targetClient.Delete())
+			{
+				return Results.NoContent();
+			}
+			return Results.InternalServerError(new { message = "Failed to delete client for some reason." });
+		}).Produces(StatusCodes.Status204NoContent)
+		.Produces(StatusCodes.Status400BadRequest)
+		.Produces(StatusCodes.Status404NotFound)
+		.WithSummary("Deletes a client.")
+		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to delete the currently connected client.")
+		.WithTags("Auth", "Client")
+		.WithName("DeleteClient")
+		.RequireAuthorization("Client");
+
+		app.MapPost($"{BaseClientUrl}/refresh", async (HttpContext context) =>
 		{
 			if (context.Request.ContentLength == 0) return Results.BadRequest(new { message = "Must provide a certificate to refresh." });
 
@@ -88,7 +208,7 @@ public static class ClientEndpoints
 		.WithName("RefreshClientCertificate")
 		.RequireAuthorization("Client");
 
-		app.MapPost($"{BaseClientUrl}/clients/{{targetClientId}}/edit", (HttpContext context, [FromBody] Dictionary<string, string?> changes, string targetClientId) =>
+		app.MapPost($"{BaseClientUrl}/{{targetClientId}}/edit", (HttpContext context, [FromBody] Dictionary<string, string?> changes, string targetClientId) =>
 		{
 			if (changes.Count == 0) return Results.BadRequest("No changes were provided.");
 
@@ -126,7 +246,7 @@ public static class ClientEndpoints
 		.WithName("EditClient")
 		.RequireAuthorization("MultiAuth");
 
-		app.MapGet($"{BaseClientUrl}/clients/{{targetClientId}}/info", (HttpContext context, string targetClientId) =>
+		app.MapGet($"{BaseClientUrl}/{{targetClientId}}/info", (HttpContext context, string targetClientId) =>
 		{
 			var targetClient = SecurityMethods.GetConnectedClient(context);
 			if (Guid.TryParse(targetClientId, out var targetUserGuid))
@@ -152,9 +272,9 @@ public static class ClientEndpoints
 		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to fetch information about the currently connected client.")
 		.WithTags("Auth", "Client")
 		.WithName("GetClientInfo")
-		.RequireAuthorization("MultiAuth");
+		.RequireAuthorization("Client");
 
-		app.MapPatch($"{BaseClientUrl}/clients/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToAdd) =>
+		app.MapPatch($"{BaseClientUrl}/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToAdd) =>
 		{
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 			var targetClient = connectedClient;
@@ -190,7 +310,7 @@ public static class ClientEndpoints
 		.WithName("AddClientPermissions")
 		.RequireAuthorization("MultiAuth", "clients:edit-permissions");
 
-		app.MapDelete($"{BaseClientUrl}/clients/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToRemove) =>
+		app.MapDelete($"{BaseClientUrl}/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToRemove) =>
 		{
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 			var targetClient = connectedClient;
@@ -226,7 +346,7 @@ public static class ClientEndpoints
 		.WithName("RemoveClientPermissions")
 		.RequireAuthorization("MultiAuth", "clients:edit-permissions");
 
-		app.MapPut($"{BaseClientUrl}/clients/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToSet) =>
+		app.MapPut($"{BaseClientUrl}/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToSet) =>
 		{
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 			var targetClient = connectedClient;
@@ -269,7 +389,7 @@ public static class ClientEndpoints
 		.WithName("SetClientPermissions")
 		.RequireAuthorization("MultiAuth", "clients:edit-permissions");
 
-		app.MapGet($"{BaseClientUrl}/clients/list", () =>
+		app.MapGet($"{BaseClientUrl}/list", () =>
 		{
 			return Results.Json(Clients.FetchAllClients());
 		}).Produces(StatusCodes.Status200OK)

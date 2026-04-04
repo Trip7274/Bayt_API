@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 using MessagePack;
 
 namespace Bayt_API.Security;
@@ -435,7 +436,43 @@ public static class Clients
 			AvailableClientThumbs.Add(client.Thumbprint);
 		}
 
-		// Make sure the requests directory is empty, or load it if an entry is not stale // TODO
+		var lastAcceptableTime = DateTime.UtcNow - TimeSpan.FromSeconds(PendingTtlSeconds);
+		foreach (var checkedFilePath in Directory.EnumerateFiles(Path.Combine(SecurityStores.BaseSecurityPath, "requests"), "*.json", SearchOption.AllDirectories))
+		{
+			if (File.GetLastWriteTimeUtc(checkedFilePath) < lastAcceptableTime)
+			{
+				File.Delete(checkedFilePath);
+			}
+			else
+			{
+				Dictionary<string, JsonElement>? parsedJson;
+				try
+				{
+					parsedJson = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(checkedFilePath));
+				}
+				catch (Exception e)
+				{
+					Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: {e.Message}"));
+					File.Move(checkedFilePath, Path.GetFileNameWithoutExtension(checkedFilePath) + ".json.failed");
+					continue;
+				}
+				if (parsedJson is null)
+				{
+					Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: Could not parse JSON"));
+					File.Move(checkedFilePath, Path.GetFileNameWithoutExtension(checkedFilePath) + ".json.failed");
+					continue;
+				}
+
+				if (parsedJson["TimeRequested"].GetDateTime() < lastAcceptableTime || !TryFetchValidClient(parsedJson["ID"].GetGuid(), out var client, true))
+				{
+					File.Delete(checkedFilePath);
+					continue;
+				}
+
+				PendingClients.Add(parsedJson["RegistrationKey"].GetString()!, client);
+
+			}
+		}
 	}
 	private static readonly Dictionary<Guid, Client> AvailableClients = [];
 	private static readonly HashSet<string> AvailableClientThumbs = [];

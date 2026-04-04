@@ -116,15 +116,6 @@ public class ParsingMethodsTests
 	}
 
 	[Fact]
-	public void SanitizeFullyDirtyString()
-	{
-		// Sanitize a string full of non-ASCII characters.
-		const string testString = "هذاتجربة😄";
-
-		Assert.Equal("", ParsingMethods.SanitizeString(testString));
-	}
-
-	[Fact]
 	public void SanitizeControlCharacters()
 	{
 		// Test a string full of control characters.

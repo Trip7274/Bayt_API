@@ -1,0 +1,15 @@
+### Fetches the API's config
+GET {{Sofa_API_BaseAddress}}/config/getList
+
+### Edit the API's configs
+POST {{Sofa_API_BaseAddress}}/config/edit
+Content-Type: application/json
+
+# Changes the cache lifetime (in seconds)
+{
+    "CacheLifetime": {{$random.integer(1, 6)}}
+}
+
+
+### Sync in-disk config with the live config
+POST {{Sofa_API_BaseAddress}}/config/update

@@ -1,0 +1,32 @@
+### Fetch current Docker containers
+GET {{Sofa_API_BaseAddress}}/docker/containers/getList
+
+### Start a docker container
+POST {{Sofa_API_BaseAddress}}/docker/containers/start?containerId={{TestDockerContainerId}}
+
+### Stop a docker container
+POST {{Sofa_API_BaseAddress}}/docker/containers/stop?containerId={{TestDockerContainerId}}
+
+### Kill a docker container
+POST {{Sofa_API_BaseAddress}}/docker/containers/kill?containerId={{TestDockerContainerId}}
+
+### Fetch a specific container's compose file
+GET {{Sofa_API_BaseAddress}}/docker/containers/getCompose?containerId={{TestDockerContainerId}}
+
+### Disown a container
+DELETE {{Sofa_API_BaseAddress}}/docker/containers/disown?containerId={{TestDockerContainerId}}
+
+### Own a container
+POST {{Sofa_API_BaseAddress}}/docker/containers/own?containerId={{TestDockerContainerId}}
+
+### Prune containers
+DELETE {{Sofa_API_BaseAddress}}/docker/containers/prune
+
+### Get a container's stats
+GET {{Sofa_API_BaseAddress}}/docker/containers/getStats?containerId={{TestDockerContainerId}}
+
+### Fetch the system's available Docker Images
+GET {{Sofa_API_BaseAddress}}/docker/images/getList
+
+### Delete a specific Docker Image
+DELETE {{Sofa_API_BaseAddress}}/docker/images/delete

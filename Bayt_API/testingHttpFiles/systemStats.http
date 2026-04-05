@@ -1,3 +1,0 @@
-### Fetch system stats
-# Possible query params: "meta", "system", "cpu", "gpu", "memory", "mounts", or none for all of them.
-GET {{Bayt_API_BaseAddress}}/stats/getCurrent

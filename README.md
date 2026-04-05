@@ -1,12 +1,12 @@
 <h1 align="center">Sofa</h1>
-<p align="center">A REST API for all your homeserver needs.</p>
+<p align="center">A single backend for all your homeserver's needs.</p>
 
 Sofa aims to be a simple REST API to provide useful statistics and controls relating to your homeserver.
 This provides a stable, yet powerful base for your preferred frontend,
 and the freedom to choose or make your own frontend without the need to reinvent the wheel with a new backend.
 
 
-The word "Sofa" can be interperted in three ways:
+The word "Sofa" can be interperted in four ways:
 1. Your cozy couch to build your room around.
 2. Arabic loanword for "couch".
 3. `50FA`: "Sofa" as hex!

@@ -56,7 +56,7 @@ Currently, Sofa is only supported on Linux using the [ASP.NET Core Runtime 10](h
 but the default scripts require the following, depending on your GPU:
 - NVIDIA Systems: (looking for testers; progress paused)
 	- `nvidia-smi`
-- Intel GPU Systems: (only 1 GPU at a time is supported, unstable)
+- Intel GPU Systems: (Read note below)
 	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as root beforehand)
     - [NVTOP](https://github.com/Syllo/nvtop) (optional, but strongly recommended)
 - AMD GPU Systems:
@@ -65,6 +65,15 @@ but the default scripts require the following, depending on your GPU:
 Along with utilites you probably already have, such as `bash`, `grep` (GNU), `head`, `jq`, `net-tools`, and `df`.
 
 `libmsquic` (sometimes called `msquic`) is needed for QUIC support, but is not necessary to run Sofa.
+
+> [!IMPORTANT]
+> Systems with Intel GPUs and at least one other GPU (of any brand) may face some issues regarding duplicated GPU stats.
+> (More precisely, Graphics frequency and GPU name)
+> This is due to the default script's inability to specify which GPU to prompt NVTOP for.
+>
+> I *am* looking into resolving this, however.
+>
+> If you feel like you can help, please take a look at [NVTOP's usage in getGpu.sh](https://github.com/Trip7274/Sofa/blob/main/Sofa_API/scripts/getGpu.sh#L321)
 
 ---
 I mainly test this on CachyOS (Arch-based), but I do try to use as many distro-agnostic features as I can in the default scripts.

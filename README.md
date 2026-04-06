@@ -68,7 +68,7 @@ Along with utilites you probably already have, such as `bash`, `grep` (GNU), `he
 
 > [!IMPORTANT]
 > Systems with Intel GPUs and at least one other GPU (of any brand) may face some issues regarding duplicated GPU stats.
-> (More precisely, Graphics frequency and GPU name)
+> (More precisely, Graphics frequency and GPU name) <br/>
 > This is due to the default script's inability to specify which GPU to prompt NVTOP for.
 >
 > I *am* looking into resolving this, however.

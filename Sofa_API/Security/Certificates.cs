@@ -38,8 +38,7 @@ public static class Certificates
 				break;
 			}
 
-			var now = DateTime.Now;
-			if (now > certificate.NotAfter || now < certificate.NotBefore)
+			if (certificate.IsExpiredOrTooNew())
 			{
 				Logs.LogBook.Write(new (StreamId.Verbose, "HTTPS Initalization", "HTTPS certificate is expired. Sofa will generate a new one."));
 				MakeSofaCertificate(certPath);
@@ -72,5 +71,10 @@ public static class Certificates
 		Logs.LogBook.Write(new (StreamId.Verbose, "Certificate generation", $"Sofa certificate generated. (Thumb: '{cert.Thumbprint}', Path: '{certPath}')"));
 
 		return cert;
+	}
+	public static bool IsExpiredOrTooNew(this X509Certificate2 cert)
+	{
+		var now = DateTime.Now;
+		return now > cert.NotAfter || now < cert.NotBefore;
 	}
 }

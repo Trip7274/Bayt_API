@@ -345,8 +345,7 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 	{
 		errorMessage = null;
 		// Run basic certificate checks
-		var now = DateTime.UtcNow;
-		if (now > newCertificate.NotAfter || now < newCertificate.NotBefore)
+		if (newCertificate.IsExpiredOrTooNew())
 		{
 			errorMessage = "Certificate is not valid yet or has expired";
 			return false;

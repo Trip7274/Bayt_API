@@ -24,8 +24,7 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 		https.ClientCertificateValidation = (cert, _, _) =>
 		{
 			// Run basic certificate checks
-			var now = DateTime.UtcNow;
-			if (now > cert.NotAfter || now < cert.NotBefore) return false;
+			if (cert.IsExpiredOrTooNew()) return false;
 
 			// Make sure the cert isn't too long-lasting. (4-month max lifespan)
 			return cert.NotAfter - cert.NotBefore <= TimeSpan.FromDays(30 * 4);

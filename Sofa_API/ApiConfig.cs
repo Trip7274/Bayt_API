@@ -139,7 +139,7 @@ public static class ApiConfig
 				Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Configuration", "Base config directory does not exist, creating..."));
 				Directory.CreateDirectory(BaseConfigPath);
 				File.WriteAllText(Path.Combine(BaseConfigPath, "README"), "This folder is where the configs for the Sofa API are stored.\n" +
-				                                                          "More info: https://github.com/Trip7274/Sofa_API");
+				                                                          "More info: https://github.com/Trip7274/Sofa");
 			}
 			LoadConfig();
 		}
@@ -349,7 +349,7 @@ public static class ApiConfig
 
 				                                    Please refer to the specific client's documentation for info on the file types, along with usage details.
 				                                    Make sure the server is shut down before modifying these files.
-				                                    This folder was made by Sofa API. More info: https://github.com/Trip7274/Sofa_API
+				                                    This folder was made by Sofa API. More info: https://github.com/Trip7274/Sofa
 				                                    """;
 
 				Directory.CreateDirectory(PathToDataFolder);
@@ -367,7 +367,7 @@ public static class ApiConfig
 				                                    -> "containers": Stores the folders for the Sofa-created Docker Compose containers.
 				                                    -> "imageData.json": Stores the metadata for Docker images fetched by Sofa API.
 
-				                                    This folder was made by Sofa API. More info: https://github.com/Trip7274/Sofa_API
+				                                    This folder was made by Sofa API. More info: https://github.com/Trip7274/Sofa
 				                                    """;
 
 				Directory.CreateDirectory(PathToDockerFolder);

@@ -92,7 +92,7 @@ Code compilation is straightforward, though!
 Make sure you have the [.NET Core 10 SDK](https://learn.microsoft.com/en-us/dotnet/core/install/linux) installed and follow these steps in a terminal:
 
 
-1. Retrieve the latest branch using `git clone https://github.com/Trip7274/Sofa_API.git`
+1. Retrieve the latest branch using `git clone https://github.com/Trip7274/Sofa.git`
 2. Switch to the appropriate directory using `cd Sofa_API/Sofa_API/`
 3. Compile by running `dotnet build --configuration Release`
 4. Switch to the output directory using `cd bin/Release/net10.0/linux-x64/`

@@ -490,7 +490,6 @@ public static class Clients
 
 		PendingClients.Add(registrationKey, client);
 		_ = Task.Run(() => Task.Delay(ttl.Value).ContinueWith(_ => RemovePendingClient(registrationKey, ParsingMethods.ConvertTextToSlug(client.ClientName))));
-		Logs.LogBook.Write(new (StreamId.Info, "Client registration", $"Client {client.ClientName} ({client.Guid}) registered with registration key {registrationKey}. ({ttl.Value.TotalSeconds} second cooldown) DEBUG"));
 	}
 
 	public static void RemovePendingClient(string registrationKey, string clientNameSlug)

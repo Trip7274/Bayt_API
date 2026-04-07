@@ -19,6 +19,7 @@ public static class DataEndpointManagement
 		/// <summary>
 		/// Constructor for <see cref="DataFileMetadata"/>
 		/// </summary>
+		/// <param name="scope">The accessing client's sluggified name, used to isolate different clients' data folders</param>
 		/// <param name="folder">The name of the folder inside the root clientData folder. Subfolders will be trimmed off.</param>
 		/// <param name="fileName">The name of the file itself. Extension included.</param>
 		/// <param name="fileData">The contents of the file. The <see cref="ReadStream"/> property will fall back to creating a new stream if this is null.</param>
@@ -26,15 +27,16 @@ public static class DataEndpointManagement
 		/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
 		/// <exception cref="DirectoryNotFoundException">The specified directory was not found, and <c>createMissing</c> was set to false.</exception>
 		/// <exception cref="FileNotFoundException">The specified file was not found at the specified folder, and no data was passed to create one.</exception>
-		public DataFileMetadata(string? folder, string? fileName, byte[]? fileData = null, bool createMissing = false)
+		public DataFileMetadata(string scope, string? folder, string? fileName, byte[]? fileData = null, bool createMissing = false)
 		{
 			var pathCheck = EnsureSafePaths(folder, fileName);
 			if (pathCheck is not null) throw new ArgumentException(pathCheck);
 
-			SetupDataFolder(folder!, !createMissing);
-			if (!File.Exists(Path.Combine(ClientDataFolder, folder!, fileName!)) && fileData is null && !createMissing)
+			SetupDataFolder(scope, folder!, !createMissing);
+			if (!File.Exists(Path.Combine(ClientDataFolder, scope, folder!, fileName!)) && fileData is null && !createMissing)
 				throw new FileNotFoundException($"The file '{fileName}' does not exist.");
 
+			Scope = scope;
 			FolderName = folder!;
 			FileName = fileName!;
 			if (fileData is not null) FileData = fileData;
@@ -67,6 +69,11 @@ public static class DataEndpointManagement
 		}
 
 		/// <summary>
+		/// The accessing client's sluggified name.
+		/// </summary>
+		public string Scope { get; }
+
+		/// <summary>
 		/// Relative path from <see cref="DataEndpointManagement.ClientDataFolder"/> to the folder containing this file.
 		/// </summary>
 		public string FolderName { get; }
@@ -77,7 +84,7 @@ public static class DataEndpointManagement
 		/// <summary>
 		/// Gets the absolute path to the file.
 		/// </summary>
-		public string AbsolutePath => Path.GetFullPath(Path.Combine(ClientDataFolder, FolderName, FileName));
+		public string AbsolutePath => Path.GetFullPath(Path.Combine(ClientDataFolder, Scope, FolderName, FileName));
 
 		/// <summary>
 		/// Get: Gets the file's contents. Will be null if the file doesn't exist.<br/>
@@ -102,17 +109,18 @@ public static class DataEndpointManagement
 	/// <summary>
 	/// Deletes the specified sub-folder, after making sure it's within the <see cref="ClientDataFolder"/>.
 	/// </summary>
+	/// <param name="scope">The accessing client's sluggified name</param>
 	/// <param name="folderPath">The path to the specific clientData subfolder (relative to the clientData root <see cref="ClientDataFolder"/>).</param>
 	/// <exception cref="ArgumentException">The path safety check failed. The path is probably invalid or unsafe.</exception>
 	/// <exception cref="DirectoryNotFoundException">The specified subfolder does not exist under the root clientData folder.</exception>
 	/// <exception cref="UnauthorizedAccessException">The user does not have write access to the specified folder.</exception>
 	/// <exception cref="IOException">The folder is either in use, read-only, or contains a read-only file.</exception>
-	public static void DeleteDataFolder(string? folderPath)
+	public static void DeleteDataFolder(string scope, string? folderPath)
 	{
 		var pathCheck = EnsureSafeFolderPath(folderPath);
 		if (pathCheck is not null) throw new ArgumentException(pathCheck);
 
-		folderPath = Path.GetFullPath(Path.Combine(ClientDataFolder, folderPath!));
+		folderPath = Path.GetFullPath(Path.Combine(ClientDataFolder, scope, folderPath!));
 
 		if (!Directory.Exists(folderPath)) throw new DirectoryNotFoundException($"Path does not exist. ({folderPath})");
 
@@ -189,18 +197,19 @@ public static class DataEndpointManagement
 		return "Requested path is outside the clientData folder.";
 	}
 
-	/// <summary>
-	/// Ensure the root <see cref="ClientDataFolder"/> and the specified data folder both exist. Optionally throw an exception if the latter check failed.
-	/// </summary>
-	/// <param name="dataFolderName">The specific data folder's name. Relative to <see cref="ClientDataFolder"/>.</param>
-	/// <param name="throwIfSpecificFolderDoesNotExist">Whether to throw an exception if the specific folder didn't already exist or create it.</param>
-	/// <exception cref="DirectoryNotFoundException">Only thrown if <see cref="throwIfSpecificFolderDoesNotExist"/> was set to true and the folder did not exist.</exception>
-	/// <remarks>
-	///	This method will not check if the specified path is safe or not, please use <see cref="EnsureSafePaths"/> prior to this for that.
-	/// </remarks>
-	private static void SetupDataFolder(string dataFolderName, bool throwIfSpecificFolderDoesNotExist = false)
+	///  <summary>
+	///  Ensure the root <see cref="ClientDataFolder"/> and the specified data folder both exist. Optionally throw an exception if the latter check failed.
+	///  </summary>
+	///  <param name="scope">The accessing client's sluggified name</param>
+	///  <param name="dataFolderName">The specific data folder's name. Relative to <see cref="ClientDataFolder"/>.</param>
+	///  <param name="throwIfSpecificFolderDoesNotExist">Whether to throw an exception if the specific folder didn't already exist or create it.</param>
+	///  <exception cref="DirectoryNotFoundException">Only thrown if <see cref="throwIfSpecificFolderDoesNotExist"/> was set to true and the folder did not exist.</exception>
+	///  <remarks>
+	/// 	This method will not check if the specified path is safe or not, please use <see cref="EnsureSafePaths"/> prior to this for that.
+	///  </remarks>
+	private static void SetupDataFolder(string scope, string dataFolderName, bool throwIfSpecificFolderDoesNotExist = false)
 	{
-		string folderPath = Path.GetFullPath(Path.Combine(ClientDataFolder, dataFolderName));
+		string folderPath = Path.GetFullPath(Path.Combine(ClientDataFolder, scope, dataFolderName));
 		if (Directory.Exists(folderPath)) return;
 
 		if (throwIfSpecificFolderDoesNotExist)

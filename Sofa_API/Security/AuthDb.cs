@@ -306,6 +306,7 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 	}
 
 	public string ClientName { get; private set; }
+	public string ClientNameSlug => ParsingMethods.ConvertTextToSlug(ClientName);
 	public string Thumbprint { get; private set; }
 	public Guid Guid { get; }
 	public bool IsPaused { get; private set; }

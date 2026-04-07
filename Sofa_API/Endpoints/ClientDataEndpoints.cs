@@ -1,4 +1,5 @@
 using System.Text;
+using Sofa_API.Security;
 
 namespace Sofa_API.Endpoints;
 
@@ -6,12 +7,14 @@ public static class ClientDataEndpoints
 {
 	public static void MapClientDataEndpoints(this IEndpointRouteBuilder app)
 	{
-		app.MapGet($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", async (string? folderName, string? fileName) =>
+		app.MapGet($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", async (HttpContext context, string? folderName, string? fileName) =>
 		{
+			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
+
 			DataEndpointManagement.DataFileMetadata fileRecord;
 			try
 			{
-				fileRecord = new DataEndpointManagement.DataFileMetadata(folderName, fileName);
+				fileRecord = new DataEndpointManagement.DataFileMetadata(connectedClient.ClientNameSlug, folderName, fileName);
 			}
 			catch(ArgumentException e)
 			{
@@ -42,11 +45,12 @@ public static class ClientDataEndpoints
 
 		app.MapPut($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", async (HttpContext context, string? folderName, string? fileName) =>
 		{
-			DataEndpointManagement.DataFileMetadata fileRecord;
+			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 
+			DataEndpointManagement.DataFileMetadata fileRecord;
 			try
 			{
-				fileRecord = new(folderName, fileName, createMissing: true);
+				fileRecord = new(connectedClient.ClientNameSlug, folderName, fileName, createMissing: true);
 			}
 			catch (ArgumentException e)
 			{
@@ -67,11 +71,13 @@ public static class ClientDataEndpoints
 			.WithName("SetClientData")
 			.RequireAuthorization("Client", "clientData:write");
 
-		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", (string? folderName, string? fileName) =>
+		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", (HttpContext context, string? folderName, string? fileName) =>
 		{
+			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
+
 			try
 			{
-				new DataEndpointManagement.DataFileMetadata(folderName, fileName).DeleteFile();
+				new DataEndpointManagement.DataFileMetadata(connectedClient.ClientNameSlug, folderName, fileName).DeleteFile();
 			}
 			catch (ArgumentException e)
 			{
@@ -103,11 +109,13 @@ public static class ClientDataEndpoints
 			.WithName("DeleteClientData")
 			.RequireAuthorization("Client", "clientData:write");
 
-		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}", (string? folderName) =>
+		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}", (HttpContext context, string? folderName) =>
 		{
+			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
+
 			try
 			{
-				DataEndpointManagement.DeleteDataFolder(folderName);
+				DataEndpointManagement.DeleteDataFolder(connectedClient.ClientNameSlug, folderName);
 			}
 			catch (ArgumentException)
 			{

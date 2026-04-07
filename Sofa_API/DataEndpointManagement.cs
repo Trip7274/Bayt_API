@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Sofa_API;
 
 /// <summary>
@@ -29,18 +31,25 @@ public static class DataEndpointManagement
 		/// <exception cref="FileNotFoundException">The specified file was not found at the specified folder, and no data was passed to create one.</exception>
 		public DataFileMetadata(string scope, string? folder, string? fileName, byte[]? fileData = null, bool createMissing = false)
 		{
-			var pathCheck = EnsureSafePaths(folder, fileName);
-			if (pathCheck is not null) throw new ArgumentException(pathCheck);
+			if (!EnsureSafePaths(folder, fileName, out var errorMessage))
+			{
+				throw new ArgumentException(errorMessage);
+			}
 
-			SetupDataFolder(scope, folder!, !createMissing);
-			if (!File.Exists(Path.Combine(ClientDataFolder, scope, folder!, fileName!)) && fileData is null && !createMissing)
+			SetupDataFolder(scope, folder, !createMissing);
+			if (!File.Exists(Path.Combine(ClientDataFolder, scope, folder, fileName)) && fileData is null && !createMissing)
 				throw new FileNotFoundException($"The file '{fileName}' does not exist.");
 
 			Scope = scope;
-			FolderName = folder!;
-			FileName = fileName!;
+			FolderName = folder;
+			FileName = fileName;
 			if (fileData is not null) FileData = fileData;
 		}
+
+		/*public static DataFileMetadata FromFile(Client scope, string folder, string fileName)
+		{
+
+		}*/
 
 		/// <summary>
 		/// If the file exists, delete it.
@@ -107,7 +116,7 @@ public static class DataEndpointManagement
 	}
 
 	/// <summary>
-	/// Deletes the specified sub-folder, after making sure it's within the <see cref="ClientDataFolder"/>.
+	/// Deletes the specified subfolder, after making sure it's within the <see cref="ClientDataFolder"/>.
 	/// </summary>
 	/// <param name="scope">The accessing client's sluggified name</param>
 	/// <param name="folderPath">The path to the specific clientData subfolder (relative to the clientData root <see cref="ClientDataFolder"/>).</param>
@@ -117,10 +126,12 @@ public static class DataEndpointManagement
 	/// <exception cref="IOException">The folder is either in use, read-only, or contains a read-only file.</exception>
 	public static void DeleteDataFolder(string scope, string? folderPath)
 	{
-		var pathCheck = EnsureSafeFolderPath(folderPath);
-		if (pathCheck is not null) throw new ArgumentException(pathCheck);
+		if (!EnsureSafeFolderPath(folderPath, out var errorMessage))
+		{
+			throw new ArgumentException(errorMessage);
+		}
 
-		folderPath = Path.GetFullPath(Path.Combine(ClientDataFolder, scope, folderPath!));
+		folderPath = Path.GetFullPath(Path.Combine(ClientDataFolder, scope, folderPath));
 
 		if (!Directory.Exists(folderPath)) throw new DirectoryNotFoundException($"Path does not exist. ({folderPath})");
 
@@ -143,58 +154,63 @@ public static class DataEndpointManagement
 	}
 
 	/// <summary>
-	/// Ensure the folder + file names are safe and within the <see cref="ClientDataFolder"/>.
+	/// Ensure the folder and file names are safe and within the <see cref="ClientDataFolder"/>.
 	/// </summary>
-	/// <param name="folder">The relative path to the folder from the clientData root.</param>
-	/// <param name="fileName">The file's name</param>
-	/// <exception cref="ArgumentException">The provided folder and/or file names are not valid, or are not under the clientData root.</exception>
+	/// <param name="folder">The relative path to the folder from the clientData scope root.</param>
+	/// <param name="fileName">The file's name.</param>
+	/// <param name="errorMessage">If the method returned false, this will contain the reason for rejection.</param>
 	/// <returns>
-	///	Null if the folder and file names are valid. Otherwise, a string containing the error message.
+	///	True if the folder and file names are valid and safe. Otherwise, false.
 	/// </returns>
 	/// <seealso cref="EnsureSafeFolderPath"/>
-	private static string? EnsureSafePaths(string? folder, string? fileName)
+	private static bool EnsureSafePaths([NotNullWhen(true)] string? folder, [NotNullWhen(true)] string? fileName, [NotNullWhen(false)] out string? errorMessage)
 	{
+		errorMessage = null;
+
 		if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains)
 		   || string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
 		{
-			Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
-				$"Invalid folder or file name: '{folder} + {fileName}'"));
-			return "Folder and file name must not be empty or contain invalid characters.";
+			errorMessage = "Folder and file name must not be empty or contain invalid characters.";
+			return false;
 		}
 
 
 		// Directory traversal protection
-		if (Path.GetFullPath(Path.Combine(ClientDataFolder, folder, fileName)).StartsWith(ClientDataFolder)) return null;
+		if (Path.GetFullPath(Path.Combine(ClientDataFolder, folder, fileName)).StartsWith(ClientDataFolder))
+			return true;
 
-		Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
-			$"Requested path is outside the clientData folder: '{Path.GetFullPath(Path.Combine(ClientDataFolder, folder, fileName))}'"));
-		return "Requested path is outside the clientData folder.";
+		errorMessage = "Requested path is outside the clientData folder.";
+		return false;
 	}
+
 	/// <summary>
 	/// Ensure the folder name is safe and within the <see cref="ClientDataFolder"/>.
 	/// </summary>
 	/// <param name="folder">The relative path to the folder from the clientData root.</param>
+	/// <param name="errorMessage"></param>
 	/// <exception cref="ArgumentException">The provided folder name is invalid or is not under the clientData root.</exception>
 	/// <returns>
 	///	Null if the folder name is valid. Otherwise, a string containing the error message.
 	/// </returns>
 	/// <seealso cref="EnsureSafePaths"/>
-	private static string? EnsureSafeFolderPath(string? folder)
+	private static bool EnsureSafeFolderPath([NotNullWhen(true)] string? folder, [NotNullWhen(false)] out string? errorMessage)
 	{
+		errorMessage = null;
+
 		if (string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
 		{
-			Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
-				$"Invalid folder name: '{folder}'"));
-			return "Folder name must not be empty or contain invalid characters.";
+			errorMessage = "Folder name must not be empty or contain invalid characters.";
+			return false;
 		}
 
 
 		// Directory traversal protection
-		if (Path.GetFullPath(Path.Combine(ClientDataFolder, folder)).StartsWith(ClientDataFolder)) return null;
+		if (Path.GetFullPath(Path.Combine(ClientDataFolder, folder)).StartsWith(ClientDataFolder)) return true;
 
 		Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
 			$"Requested path is outside the clientData folder: '{Path.GetFullPath(Path.Combine(ClientDataFolder, folder))}'"));
-		return "Requested path is outside the clientData folder.";
+		errorMessage = "Requested path is outside the clientData folder.";
+		return false;
 	}
 
 	///  <summary>

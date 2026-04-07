@@ -46,11 +46,6 @@ public static class DataEndpointManagement
 			if (fileData is not null) FileData = fileData;
 		}
 
-		/*public static DataFileMetadata FromFile(Client scope, string folder, string fileName)
-		{
-
-		}*/
-
 		/// <summary>
 		/// If the file exists, delete it.
 		/// </summary>

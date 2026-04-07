@@ -9,6 +9,9 @@ public static class ClientDataEndpoints
 	{
 		app.MapGet($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", async (HttpContext context, string? folderName, string? fileName) =>
 		{
+			if (string.IsNullOrWhiteSpace(folderName) || string.IsNullOrWhiteSpace(fileName))
+				return Results.BadRequest("Both folderName and fileName must be valid, non-empty strings.");
+
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 
 			DataEndpointManagement.DataFileMetadata fileRecord;
@@ -45,6 +48,9 @@ public static class ClientDataEndpoints
 
 		app.MapPut($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", async (HttpContext context, string? folderName, string? fileName) =>
 		{
+			if (string.IsNullOrWhiteSpace(folderName) || string.IsNullOrWhiteSpace(fileName))
+				return Results.BadRequest("Both folderName and fileName must be valid, non-empty strings.");
+
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 
 			DataEndpointManagement.DataFileMetadata fileRecord;
@@ -73,6 +79,9 @@ public static class ClientDataEndpoints
 
 		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}/{{fileName}}", (HttpContext context, string? folderName, string? fileName) =>
 		{
+			if (string.IsNullOrWhiteSpace(folderName) || string.IsNullOrWhiteSpace(fileName))
+				return Results.BadRequest("Both folderName and fileName must be valid, non-empty strings.");
+
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 
 			try
@@ -111,6 +120,9 @@ public static class ClientDataEndpoints
 
 		app.MapDelete($"{ApiConfig.BaseApiUrlPath}/clientData/{{folderName}}", (HttpContext context, string? folderName) =>
 		{
+			if (string.IsNullOrWhiteSpace(folderName))
+				return Results.BadRequest("folderName must be a valid, non-empty string.");
+
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 
 			try

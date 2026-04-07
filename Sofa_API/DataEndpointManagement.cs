@@ -29,7 +29,7 @@ public static class DataEndpointManagement
 		/// <exception cref="ArgumentException">The provided folder and filename were either invalid or empty.</exception>
 		/// <exception cref="DirectoryNotFoundException">The specified directory was not found, and <c>createMissing</c> was set to false.</exception>
 		/// <exception cref="FileNotFoundException">The specified file was not found at the specified folder, and no data was passed to create one.</exception>
-		public DataFileMetadata(string scope, string? folder, string? fileName, byte[]? fileData = null, bool createMissing = false)
+		public DataFileMetadata(string scope, string folder, string fileName, byte[]? fileData = null, bool createMissing = false)
 		{
 			if (!EnsureSafePaths(folder, fileName, out var errorMessage))
 			{
@@ -124,7 +124,7 @@ public static class DataEndpointManagement
 	/// <exception cref="DirectoryNotFoundException">The specified subfolder does not exist under the root clientData folder.</exception>
 	/// <exception cref="UnauthorizedAccessException">The user does not have write access to the specified folder.</exception>
 	/// <exception cref="IOException">The folder is either in use, read-only, or contains a read-only file.</exception>
-	public static void DeleteDataFolder(string scope, string? folderPath)
+	public static void DeleteDataFolder(string scope, string folderPath)
 	{
 		if (!EnsureSafeFolderPath(folderPath, out var errorMessage))
 		{
@@ -163,12 +163,12 @@ public static class DataEndpointManagement
 	///	True if the folder and file names are valid and safe. Otherwise, false.
 	/// </returns>
 	/// <seealso cref="EnsureSafeFolderPath"/>
-	private static bool EnsureSafePaths([NotNullWhen(true)] string? folder, [NotNullWhen(true)] string? fileName, [NotNullWhen(false)] out string? errorMessage)
+	private static bool EnsureSafePaths(string folder, string fileName, [NotNullWhen(false)] out string? errorMessage)
 	{
 		errorMessage = null;
 
-		if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains)
-		   || string.IsNullOrWhiteSpace(folder) || Path.GetInvalidPathChars().Any(folder.Contains))
+		if (Path.GetInvalidFileNameChars().Any(fileName.Contains) ||
+		   Path.GetInvalidPathChars().Any(folder.Contains))
 		{
 			errorMessage = "Folder and file name must not be empty or contain invalid characters.";
 			return false;
@@ -193,7 +193,7 @@ public static class DataEndpointManagement
 	///	Null if the folder name is valid. Otherwise, a string containing the error message.
 	/// </returns>
 	/// <seealso cref="EnsureSafePaths"/>
-	private static bool EnsureSafeFolderPath([NotNullWhen(true)] string? folder, [NotNullWhen(false)] out string? errorMessage)
+	private static bool EnsureSafeFolderPath(string folder, [NotNullWhen(false)] out string? errorMessage)
 	{
 		errorMessage = null;
 

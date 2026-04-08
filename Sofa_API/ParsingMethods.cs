@@ -78,7 +78,7 @@ public static class ParsingMethods
 	/// <param name="input">String to convert to a slug</param>
 	/// <returns>The slug-ified string</returns>
 	/// <remarks>This method was originally taken from https://www.codeproject.com/Articles/80882/Converting-Text-to-a-URL-Slug</remarks>
-	public static string ConvertTextToSlug(string? input)
+	public static string ConvertTextToSlug(string input)
 	{
 		if (string.IsNullOrWhiteSpace(input)) throw new ArgumentNullException(nameof(input));
 

@@ -1488,6 +1488,7 @@ public static class DockerLocal
 		return fileJson.TryGetValue(imageName, out var imageIconUrls) && imageIconUrls.Length > 0;
 	}
 
+	private static readonly HttpClient ImageIconsClient = new();
 	public static async Task<string[]> LoadImageIcons(string imageName, CancellationToken cancellationToken = default)
 	{
 		string?[] iconList = [null, null, null];
@@ -1497,14 +1498,12 @@ public static class DockerLocal
 
 		Logs.LogBook.Write(new (StreamId.Verbose, "Image icon fetch", $"Fetching icons for image {imageName}..."));
 
-		using var client = new HttpClient();
-
 		Task<HttpResponseMessage>[] fetchTasks =
 		[
-			client.GetAsync($"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/{imageName}.svg", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
-			client.GetAsync($"https://cdn.jsdelivr.net/gh/selfhst/icons/svg/{imageName}.svg", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
-			client.GetAsync($"https://cdn.jsdelivr.net/gh/selfhst/icons/png/{imageName}.png", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
-			client.GetAsync($"https://cdn.jsdelivr.net/npm/simple-icons@v15/icons/{imageName}.svg", HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+			ImageIconsClient.GetAsync($"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/{imageName}.svg", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+			ImageIconsClient.GetAsync($"https://cdn.jsdelivr.net/gh/selfhst/icons/svg/{imageName}.svg", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+			ImageIconsClient.GetAsync($"https://cdn.jsdelivr.net/gh/selfhst/icons/png/{imageName}.png", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+			ImageIconsClient.GetAsync($"https://cdn.jsdelivr.net/npm/simple-icons@v15/icons/{imageName}.svg", HttpCompletionOption.ResponseHeadersRead, cancellationToken)
 		];
 
 		await foreach (var fetchTask in Task.WhenEach(fetchTasks).WithCancellation(cancellationToken))

@@ -34,8 +34,8 @@ public static class Certificates
 
 			if (iterations > 3)
 			{
-				Logs.LogBook.Write(new (StreamId.Error, "HTTPS Initalization", "Failed to load HTTPS certificate due to some internal error. Sofa will continue without HTTPS."));
-				break;
+				Logs.LogBook.Write(new (StreamId.Error, "HTTPS Initalization", "Failed to load HTTPS certificate due to some internal error. Sofa will quit."));
+				throw new Exception("Failed to load HTTPS certificate.");
 			}
 
 			if (certificate.IsExpiredOrTooNew())

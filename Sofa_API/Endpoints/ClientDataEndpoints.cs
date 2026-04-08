@@ -41,7 +41,8 @@ public static class ClientDataEndpoints
 			.Produces(StatusCodes.Status400BadRequest)
 			.Produces(StatusCodes.Status404NotFound)
 			.WithSummary("Fetch a specific file from a specific folder in the base clientData folder.")
-			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. If the file ends with .json, it will be returned as an application/json response. Otherwise, it will be returned as a application/octet-stream object.")
+			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. ('rootPath' will refer to the root of the client's data folder) " +
+			                 "If the file ends with .json, it will be returned as an application/json response. Otherwise, it will be returned as a application/octet-stream object.")
 			.WithTags("clientData")
 			.WithName("GetClientData")
 			.RequireAuthorization("Client", "clientData:read");
@@ -72,7 +73,8 @@ public static class ClientDataEndpoints
 		}).Produces(StatusCodes.Status204NoContent)
 			.Produces(StatusCodes.Status400BadRequest)
 			.WithSummary("Replace/Set a specific file under a specific folder in the base clientData folder. Will create the folder if it doesn't exist.")
-			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. Expects the file's content in the body of the request.")
+			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. ('rootPath' will refer to the root of the client's data folder) " +
+			                 "Expects the file's content in the body of the request.")
 			.WithTags("clientData")
 			.WithName("SetClientData")
 			.RequireAuthorization("Client", "clientData:write");
@@ -113,7 +115,7 @@ public static class ClientDataEndpoints
 			.Produces(StatusCodes.Status403Forbidden)
 			.Produces(StatusCodes.Status409Conflict)
 			.WithSummary("Delete the specified file under the clientData folder.")
-			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names.")
+			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. ('rootPath' will refer to the root of the client's data folder)")
 			.WithTags("clientData")
 			.WithName("DeleteClientData")
 			.RequireAuthorization("Client", "clientData:write");
@@ -122,6 +124,7 @@ public static class ClientDataEndpoints
 		{
 			if (string.IsNullOrWhiteSpace(folderName))
 				return Results.BadRequest("folderName must be a valid, non-empty string.");
+			if (folderName == "rootPath") return Results.BadRequest(new { message = "Cannot delete the root folder." });
 
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 

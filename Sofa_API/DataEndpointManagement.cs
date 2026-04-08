@@ -35,6 +35,7 @@ public static class DataEndpointManagement
 			{
 				throw new ArgumentException(errorMessage);
 			}
+			if (folder == "rootPath") folder = "";
 
 			SetupDataFolder(scope, folder, !createMissing);
 			if (!File.Exists(Path.Combine(ClientDataFolder, scope, folder, fileName)) && fileData is null && !createMissing)
@@ -185,7 +186,7 @@ public static class DataEndpointManagement
 	/// <param name="errorMessage"></param>
 	/// <exception cref="ArgumentException">The provided folder name is invalid or is not under the clientData root.</exception>
 	/// <returns>
-	///	Null if the folder name is valid. Otherwise, a string containing the error message.
+	///	True if the folder name is valid and safe. Otherwise, false.
 	/// </returns>
 	/// <seealso cref="EnsureSafePaths"/>
 	private static bool EnsureSafeFolderPath(string folder, [NotNullWhen(false)] out string? errorMessage)

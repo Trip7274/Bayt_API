@@ -16,8 +16,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.ConfigureKestrel(kestrel =>
 {
-	bool isHttps = Certificates.SofaPublicKey is not null;
-
 	kestrel.ConfigureHttpsDefaults(https =>
 	{
 		https.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
@@ -34,45 +32,23 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 		https.SslProtocols = SslProtocols.Tls12 & SslProtocols.Tls13;
 	});
 
-	kestrel.Listen(IPAddress.Loopback, ApiConfig.NetworkPort);
-	if (isHttps)
+	Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{IPAddress.Loopback}:{ApiConfig.HttpsNetworkPort}' to listen list"));
+	kestrel.Listen(IPAddress.Loopback, ApiConfig.HttpsNetworkPort, listenOptions =>
 	{
-		Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{IPAddress.Loopback}:{ApiConfig.HttpsNetworkPort}' (HTTP at {ApiConfig.NetworkPort}) to listen list"));
-		kestrel.Listen(IPAddress.Loopback, ApiConfig.HttpsNetworkPort, listenOptions =>
-		{
-			listenOptions.UseHttps();
-			listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
-		});
-	}
-	else
-	{
-		Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'http://{IPAddress.Loopback}:{ApiConfig.NetworkPort}' to listen list"));
-	}
+		listenOptions.UseHttps();
+		listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+	});
 
 	if (!ParsingMethods.IsEnvVarTrue("SOFA_LOCALHOST_ONLY"))
 	{
 		var localIp = StatsApi.GetLocalIpAddress();
 
-		kestrel.Listen(localIp, ApiConfig.NetworkPort, options => options.Protocols = HttpProtocols.Http2);
-		if (isHttps)
+		Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{localIp}:{ApiConfig.HttpsNetworkPort}' to listen list"));
+		kestrel.Listen(localIp, ApiConfig.HttpsNetworkPort, listenOptions =>
 		{
-			Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{localIp}:{ApiConfig.HttpsNetworkPort}' (HTTP at {ApiConfig.NetworkPort}) to listen list"));
-			kestrel.Listen(localIp, ApiConfig.HttpsNetworkPort, listenOptions =>
-			{
-				listenOptions.UseHttps();
-				listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
-			});
-		}
-		else
-		{
-			Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'http://{localIp}:{ApiConfig.NetworkPort}' to listen list"));
-		}
-	}
-	if (!ParsingMethods.IsEnvVarTrue("SOFA_DISABLE_SOCK"))
-	{
-		if (File.Exists(ApiConfig.UnixSocketPath)) File.Delete(ApiConfig.UnixSocketPath);
-		Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'unix:{ApiConfig.UnixSocketPath}' to listen list"));
-		kestrel.ListenUnixSocket(ApiConfig.UnixSocketPath);
+			listenOptions.UseHttps();
+			listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+		});
 	}
 });
 

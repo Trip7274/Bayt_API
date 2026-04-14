@@ -66,15 +66,6 @@ public static class ApiConfig
 	                                                             Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") ??
 	                                                             BaseExecutablePath, "sofaConfig");
 	/// <summary>
-	/// Abs. path to the Sofa SOCK interface file. The file will be non-existent if the interface is inactive. E.g. <c>/home/{user}/.local/state/sofaApi.sock</c>.
-	/// </summary>
-	/// <remarks>
-	///	Tries to fetch the env var <c>SOFA_SOCKET_DIRECTORY</c> first, then <c>XDG_STATE_HOME</c>. Falls back to "<see cref="BaseExecutablePath"/>/SofaApi.sock" if neither are set.
-	/// </remarks>
-	public static readonly string UnixSocketPath = Path.Combine(Environment.GetEnvironmentVariable("SOFA_SOCKET_DIRECTORY") ??
-																Environment.GetEnvironmentVariable("XDG_STATE_HOME") ??
-																BaseExecutablePath, "SofaApi.sock");
-	/// <summary>
 	/// Abs. path to the sofaData directory. Used for <see cref="ApiConfiguration.PathToDataFolder"/> and <see cref="ApiConfiguration.PathToDockerFolder"/>. E.g. <c>/home/{user}/.local/share/sofaData/</c>.
 	/// </summary>
 	/// <remarks>

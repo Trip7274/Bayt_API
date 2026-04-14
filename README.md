@@ -67,12 +67,10 @@ Along with utilites you probably already have, such as `bash`, `grep` (GNU), `he
 `libmsquic` (sometimes called `msquic`) is needed for QUIC support, but is not necessary to run Sofa.
 
 > [!IMPORTANT]
-> Systems with Intel GPUs and at least one other GPU (of any brand) may face some issues regarding duplicated GPU stats.
-> (More precisely, Graphics frequency and GPU name) <br/>
+> Systems with Intel GPUs and at least one other GPU (of any brand) may face some issues regarding duplicated GPU names/frequencies.<br/>
 > This is due to the default script's inability to specify which GPU to prompt NVTOP for.
 >
-> I *am* looking into resolving this, however.
->
+> I *am* looking into resolving this, however.<br/>
 > If you feel like you can help, please take a look at [NVTOP's usage in getGpu.sh](https://github.com/Trip7274/Sofa/blob/main/Sofa_API/scripts/getGpu.sh#L321)
 
 ---

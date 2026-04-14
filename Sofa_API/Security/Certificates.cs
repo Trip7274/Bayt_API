@@ -52,7 +52,7 @@ public static class Certificates
 		if (File.Exists(certPath)) File.Delete(certPath);
 
 		File.WriteAllBytes(certPath, cert.Export(X509ContentType.Pfx));
-		Logs.LogBook.Write(new (StreamId.Verbose, "Certificate generation", $"Sofa certificate generated. (Thumb: '{cert.Thumbprint}', Path: '{certPath}')"));
+		Logs.LogBook.Write(new (StreamId.Verbose, "Certificate generation", $"Sofa certificate generated. (Thumb: '{cert.GetCertHashString(HashAlgorithmName.SHA256)}', Path: '{certPath}')"));
 
 		return cert;
 	}

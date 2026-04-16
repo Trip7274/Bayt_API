@@ -99,13 +99,13 @@ public static class ClientDataEndpoints
 				return Results.Text("The file seems to either be read-only, or the current user doesn't have the appropriate permissions.",
 					"text/plain", statusCode:StatusCodes.Status403Forbidden);
 			}
-			catch (IOException e) when (e is not FileNotFoundException or DirectoryNotFoundException)
+			catch (IOException e) when (e is not (FileNotFoundException or DirectoryNotFoundException))
 			{
 				return Results.Conflict("The file seems to be in use. It was not deleted.");
 			}
 			catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
 			{
-				return Results.NotFound(e.Message);
+				return Results.NotFound("Either the file or its parent folder was not found.");
 			}
 
 			return Results.NoContent();

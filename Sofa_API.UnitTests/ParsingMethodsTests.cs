@@ -31,7 +31,7 @@ public class ParsingMethodsTests
 
 		Assert.Throws<ArgumentNullException>(() => ParsingMethods.ConvertTextToSlug(emptyTest));
 		Assert.Throws<ArgumentNullException>(() => ParsingMethods.ConvertTextToSlug(whitespaceTest));
-		Assert.Throws<ArgumentNullException>(() => ParsingMethods.ConvertTextToSlug(nullTest));
+		Assert.Throws<ArgumentNullException>(() => ParsingMethods.ConvertTextToSlug(nullTest!));
 
 		Assert.Equal("test-for-trailing-whitespace", ParsingMethods.ConvertTextToSlug(trailingWhitespaceTest));
 		Assert.Equal("test-for-leading-whitespace", ParsingMethods.ConvertTextToSlug(leadingWhitespaceTest));

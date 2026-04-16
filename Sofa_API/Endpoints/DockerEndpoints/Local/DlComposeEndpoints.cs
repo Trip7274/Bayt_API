@@ -171,6 +171,7 @@ public static class DlComposeEndpoints
 		{
 			if (!DockerLocal.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
 			if (!DockerLocal.IsDockerComposeAvailable) return Results.InternalServerError("Docker-Compose is not available on this system or the Docker integration was disabled.");
+			if (string.IsNullOrWhiteSpace(containerName)) return Results.BadRequest($"{nameof(containerName)} is required and must contain at least one ASCII character.");
 
 			var containerNameSlug = ParsingMethods.ConvertTextToSlug(containerName);
 			if (string.IsNullOrWhiteSpace(containerNameSlug)) return Results.BadRequest($"{nameof(containerName)} is required and must contain at least one ASCII character.");

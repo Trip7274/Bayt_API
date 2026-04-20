@@ -439,6 +439,7 @@ public static class Clients
 		if (!Directory.Exists(Path.Combine(SecurityStores.BaseSecurityPath, "requests")))
 		{
 			Directory.CreateDirectory(Path.Combine(SecurityStores.BaseSecurityPath, "requests"));
+			return;
 		}
 
 		var lastAcceptableTime = DateTime.UtcNow - TimeSpan.FromSeconds(PendingTtlSeconds);
@@ -447,36 +448,34 @@ public static class Clients
 			if (File.GetLastWriteTimeUtc(checkedFilePath) < lastAcceptableTime)
 			{
 				File.Delete(checkedFilePath);
+				continue;
 			}
-			else
+
+			Dictionary<string, JsonElement>? parsedJson;
+			try
 			{
-				Dictionary<string, JsonElement>? parsedJson;
-				try
-				{
-					parsedJson = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(checkedFilePath));
-				}
-				catch (Exception e)
-				{
-					Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: {e.Message}"));
-					File.Move(checkedFilePath, Path.GetFileNameWithoutExtension(checkedFilePath) + ".json.failed");
-					continue;
-				}
-				if (parsedJson is null)
-				{
-					Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: Could not parse JSON"));
-					File.Move(checkedFilePath, Path.GetFileNameWithoutExtension(checkedFilePath) + ".json.failed");
-					continue;
-				}
-
-				if (parsedJson["TimeRequested"].GetDateTime() < lastAcceptableTime || !TryFetchValidClient(parsedJson["ID"].GetGuid(), out var client, true))
-				{
-					File.Delete(checkedFilePath);
-					continue;
-				}
-
-				PendingClients.Add(parsedJson["RegistrationKey"].GetString()!, client);
-
+				parsedJson = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(checkedFilePath));
 			}
+			catch (Exception e)
+			{
+				Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: {e.Message}"));
+				File.Move(checkedFilePath, checkedFilePath + ".failed");
+				continue;
+			}
+			if (parsedJson is null)
+			{
+				Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: Could not parse JSON"));
+				File.Move(checkedFilePath, checkedFilePath + ".failed");
+				continue;
+			}
+
+			if (parsedJson["TimeRequested"].GetDateTime() < lastAcceptableTime || !TryFetchValidClient(parsedJson["ID"].GetGuid(), out var client, true))
+			{
+				File.Delete(checkedFilePath);
+				continue;
+			}
+
+			PendingClients.Add(parsedJson["RegistrationKey"].GetString()!, client);
 		}
 	}
 	private static readonly Dictionary<Guid, Client> AvailableClients = [];

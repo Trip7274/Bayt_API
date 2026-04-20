@@ -125,7 +125,7 @@ public static class ClientEndpoints
 
 			if (Clients.PendingClients.TryGetValue(registrationKey, out var pendingClient))
 			{
-				Clients.RemovePendingClient(registrationKey, ParsingMethods.ConvertTextToSlug(targetClient.ClientName));
+				Clients.RemovePendingClient(registrationKey, targetClient);
 				pendingClient.Unpause();
 				return Results.NoContent();
 			}

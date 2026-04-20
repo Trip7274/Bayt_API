@@ -488,14 +488,15 @@ public static class Clients
 		ttl ??= TimeSpan.FromSeconds(PendingTtlSeconds);
 
 		PendingClients.Add(registrationKey, client);
-		_ = Task.Run(() => Task.Delay(ttl.Value).ContinueWith(_ => RemovePendingClient(registrationKey, ParsingMethods.ConvertTextToSlug(client.ClientName))));
+		_ = Task.Run(() => Task.Delay(ttl.Value).ContinueWith(_ => RemovePendingClient(registrationKey, client)));
 	}
 
-	public static void RemovePendingClient(string registrationKey, string clientNameSlug)
+	public static void RemovePendingClient(string registrationKey, Client client)
 	{
 		PendingClients.Remove(registrationKey);
+		if (client.IsPaused) RemoveClient(client);
 
-		string requestFilePath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", $"{clientNameSlug}.json");
+		string requestFilePath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", $"{client.ClientNameSlug}.json");
 		if (File.Exists(requestFilePath))
 		{
 			File.Delete(requestFilePath);

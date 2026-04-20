@@ -270,14 +270,7 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 
 		Thumbprint = thumbprint;
 		Guid = guid;
-		if (permissionList is not null && permissionList.Count > 0)
-		{
-			// Convert all permissionStrings and permissionPowers to all-lowercase
-			PermissionList = permissionList.ToDictionary(
-				permissionString => permissionString.Key.ToLowerInvariant(),
-				permissionPowers => permissionPowers.Value.Select(permPower => permPower.ToLowerInvariant()).ToList()
-				);
-		}
+		if (permissionList is not null) PermissionList = permissionList;
 		IsPaused = isPaused;
 	}
 	public Client (string clientName, string thumbprint, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false)
@@ -306,14 +299,20 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 	}
 
 	public string ClientName { get; private set; }
-	public string ClientNameSlug => ParsingMethods.ConvertTextToSlug(ClientName);
 	public string Thumbprint { get; private set; }
 	public Guid Guid { get; }
-	public bool IsPaused { get; private set; }
 	public override Dictionary<string, List<string>> PermissionList { get; protected set; } = [];
+
+
+	public bool IsPaused { get; private set; }
+
+
+	[IgnoreMember]
+	public string ClientNameSlug => ParsingMethods.ConvertTextToSlug(ClientName);
 	[IgnoreMember]
 	public bool CanRegister =>
 		!IsPaused && HasPermission(new Permissions.SofaPermission("client-management", ["register"]));
+
 
 	public bool Edit(Dictionary<string, string?> changes)
 	{
@@ -364,24 +363,17 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		return true;
 	}
 
-	public void Pause()
-	{
-		IsPaused = true;
-		SecurityStores.SaveClient(this);
-	}
 
-	public void Unpause()
+	internal void Unpause()
 	{
 		IsPaused = false;
 		SecurityStores.SaveClient(this);
 	}
-
 	public bool Delete()
 	{
-		Pause();
+		IsPaused = true;
 		return Clients.RemoveClient(this);
 	}
-
 	public Dictionary<string, dynamic?> ToDictionary()
 	{
 		return new()
@@ -393,6 +385,7 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 			{ nameof(PermissionList), PermissionList }
 		};
 	}
+
 
 	public static bool operator ==(Client? left, Client? right)
 	{
@@ -408,7 +401,6 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 
 		return left.Guid != right.Guid;
 	}
-
 	public bool Equals(Client? other)
 	{
 		if (other is null) return false;

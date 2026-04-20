@@ -313,8 +313,7 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 	public override Dictionary<string, List<string>> PermissionList { get; protected set; } = [];
 	[IgnoreMember]
 	public bool CanRegister =>
-		!IsPaused && PermissionList.TryGetValue("client-management", out var perm) &&
-		new Permissions.SofaPermission("client-management", ["register"]).Allows(perm);
+		!IsPaused && HasPermission(new Permissions.SofaPermission("client-management", ["register"]));
 
 	public bool Edit(Dictionary<string, string?> changes)
 	{

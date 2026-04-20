@@ -110,11 +110,11 @@ public static class ClientEndpoints
 			var targetClient = connectedClient;
 			if (Guid.TryParse(targetClientId, out var targetUserGuid) && connectedClient is not null)
 			{
-				if (!connectedClient.CanRegister)
+				Clients.TryFetchValidClient(targetUserGuid, out targetClient);
+				if (targetClient != connectedClient && !connectedClient.CanRegister)
 				{
 					return Results.StatusCode(StatusCodes.Status403Forbidden);
 				}
-				Clients.TryFetchValidClient(targetUserGuid, out targetClient);
 			}
 			else if (targetClientId != "me")
 			{
@@ -146,11 +146,11 @@ public static class ClientEndpoints
 			var targetClient = connectedClient;
 			if (Guid.TryParse(targetClientId, out var guid))
 			{
-				if (!SecurityMethods.ChallengePermission(context, new("clients", ["delete"])))
+				Clients.TryFetchValidClient(guid, out targetClient);
+				if (targetClient != connectedClient && !connectedClient.HasPermission(new("clients", ["delete"])))
 				{
 					return Results.StatusCode(StatusCodes.Status403Forbidden);
 				}
-				Clients.TryFetchValidClient(guid, out targetClient);
 			}
 			else if (targetClientId != "me")
 			{
@@ -248,14 +248,15 @@ public static class ClientEndpoints
 
 		app.MapGet($"{BaseClientUrl}/{{targetClientId}}/info", (HttpContext context, string targetClientId) =>
 		{
-			var targetClient = SecurityMethods.GetConnectedClient(context);
+			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
+			var targetClient = connectedClient;
 			if (Guid.TryParse(targetClientId, out var targetUserGuid))
 			{
-				if (!SecurityMethods.ChallengePermission(context, new("clients", ["view-info"])))
+				Clients.TryFetchValidClient(targetUserGuid, out targetClient);
+				if (targetClient != connectedClient && !connectedClient.HasPermission(new("clients", ["view-info"])))
 				{
 					return Results.StatusCode(StatusCodes.Status403Forbidden);
 				}
-				Clients.TryFetchValidClient(targetUserGuid, out targetClient);
 			}
 			else if (targetClientId != "me")
 			{

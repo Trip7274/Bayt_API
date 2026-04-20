@@ -10,11 +10,9 @@ The word "Sofa" can be interperted in four ways:
 1. Your cozy couch to build your room around.
 2. Arabic loanword for "couch".
 3. `50FA`: "Sofa" as hex!
-4. `Pú`: the hex `50 FA` mapped to ASCII, this is reserved exclusively for goofy uses.
+4. `Pú`: The hex `50 FA` mapped to ASCII. This is reserved exclusively for goofy uses.
 
 Sofa is still in active development and is not yet ready for everyday use.
-
----
 
 ## Planned Features
 - [X] Provide general system information
@@ -35,10 +33,9 @@ please do help out if you have the experience!)
     - [X] SSE version of stats endpoint
 - [X] Auth (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions
-	- [ ] Silo arbitrary data folder to each client
+	- [X] Silo arbitrary data folder to each client
 	- [ ] Add a permission to manage clients (with a dangerous disclaimer)
-	- [ ] Add a way to revoke clients without relying on any clients (OAuth2?)
-	- [ ] Establish permission presets (Simple stat-viewing dashboards need less access than server management clients)
+	- [ ] Add a way to revoke clients without relying on any clients ()
 - [ ] API documentation
 - [ ] Binary distribution across different Linux repos
 - [ ] Docker container implementation (if possible)
@@ -101,7 +98,7 @@ If you encounter any issues or feel like this README can be improved, feel free 
 
 ### Configuration
 Sofa's configuration can be located in a few places depending on your environment.
-The best way to find it is to run Sofa and check the output.
+The best way to find it is to run Sofa and check the output. <br/>
 However, by default, it can be found in either:
 - `$XDG_CONFIG_HOME/sofaConfig/ApiConfiguration.json`
 - `{Sofa's Running Directory}/sofaConfig/ApiConfiguration.json`
@@ -112,6 +109,6 @@ However, by default, it can be found in either:
 Make sure to run `./CleanupSofa.sh` before uninstalling. This will remove all Sofa-related files,
 and revoke any special permissions issued by `./SetupSofa.sh`.
 
-Please do feel free to open an issue if you find any complaints or problems!
+Please do feel free to open an issue if you find any complaints or problems, and thank you for trying Sofa!
 
 

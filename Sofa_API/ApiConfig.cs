@@ -276,11 +276,16 @@ public static class ApiConfig
 			// This needs some cleaning.
 			ConfigVersion = loadedDict.GetProperty(nameof(ConfigVersion)).GetByte();
 			BackendName = loadedDict.TryGetProperty(nameof(BackendName), out var backendName) ? backendName.GetString() ?? BackendName : BackendName;
+
 			CacheLifetime = loadedDict.TryGetProperty(nameof(CacheLifetime), out var cacheLifetime) ? TimeSpan.FromSeconds(double.Clamp(cacheLifetime.GetInt32(), 0, double.MaxValue)) : CacheLifetime;
+			ClientRequestLifetime = loadedDict.TryGetProperty(nameof(ClientRequestLifetime), out var clientRequestLifetime) ? TimeSpan.FromSeconds(double.Clamp(clientRequestLifetime.GetInt32(), 0, double.MaxValue)) : ClientRequestLifetime;
+
 			PathToDataFolder = loadedDict.TryGetProperty(nameof(PathToDataFolder), out var pathToDataFolder) ? pathToDataFolder.GetString() ?? PathToDataFolder : PathToDataFolder;
 			PathToLogFolder = loadedDict.TryGetProperty(nameof(PathToLogFolder), out var pathToLogFolder) ? pathToLogFolder.GetString() ?? PathToLogFolder : PathToLogFolder;
 			PathToDockerFolder = loadedDict.TryGetProperty(nameof(PathToDockerFolder), out var pathToDockerFolder) ? pathToDockerFolder.GetString() ?? PathToDockerFolder : PathToDockerFolder;
+
 			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
+
 			LogVerbosity = loadedDict.TryGetProperty(nameof(LogVerbosity), out var logVerbosity) ? logVerbosity.GetByte() : LogVerbosity;
 
 			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
@@ -436,9 +441,9 @@ public static class ApiConfig
 			{
 				switch (newPropKvp.Key)
 				{
-					case nameof(BackendName) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != BackendName:
+					case nameof(BackendName) when newPropKvp.Value.GetString() is string newPropString && newPropString != BackendName:
 					{
-						BackendName = newPropKvp.Value.GetString() ?? BackendName;
+						BackendName = newPropString;
 						configChanged = true;
 						break;
 					}
@@ -448,21 +453,21 @@ public static class ApiConfig
 						configChanged = true;
 						break;
 					}
-					case nameof(PathToDataFolder) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != PathToDataFolder:
+					case nameof(PathToDataFolder) when newPropKvp.Value.GetString() is string newPropString && newPropString != PathToDataFolder:
 					{
-						PathToDataFolder = newPropKvp.Value.GetString() ?? PathToDataFolder;
+						PathToDataFolder = newPropString;
 						configChanged = true;
 						break;
 					}
-					case nameof(PathToLogFolder) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != PathToLogFolder:
+					case nameof(PathToLogFolder) when newPropKvp.Value.GetString() is string newPropString && newPropString != PathToLogFolder:
 					{
-						PathToLogFolder = newPropKvp.Value.GetString() ?? PathToLogFolder;
+						PathToLogFolder = newPropString;
 						configChanged = true;
 						break;
 					}
-					case nameof(PathToDockerFolder) when newPropKvp.Value.GetString() is not null && newPropKvp.Value.GetString()! != PathToDockerFolder:
+					case nameof(PathToDockerFolder) when newPropKvp.Value.GetString() is string newPropString && newPropString != PathToDockerFolder:
 					{
-						PathToDockerFolder = newPropKvp.Value.GetString() ?? PathToDockerFolder;
+						PathToDockerFolder = newPropString;
 						configChanged = true;
 						break;
 					}

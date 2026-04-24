@@ -1,7 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Unicode;
 using MessagePack;
 
 namespace Sofa_API.Security;
@@ -35,16 +37,11 @@ public abstract class HasPermissions
 	}
 	public void RemovePermission(Permissions.SofaPermission permission)
 	{
-		if (PermissionList.TryGetValue(permission.PermissionString, out var list))
-		{
-			list.RemoveAll(p => permission.PermPowers.Contains(p));
-			if (list.Count == 0) PermissionList.Remove(permission.PermissionString);
-			PermissionList[permission.PermissionString] = list;
-		}
-		else
-		{
-			PermissionList.Remove(permission.PermissionString);
-		}
+		if (!PermissionList.TryGetValue(permission.PermissionString, out var list)) return;
+
+		list.RemoveAll(p => permission.PermPowers.Contains(p));
+		if (list.Count == 0) PermissionList.Remove(permission.PermissionString);
+		else PermissionList[permission.PermissionString] = list;
 	}
 	public void SetPermissions(Dictionary<string, List<string>> permissions)
 	{
@@ -256,7 +253,7 @@ public sealed partial class User : HasPermissions, IEquatable<User>
 public sealed partial class Client : HasPermissions, IEquatable<Client>
 {
 	[SerializationConstructor]
-	private Client (string clientName, string thumbprint, Guid guid, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false)
+	private Client (string clientName, string thumbprint, Guid guid, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false, bool hasAcknowledgedFutureCert = false, ClientPermissionRequest? pendingPermissionRequest = null)
 	{
 		if (string.IsNullOrWhiteSpace(clientName))
 			throw new ArgumentException("Client name cannot be empty", nameof(clientName));
@@ -272,6 +269,20 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		Guid = guid;
 		if (permissionList is not null) PermissionList = permissionList;
 		IsPaused = isPaused;
+		HasAcknowledgedFutureCert = hasAcknowledgedFutureCert;
+		PendingPermissionRequest = pendingPermissionRequest;
+
+		if (pendingPermissionRequest is not null)
+		{
+			if (pendingPermissionRequest.Expired)
+			{
+				ClearRequestedPermissions();
+			}
+			else
+			{
+				_ = Task.Run(() => Task.Delay(pendingPermissionRequest.ExpirationTime - DateTime.UtcNow).ContinueWith(_ => ClearRequestedPermissions()));
+			}
+		}
 	}
 	public Client (string clientName, string thumbprint, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false)
 	{
@@ -297,6 +308,18 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		}
 		IsPaused = isPaused;
 	}
+	static Client()
+	{
+		var encoderSettings = new TextEncoderSettings(UnicodeRanges.BasicLatin);
+		encoderSettings.AllowCharacters('+');
+		CprJsonSerializerOptions = new()
+		{
+			WriteIndented = true,
+			IndentCharacter = '\t',
+			IndentSize = 1,
+			Encoder = JavaScriptEncoder.Create(encoderSettings)
+		};
+	}
 
 	public string ClientName { get; private set; }
 	public string Thumbprint { get; private set; }
@@ -305,6 +328,94 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 
 
 	public bool IsPaused { get; private set; }
+	public bool HasAcknowledgedFutureCert { get; internal set; }
+
+
+	private static readonly JsonSerializerOptions CprJsonSerializerOptions;
+	public ClientPermissionRequest? PendingPermissionRequest { get; private set; }
+
+	public void SetPermissionRequest(ClientPermissionRequest request)
+	{
+		string directoryPath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "permissionUpdates");
+		string filePath = Path.Combine(directoryPath, $"{ClientNameSlug}.json");
+
+		Directory.CreateDirectory(directoryPath);
+		File.Delete(filePath);
+
+		Dictionary<string, dynamic> cprDict = new()
+		{
+			["RequesterName"] = ClientName,
+			["ID"] = Guid,
+			["CurrentPermissions"] = PermissionList.ToDictionary(
+				entry => entry.Key,
+				entry => string.Join(',', entry.Value)),
+			["RequestedPermissions"] = request.RequestedPermissionChanges,
+			["TimeRequested"] = request.TimeRequested,
+			["ExpirationTime"] = request.ExpirationTime,
+			["RequestKey"] = Convert.ToBase64String(request.PermissionRequestKey)
+		};
+
+		PendingPermissionRequest = request;
+		File.WriteAllText(filePath, JsonSerializer.Serialize(cprDict, CprJsonSerializerOptions));
+		_ = Task.Run(() => Task.Delay(ApiConfig.ApiConfiguration.ClientRequestLifetime).ContinueWith(_ => ClearRequestedPermissions()));
+
+		SecurityStores.SaveClient(this);
+	}
+	public void ApplyRequestedPermissions(byte[] requestKey)
+	{
+		if (PendingPermissionRequest is null)
+		{
+			throw new InvalidOperationException("Permission request not set");
+		}
+		if (PendingPermissionRequest.Expired)
+		{
+			ClearRequestedPermissions();
+			throw new InvalidOperationException("Permission request expired");
+		}
+		if (!PendingPermissionRequest.PermissionRequestKey.SequenceEqual(requestKey))
+		{
+			throw new InvalidOperationException("Permission request key does not match");
+		}
+
+		foreach (var requestedPerm in PendingPermissionRequest.RequestedPermissionChanges)
+		{
+			switch (requestedPerm.Key[0])
+			{
+				case '+':
+				{
+					if (!Permissions.SofaPermission.TryParse(requestedPerm.Key[1..], out var parsedPerm))
+					{
+						throw new ArgumentException("List contained an invalid permission request", requestedPerm.Key);
+					}
+					AddPermission(parsedPerm);
+					break;
+				}
+				case '-':
+				{
+					if (!Permissions.SofaPermission.TryParse(requestedPerm.Key[1..], out var parsedPerm))
+					{
+						throw new ArgumentException("List contained an invalid permission request", requestedPerm.Key);
+					}
+					RemovePermission(parsedPerm);
+					break;
+				}
+			}
+		}
+
+		ClearRequestedPermissions();
+	}
+	public void ClearRequestedPermissions()
+	{
+		var filePath =
+			Path.Combine(SecurityStores.BaseSecurityPath, "requests", "permissionUpdates", $"{ClientNameSlug}.json");
+
+		PendingPermissionRequest = null;
+		if (File.Exists(filePath))
+		{
+			File.Delete(filePath);
+		}
+		SecurityStores.SaveClient(this);
+	}
 
 
 	[IgnoreMember]
@@ -416,6 +527,46 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 	}
 }
 
+[MessagePackObject(true, AllowPrivate = true)]
+public sealed partial record ClientPermissionRequest
+{
+	[SerializationConstructor]
+	private ClientPermissionRequest(byte[] permissionRequestKey, Dictionary<string, string?> requestedPermissionChanges, DateTime timeRequested)
+	{
+		RequestedPermissionChanges = requestedPermissionChanges;
+		PermissionRequestKey = permissionRequestKey;
+		TimeRequested = timeRequested;
+	}
+	public ClientPermissionRequest(Dictionary<string, string?> requestedPermissionChanges)
+	{
+		if (requestedPermissionChanges.Any(perm => perm.Key[0] is not ('+' or '-') && perm.Key.Length < 4))
+		{
+			throw new ArgumentException("List contained an incorrectly formatted permission.", nameof(RequestedPermissionChanges));
+		}
+
+		RequestedPermissionChanges = requestedPermissionChanges;
+		PermissionRequestKey = RandomNumberGenerator.GetBytes(32);
+		TimeRequested = DateTime.UtcNow;
+	}
+
+	public byte[] PermissionRequestKey { get; }
+	public Dictionary<string, string?> RequestedPermissionChanges { get; }
+	public DateTime TimeRequested { get; }
+	public DateTime ExpirationTime => TimeRequested + ApiConfig.ApiConfiguration.ClientRequestLifetime;
+	public bool Expired => DateTime.UtcNow > ExpirationTime;
+
+	public Dictionary<string, dynamic?> ToDictionary(bool includeKey = false)
+	{
+		return new()
+			{
+				{ nameof(PermissionRequestKey), includeKey ? Convert.ToBase64String(PermissionRequestKey) : null },
+				{ nameof(RequestedPermissionChanges), RequestedPermissionChanges },
+				{ nameof(TimeRequested), TimeRequested },
+				{ nameof(ExpirationTime), ExpirationTime }
+			};
+	}
+}
+
 
 public static class Clients
 {
@@ -427,16 +578,18 @@ public static class Clients
 			AvailableClientThumbs.Add(client.Thumbprint);
 		}
 
-		if (!Directory.Exists(Path.Combine(SecurityStores.BaseSecurityPath, "requests")))
+		string requestDirPath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "registrationRequests");
+		if (!Directory.Exists(requestDirPath))
 		{
-			Directory.CreateDirectory(Path.Combine(SecurityStores.BaseSecurityPath, "requests"));
+			Directory.CreateDirectory(requestDirPath);
 			return;
 		}
 
-		var lastAcceptableTime = DateTime.UtcNow - TimeSpan.FromSeconds(PendingTtlSeconds);
-		foreach (var checkedFilePath in Directory.EnumerateFiles(Path.Combine(SecurityStores.BaseSecurityPath, "requests"), "*.json", SearchOption.AllDirectories))
+		var lastAcceptableTime = DateTime.UtcNow - ApiConfig.ApiConfiguration.ClientRequestLifetime;
+		foreach (var checkedFilePath in Directory.EnumerateFiles(requestDirPath, "*", SearchOption.AllDirectories))
 		{
-			if (File.GetLastWriteTimeUtc(checkedFilePath) < lastAcceptableTime)
+			if (checkedFilePath.EndsWith(".json.failed")) continue;
+			if (!checkedFilePath.EndsWith(".json") || File.GetLastWriteTimeUtc(checkedFilePath) < lastAcceptableTime)
 			{
 				File.Delete(checkedFilePath);
 				continue;
@@ -474,10 +627,9 @@ public static class Clients
 
 
 	public static Dictionary<string, Client> PendingClients { get; } = [];
-	public const byte PendingTtlSeconds = 180;
 	public static void AddPendingClient(string registrationKey, Client client, TimeSpan? ttl = null)
 	{
-		ttl ??= TimeSpan.FromSeconds(PendingTtlSeconds);
+		ttl ??= ApiConfig.ApiConfiguration.ClientRequestLifetime;
 
 		PendingClients.Add(registrationKey, client);
 		_ = Task.Run(() => Task.Delay(ttl.Value).ContinueWith(_ => RemovePendingClient(registrationKey, client)));
@@ -488,7 +640,7 @@ public static class Clients
 		PendingClients.Remove(registrationKey);
 		if (client.IsPaused) RemoveClient(client);
 
-		string requestFilePath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", $"{client.ClientNameSlug}.json");
+		string requestFilePath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "registrationRequests", $"{client.ClientNameSlug}.json");
 		if (File.Exists(requestFilePath))
 		{
 			File.Delete(requestFilePath);

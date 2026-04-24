@@ -163,6 +163,14 @@ public static class ApiConfig
 		public static TimeSpan ClampedCacheLifetime => CacheLifetime.TotalSeconds < 3 ? TimeSpan.FromSeconds(3) : CacheLifetime;
 
 		/// <summary>
+		/// The maximum lifespan before a Client's request (either for a permission update or registration) is considered expired and auto-rejected.
+		/// </summary>
+		/// <remarks>
+		///	Defaults to 30 minutes.
+		/// </remarks>
+		public static TimeSpan ClientRequestLifetime { get; private set; } = TimeSpan.FromMinutes(30);
+
+		/// <summary>
 		///	Abs. path to the client data folder.
 		/// </summary>
 		/// <remarks>
@@ -246,6 +254,7 @@ public static class ApiConfig
 				{ nameof(ConfigVersion), ConfigVersion },
 				{ nameof(BackendName), BackendName },
 				{ nameof(CacheLifetime), CacheLifetime.TotalSeconds },
+				{ nameof(ClientRequestLifetime), ClientRequestLifetime.TotalSeconds },
 				{ nameof(PathToDataFolder), PathToDataFolder },
 				{ nameof(PathToLogFolder), PathToLogFolder },
 				{ nameof(PathToDockerFolder), PathToDockerFolder },
@@ -450,6 +459,12 @@ public static class ApiConfig
 					case nameof(CacheLifetime) when double.Clamp(newPropKvp.Value.GetInt32(), 0, double.MaxValue) != CacheLifetime.TotalSeconds:
 					{
 						CacheLifetime = TimeSpan.FromSeconds(double.Clamp(newPropKvp.Value.GetInt32(), 0, double.MaxValue));
+						configChanged = true;
+						break;
+					}
+					case nameof(ClientRequestLifetime) when double.Clamp(newPropKvp.Value.GetInt32(), 0, double.MaxValue) != ClientRequestLifetime.TotalSeconds:
+					{
+						ClientRequestLifetime = TimeSpan.FromSeconds(double.Clamp(newPropKvp.Value.GetInt32(), 0, double.MaxValue));
 						configChanged = true;
 						break;
 					}

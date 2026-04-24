@@ -62,9 +62,10 @@ public static class ClientEndpoints
 			var registrationKeyString = Convert.ToBase64String(registrationKey);
 
 			// We'll store pending requests here before accepting or rejecting them
-			Directory.CreateDirectory(Path.Combine(SecurityStores.BaseSecurityPath, "requests"));
+			Directory.CreateDirectory(Path.Combine(SecurityStores.BaseSecurityPath, "requests", "registrationRequests"));
 
 			string clientNameSlug = ParsingMethods.ConvertTextToSlug(clientName);
+			var now = DateTimeOffset.UtcNow;
 			var registrationEntry = new Dictionary<string, dynamic?>
 			{
 				["FriendlyName"] = clientName,
@@ -79,10 +80,11 @@ public static class ClientEndpoints
 				["RequestedPermissions"] = requestedPermissions ?? new Dictionary<string, string?>(),
 
 				["RequestingIp"] = context.Connection.RemoteIpAddress?.ToString(),
-				["TimeRequested"] = DateTimeOffset.UtcNow,
+				["TimeRequested"] = now,
+				["ExpirationTime"] = now + ApiConfig.ApiConfiguration.ClientRequestLifetime,
 				["RegistrationKey"] = registrationKeyString
 			};
-			string registrationEntryPath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", $"{clientNameSlug}.json");
+			string registrationEntryPath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "registrationRequests", $"{clientNameSlug}.json");
 
 			await File.WriteAllTextAsync(registrationEntryPath, JsonSerializer.Serialize(registrationEntry, ApiConfig.SofaJsonSerializerOptions));
 			Clients.AddPendingClient(registrationKeyString, clientObject);
@@ -90,7 +92,7 @@ public static class ClientEndpoints
 
 			Logs.LogBook.Write(new (StreamId.Notice, "Client Registration", $"Client '{clientName}' pending registration. To approve, present it with the registration key from '{registrationEntryPath}'"));
 
-			return Results.Accepted($"{BaseClientUrl}/me/confirm", new { message = "Client registration pending. Please provide the registration key at the confirmation endpoint.", ttl = Clients.PendingTtlSeconds, pendingId = clientObject.Guid });
+			return Results.Accepted($"{BaseClientUrl}/me/confirm", new { message = "Client registration pending. Please provide the registration key at the confirmation endpoint.", ttl = ApiConfig.ApiConfiguration.ClientRequestLifetime, pendingId = clientObject.Guid });
 		}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
 		.WithSummary("Registers a client with this Sofa instance.")
@@ -125,8 +127,8 @@ public static class ClientEndpoints
 
 			if (Clients.PendingClients.TryGetValue(registrationKey, out var pendingClient))
 			{
-				Clients.RemovePendingClient(registrationKey, targetClient);
 				pendingClient.Unpause();
+				Clients.RemovePendingClient(registrationKey, targetClient);
 				return Results.NoContent();
 			}
 
@@ -240,7 +242,7 @@ public static class ClientEndpoints
 		}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
 		.Produces(StatusCodes.Status304NotModified)
-		.WithSummary("Edit a client's details.")
+		.WithSummary("Edit a client's details. Cannot edit permissions (from this endpoint) or a client's GUID.")
 		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to edit the currently connected client.")
 		.WithTags("Auth", "Client")
 		.WithName("EditClient")
@@ -275,7 +277,7 @@ public static class ClientEndpoints
 		.WithName("GetClientInfo")
 		.RequireAuthorization("Client");
 
-		app.MapPatch($"{BaseClientUrl}/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToAdd) =>
+		app.MapPut($"{BaseClientUrl}/{{targetClientId}}/permissionRequest", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, string?> permissionsToModify, bool instantApprove = false) =>
 		{
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 			var targetClient = connectedClient;
@@ -283,35 +285,62 @@ public static class ClientEndpoints
 			{
 				Clients.TryFetchValidClient(targetClientGuid, out targetClient);
 			}
+			else if (targetClientId != "me")
+			{
+				return Results.BadRequest(new { message = "Invalid target client ID" });
+			}
 			if (targetClient is null) return Results.NotFound();
-			if (targetClient == connectedClient)
+
+			if (targetClient != connectedClient &&
+			    !connectedClient.HasPermission(new("clients", ["file-permission-request"])))
 			{
-				if (!SecurityMethods.ChallengePermission(context, new("admin", ["admin"])))
+				return Results.StatusCode(StatusCodes.Status403Forbidden);
+			}
+			if (instantApprove)
+			{
+				// Clients cannot insta-confirm their own CPRs if they're not admins.
+				// Clients must have the `clients:approve-permission-requests` permission to approve other CPRs
+				if (targetClient == connectedClient && !connectedClient.HasPermission(new("admin", ["admin"]))
+				    || !connectedClient.HasPermission(new("clients", ["approve-permission-requests"])))
+				{
 					return Results.StatusCode(StatusCodes.Status403Forbidden);
+				}
 			}
 
-			bool changesMade = false;
-			foreach (var (permission, scopes) in permissionsToAdd)
+
+			ClientPermissionRequest cpr;
+			try
 			{
-				var sofaPermission = new Permissions.SofaPermission(permission, scopes);
-				if (!connectedClient.HasPermission(sofaPermission)) continue;
+				cpr = new ClientPermissionRequest(permissionsToModify);
+			}
+			catch (ArgumentException e)
+			{
+				return Results.BadRequest(new { message = e.Message });
+			}
+			targetClient.SetPermissionRequest(cpr);
 
-				targetClient.AddPermission(sofaPermission);
-				changesMade = true;
+			if (instantApprove)
+			{
+				targetClient.ApplyRequestedPermissions(cpr.PermissionRequestKey);
+				return Results.NoContent();
 			}
 
-			if (changesMade) SecurityStores.SaveClient(targetClient);
-			return changesMade ? Results.NoContent() : Results.StatusCode(StatusCodes.Status304NotModified);
+			return Results.Accepted($"{BaseClientUrl}/me/permissionRequest",
+				new
+				{
+					message = "Client permission request is pending. Please provide the permission request key at the confirmation endpoint or wait until another client approves it.",
+					ttl = ApiConfig.ApiConfiguration.ClientRequestLifetime
+				});
 		}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
 		.Produces(StatusCodes.Status304NotModified)
-		.WithSummary("Add one or more permissions to a client.")
-		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to add permissions to the currently connected client.")
+		.WithSummary("File a Client Permission Request to modify one or more permissions of a client.")
+		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to file a CPR for the currently connected client.")
 		.WithTags("Auth", "Client")
-		.WithName("AddClientPermissions")
-		.RequireAuthorization("MultiAuth", "clients:edit-permissions");
+		.WithName("FileNewClientPermissionRequest")
+		.RequireAuthorization("MultiAuth");
 
-		app.MapDelete($"{BaseClientUrl}/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToRemove) =>
+		app.MapDelete($"{BaseClientUrl}/{{targetClientId}}/permissionRequest", (HttpContext context, string targetClientId) =>
 		{
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 			var targetClient = connectedClient;
@@ -319,39 +348,33 @@ public static class ClientEndpoints
 			{
 				Clients.TryFetchValidClient(targetClientGuid, out targetClient);
 			}
+			else if (targetClientId != "me")
+			{
+				return Results.BadRequest(new { message = "Invalid target client ID" });
+			}
 			if (targetClient is null) return Results.NotFound();
-			if (targetClient == connectedClient)
+
+			if (targetClient != connectedClient && !connectedClient.HasPermission(new("clients", ["clear-permission-requests"])))
 			{
-				if (!SecurityMethods.ChallengePermission(context, new("admin", ["admin"])))
-					return Results.StatusCode(StatusCodes.Status403Forbidden);
+				return Results.StatusCode(StatusCodes.Status403Forbidden);
 			}
 
-			bool changesMade = false;
-			foreach (var (permission, scopes) in permissionsToRemove)
-			{
-				var sofaPermission = new Permissions.SofaPermission(permission, scopes);
-				if (!connectedClient.HasPermission(sofaPermission) || !targetClient.PermissionList.ContainsKey(permission)) continue;
-
-				targetClient.RemovePermission(sofaPermission);
-				changesMade = true;
-			}
-
-			if (changesMade) SecurityStores.SaveClient(targetClient);
-			return changesMade ? Results.NoContent() : Results.StatusCode(StatusCodes.Status304NotModified);
+			targetClient.ClearRequestedPermissions();
+			return Results.NoContent();
 		}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
-		.Produces(StatusCodes.Status304NotModified)
-		.WithSummary("Remove one or more permissions from a client.")
-		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to remove permissions from the currently connected client.")
+		.Produces(StatusCodes.Status403Forbidden)
+		.WithSummary("Clear a client's penidng Client Permission Request.")
+		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to clear the currently connected client's CPR. " +
+		                 "If the target client is different from the currently connected client, the connected client must have the `clients:clear-permission-requests` permission.")
 		.WithTags("Auth", "Client")
-		.WithName("RemoveClientPermissions")
-		.RequireAuthorization("MultiAuth", "clients:edit-permissions");
+		.WithName("RemoveClientPermissionRequest")
+		.RequireAuthorization("MultiAuth");
 
-		app.MapPut($"{BaseClientUrl}/{{targetClientId}}/permissions", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, List<string>> permissionsToSet) =>
+		app.MapGet($"{BaseClientUrl}/{{targetClientId}}/permissionRequest", (HttpContext context, string targetClientId) =>
 		{
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 			var targetClient = connectedClient;
-
 			if (Guid.TryParse(targetClientId, out var targetClientGuid))
 			{
 				Clients.TryFetchValidClient(targetClientGuid, out targetClient);
@@ -361,34 +384,96 @@ public static class ClientEndpoints
 				return Results.BadRequest("Invalid target client ID");
 			}
 
-			if (targetClient is null) return Results.NotFound();
-			if (targetClient == connectedClient)
+			if (targetClient is null) return Results.NotFound( new { message = "No client with that GUID exists." });
+			if (targetClient != connectedClient && !connectedClient.HasPermission(new("clients", ["view-permission-requests"])))
 			{
-				if (!SecurityMethods.ChallengePermission(context, new("admin", ["admin"])))
-					return Results.StatusCode(StatusCodes.Status403Forbidden);
+				return Results.StatusCode(StatusCodes.Status403Forbidden);
 			}
 
-			foreach (var (permission, scopes) in permissionsToSet)
+			if (targetClient.PendingPermissionRequest is null)
 			{
-				var sofaPermission = new Permissions.SofaPermission(permission, scopes);
-
-				if (!connectedClient.HasPermission(sofaPermission))
-					return Results.BadRequest(new { message = "All permissions must be in the list of connected client's permissions.", missingPermission = sofaPermission.ToString() });
+				return Results.NoContent();
 			}
 
-			targetClient.SetPermissions(permissionsToSet);
-			SecurityStores.SaveClient(targetClient);
+			bool showKey = connectedClient.HasPermission(new("clients", ["approve-permission-requests"]));
+			return Results.Json(targetClient.PendingPermissionRequest.ToDictionary(showKey));
+		}).Produces(StatusCodes.Status204NoContent)
+		.Produces(StatusCodes.Status400BadRequest)
+		.Produces(StatusCodes.Status404NotFound)
+		.Produces(StatusCodes.Status403Forbidden)
+		.WithSummary("View a client's pending permission request, if any.")
+		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to set the currently connected client's permissions. " +
+		                 "204 No Content will be returned if no CPR exists for that client.\n" +
+		                 "If the connecting client has the `clients:approve-permission-requests` permission, the key of the CPR will be shown, otherwise, it will be set to null.")
+		.WithTags("Auth", "Client")
+		.WithName("ViewClientPermissionRequest")
+		.RequireAuthorization("MultiAuth");
+
+		app.MapPost($"{BaseClientUrl}/{{targetClientId}}/permissionRequest", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, string>? permissionRequestKeyDict) =>
+		{
+			if (permissionRequestKeyDict is null ||
+			    !permissionRequestKeyDict.TryGetValue("permissionRequestKey", out var permissionRequestKey))
+				return Results.BadRequest("No permission request key was provided.");
+
+			var keyBytes = new byte[32];
+			if (!Convert.TryFromBase64String(permissionRequestKey, keyBytes, out _))
+			{
+				return Results.BadRequest("Invalid permission request key. Must be base64 encoded.");
+			}
+			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
+			var targetClient = connectedClient;
+			if (Guid.TryParse(targetClientId, out var targetClientGuid))
+			{
+				Clients.TryFetchValidClient(targetClientGuid, out targetClient);
+			}
+			else if (targetClientId != "me")
+			{
+				return Results.BadRequest("Invalid target client ID");
+			}
+			if (targetClient is null) return Results.NotFound( new { message = "No client with that GUID exists." });
+
+			// If the client is trying to approve another client's request, it must have the `clients:approve-permission-requests` permission.
+			if (targetClient != connectedClient && !connectedClient.HasPermission(new ("clients", ["approve-permission-requests"])))
+			{
+				return Results.StatusCode(StatusCodes.Status403Forbidden);
+			}
+
+			if (targetClient.PendingPermissionRequest is null)
+			{
+				return Results.BadRequest(new { message = "No pending permission request exists for this client." });
+			}
+			try
+			{
+				targetClient.ApplyRequestedPermissions(keyBytes);
+			}
+			catch (InvalidOperationException)
+			{
+				return Results.BadRequest(new
+				{
+					message =
+						"The targeted client does not have a pending permission request with that key, or it expired."
+				});
+			}
+			catch (ArgumentException)
+			{
+				return Results.BadRequest(new
+				{
+					message =
+						"The client permission request contained an invalid permission. Please check the request and try again."
+				});
+			}
+
 			return Results.NoContent();
 		}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
-		.Produces(StatusCodes.Status304NotModified)
-		.WithSummary("Replace a client's permissions with the given list.")
+		.WithSummary("Approve a client's pending permission request, if any.")
 		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to set the currently connected client's permissions. " +
-		                 "Body must include the new list of permissions in a { \"<PermissionString>\": [\"<scope>\"] } format.\n" +
-		                 "This will return a 400 Bad Request if any of the permissions are not in the list of connected client's permissions.")
+		                 "permissionRequestKey must be set to the CPR's key, encoded in base64.\n" +
+		                 "If the connecting client is trying to approve its own CPR, it must have the admin permission. " +
+		                 "If it's trying to approve another client's CPR, it must have the `clients:approve-permission-requests` permission.")
 		.WithTags("Auth", "Client")
-		.WithName("SetClientPermissions")
-		.RequireAuthorization("MultiAuth", "clients:edit-permissions");
+		.WithName("ApproveClientPermissionRequest")
+		.RequireAuthorization("MultiAuth");
 
 		app.MapGet($"{BaseClientUrl}/list", () =>
 		{

@@ -9,11 +9,11 @@ public sealed class LogEntry
 	// 1 byte: Stream ID
 	// 2 bytes: Content Length
 	// 8 bytes: Time Written
-	// (1-30) bytes: Module Name
+	// (1-32) bytes: Module Name
 	// STX (Start of Text) byte
 	// {Content Length} bytes: Content (1-1024 bytes/chars)
 	private const ushort MaxContentLength = 1024;
-	private const byte MaxModuleNameLength = 30;
+	private const byte MaxModuleNameLength = 32;
 
 	public LogEntry(StreamId streamId, string moduleName, string content, DateTime? timeWritten = null)
 	{

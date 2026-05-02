@@ -339,7 +339,7 @@ public static class StatsApi
 			var rawOutput = await ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getMem.sh", ["All"], shellTimeout);
 			if (!rawOutput.IsSuccess)
 			{
-				throw new Exception($"Failed to get RAM data from getCpu.sh ({rawOutput.ExitCode})");
+				throw new Exception($"Failed to get RAM data from getMem.sh ({rawOutput.ExitCode})");
 			}
 
 			string[] outputArray = rawOutput.StandardOutput.Split('|');

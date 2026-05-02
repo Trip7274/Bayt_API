@@ -22,7 +22,7 @@ case $STAT in
     ;;
 
 	"Used")
-		REGEX="Active:\s+\K[0-9]+"
+		REGEX="\AActive:\s+\K[0-9]+"
 	;;
 
 	"Free")
@@ -36,7 +36,7 @@ case $STAT in
 
 	"All")
 		TOTALREGEX="MemTotal:\s+\K[0-9]+"
-        USEDREGEX="Active:\s+\K[0-9]+"
+        USEDREGEX="\AActive:\s+\K[0-9]+"
         AVAILABLEREGEX="MemAvailable:\s+\K[0-9]+"
 
 		OUTPUT="$(cat /proc/meminfo)"

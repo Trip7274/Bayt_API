@@ -126,7 +126,7 @@ public static class ParsingMethods
 	[return: NotNullIfNotNull(nameof(input))]
 	public static string? SanitizeString(string? input)
 	{
-		if (string.IsNullOrWhiteSpace(input)) return input;
+		if (input is null) return null;
 
 		var valueStringBuilder = new StringBuilder();
 

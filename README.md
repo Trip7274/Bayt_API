@@ -1,5 +1,5 @@
 <h1 align="center">Sofa</h1>
-<p align="center">A single backend for all your homeserver's needs.</p>
+<p align="center">A single backend for all your homeserver’s needs.</p>
 
 Sofa aims to be a simple REST API to provide useful statistics and controls relating to your homeserver.
 This provides a stable, yet powerful base for your preferred frontend,
@@ -12,7 +12,7 @@ The word "Sofa" can be interperted in four ways:
 3. `50FA`: "Sofa" as hex!
 4. `Pú`: The hex `50 FA` mapped to ASCII. This is reserved exclusively for goofy uses.
 
-Sofa is still in active development and is not yet ready for everyday use.
+Sofa is still in active development and isn’t yet ready for everyday use.
 
 ## Planned Features
 - [X] Provide general system information
@@ -30,12 +30,12 @@ please do help out if you have the experience!)
     - [X] Docker image management endpoints
     - [X] DockerHub integration (for searching, checking, and pulling images)
 	- [X] Sofa log streaming endpoints
-    - [X] SSE version of stats endpoint
+    - [X] SSE version of the statistics endpoint
 - [X] Auth (authorizing both the frontend "client" and user)
 - [ ] Detailed permissions
 	- [X] Silo arbitrary data folder to each client
 	- [ ] Add a permission to manage clients (with a dangerous disclaimer)
-	- [ ] Add a way to revoke clients without relying on any clients ()
+	- [ ] Add a way to revoke clients without relying on any clients
 - [ ] API documentation
 - [ ] Binary distribution across different Linux repos
 - [ ] Docker container implementation (if possible)
@@ -55,30 +55,30 @@ but the default scripts require the following, depending on your GPU:
 	- `nvidia-smi`
 - Intel GPU Systems: (Read note below)
 	- `intel-gpu-tools` (must run `setcap cap_perfmon=+ep /usr/bin/intel_gpu_top` as root beforehand)
-    - [NVTOP](https://github.com/Syllo/nvtop) (optional, but strongly recommended)
+    - [NVTOP](https://github.com/Syllo/nvtop) (optional but strongly recommended)
 - AMD GPU Systems:
 	- [amdgpu_top](https://github.com/Umio-Yasuno/amdgpu_top)
 
 Along with utilites you probably already have, such as `bash`, `grep` (GNU), `head`, `jq`, `net-tools`, and `df`.
 
-`libmsquic` (sometimes called `msquic`) is needed for QUIC support, but is not necessary to run Sofa.
+`libmsquic` (sometimes called `msquic`) is needed for QUIC support, but isn’t necessary to run Sofa.
 
 > [!IMPORTANT]
 > Systems with Intel GPUs and at least one other GPU (of any brand) may face some issues regarding duplicated GPU names/frequencies.<br/>
-> This is due to the default script's inability to specify which GPU to prompt NVTOP for.
+> This is due to the default script’s inability to specify which GPU to prompt NVTOP for.
 >
 > I *am* looking into resolving this, however.<br/>
-> If you feel like you can help, please take a look at [NVTOP's usage in getGpu.sh](https://github.com/Trip7274/Sofa/blob/main/Sofa_API/scripts/getGpu.sh#L321)
+> If you feel like you can help, please take a look at [NVTOP’s usage in getGpu.sh](https://github.com/Trip7274/Sofa/blob/main/Sofa_API/scripts/getGpu.sh#L321)
 
 ---
 I mainly test this on CachyOS (Arch-based), but I do try to use as many distro-agnostic features as I can in the default scripts.
 If you encounter any issues on other distros, feel free to open an issue!
 
 This project also uses shell scripts to fetch most system stats (located in the `Sofa_API/scripts` directory),
-so you shouldn't need C#-specific knowledge to troubleshoot any of the system-facing interactions.
+so you shouldn’t need C#-specific knowledge to troubleshoot any of the system-facing interactions.
 Do be sure to output the data in the appropriate format, though!
 
-You can find the proper format and documentation in each script's head.
+You can find the proper format and documentation in each script’s head.
 
 ## Installation and usage
 Sofa is still in an early stage, thus the compiled binaries are unavailable.
@@ -91,13 +91,13 @@ Make sure you have the [.NET Core 10 SDK](https://learn.microsoft.com/en-us/dotn
 2. Switch to the appropriate directory using `cd Sofa_API/Sofa_API/`
 3. Compile by running `dotnet build --configuration Release`
 4. Switch to the output directory using `cd bin/Release/net10.0/linux-x64/`
-5. Set up user permissions by running `./SetupSofa.sh` \[Optional, used for a few endpoints and dependency checks\]
+5. Set up user permissions by running `./SetupSofa.sh` (Optional, used for a few endpoints and dependency checks)
 6. Execute the server binary using `./Sofa_API`
 
 If you encounter any issues or feel like this README can be improved, feel free to open an issue!
 
 ### Configuration
-Sofa's configuration can be located in a few places depending on your environment.
+Sofa’s configuration can be located in a few places depending on your environment.
 The best way to find it is to run Sofa and check the output. <br/>
 However, by default, it can be found in either:
 - `$XDG_CONFIG_HOME/sofaConfig/ApiConfiguration.json`

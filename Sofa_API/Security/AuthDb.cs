@@ -8,12 +8,39 @@ using MessagePack;
 
 namespace Sofa_API.Security;
 
-public abstract class HasPermissions
+public abstract class HasPermissions : IEquatable<HasPermissions>
 {
-	public abstract Dictionary<string, List<string>> PermissionList { get; protected set; }
+	protected HasPermissions(string name, Guid guid, Dictionary<string, List<string>> permissions, bool isPaused)
+	{
+		if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name cannot be empty", nameof(name));
+		if (name.Length > 128) throw new ArgumentException("Name is too long", nameof(name));
+
+		Name = ParsingMethods.SanitizeString(name);
+		PermissionList = permissions;
+		Guid = guid;
+		IsPaused = isPaused;
+	}
+
+	public Dictionary<string, List<string>> PermissionList { get; protected set; }
+	public Guid Guid { get; }
+	public string Name { get; protected set; }
+	public bool IsPaused { get; protected set; }
+	public virtual bool IsActive { get; protected set; }
+
+	[IgnoreMember]
+	public string NameSlug
+	{
+		get
+		{
+			field ??= ParsingMethods.ConvertTextToSlug(Name);
+			return field;
+		}
+	}
+
 
 	public bool HasPermission(Permissions.SofaPermission permissionRequirement)
 	{
+		if (IsPaused || !IsActive) return false;
 		if (PermissionList.ContainsKey("admin")) return true;
 
 		if (PermissionList.Count == 0 || !PermissionList.TryGetValue(permissionRequirement.PermissionString, out var userPermissionString)) return false;
@@ -22,7 +49,6 @@ public abstract class HasPermissions
 
 		return permissionRequirement.Allows(userPermission.PermPowers);
 	}
-
 	public void AddPermission(Permissions.SofaPermission permission)
 	{
 		if (PermissionList.TryGetValue(permission.PermissionString, out var list))
@@ -47,6 +73,7 @@ public abstract class HasPermissions
 	{
 		PermissionList = permissions;
 	}
+
 
 	public static HasPermissions? FetchRequester(Guid identifier)
 	{
@@ -77,31 +104,81 @@ public abstract class HasPermissions
 		requester = null;
 		return false;
 	}
+
+
+	public void Pause()
+	{
+		IsPaused = true;
+		SaveObject();
+	}
+	public void Unpause()
+	{
+		IsPaused = false;
+		SaveObject();
+	}
+	private void SaveObject()
+	{
+		if (GetType() == typeof(User))
+		{
+			SecurityStores.UserStores.SaveUser((User) this);
+		}
+		else if (GetType() == typeof(Client))
+		{
+			SecurityStores.ClientStores.SaveClient((Client) this);
+		}
+		else
+		{
+			throw new InvalidOperationException("This method is not supported for this type of object.");
+		}
+	}
+
+
+	public static bool operator ==(HasPermissions? left, HasPermissions? right)
+	{
+		if (left is null && right is null) return true;
+		if (left is null || right is null) return false;
+
+
+		return ReferenceEquals(left, right) || left.GetHashCode() == right.GetHashCode();
+	}
+	public static bool operator !=(HasPermissions? left, HasPermissions? right) => !(left == right);
+	public bool Equals([NotNullWhen(true)] HasPermissions? other)
+	{
+		if (other is null) return false;
+
+		return this == other;
+	}
+	public override bool Equals([NotNullWhen(true)] object? obj)
+	{
+		return obj is HasPermissions hasPermissionsObj && Equals(hasPermissionsObj);
+	}
+	public override int GetHashCode() => HashCode.Combine(GetType(), Guid);
 }
 
 [MessagePackObject(true, AllowPrivate = true)]
-public sealed partial class User : HasPermissions, IEquatable<User>
+public sealed partial class User : HasPermissions
 {
 	[SerializationConstructor]
-	private User (string username, string? profilePictureUrl, Guid guid, byte[] password, byte[] salt, Dictionary<string, List<string>> permissionList, bool isPaused)
+	private User (string name, string? profilePictureUrl, Guid guid, byte[] password, byte[] salt,
+		Hashing.PasswordAttributes attributes, Dictionary<string, List<string>> permissionList, bool isPaused)
+		: base(name, guid, permissionList, isPaused)
 	{
 		if (password.Length != Hashing.HashLength) throw new ArgumentException("Password is invalid.", nameof(password));
 		if (salt.Length != Hashing.SaltLength) throw new ArgumentException("Salt is invalid", nameof(salt));
 
 		// Checks done
 
-		Username = username;
 		ProfilePictureUrl = profilePictureUrl;
-		Guid = guid;
 		Password = password;
 		Salt = salt;
-		PermissionList = permissionList;
-		IsPaused = isPaused;
+		Attributes = attributes;
 	}
-	public User(string username, string password, string? profilePictureUrl, Dictionary<string, List<string>>? permissions = null, bool isPaused = false)
+	public User(string username, string password, string? profilePictureUrl,
+		Dictionary<string, List<string>>? permissions = null, bool isPaused = false)
+		: base(username, Guid.NewGuid(), permissions ?? [], isPaused)
 	{
 		if (Users.DoesUserExist(username)) throw new ArgumentException("Username already exists", nameof(username));
-		if (username.Length > 32) throw new ArgumentException("Username too long", nameof(username));
+		if (Users.DoesUserSlugExist(ParsingMethods.ConvertTextToSlug(username))) throw new ArgumentException("A similar username already exists", nameof(username));
 		if (password.Length > 1024) throw new ArgumentException("Password too long", nameof(password));
 
 		profilePictureUrl = ParsingMethods.SanitizeString(profilePictureUrl);
@@ -111,40 +188,24 @@ public sealed partial class User : HasPermissions, IEquatable<User>
 
 		password = ParsingMethods.SanitizeString(password);
 
-		Username = ParsingMethods.SanitizeString(username);
 		ProfilePictureUrl = profilePictureUrl;
-		Guid = Guid.NewGuid();
-
 		var hashedPassword = Hashing.HashPassword(password, Guid, out var salt, out var attributes);
 		Password = hashedPassword;
 		Salt = salt;
 		Attributes = attributes;
-
-		if (permissions is not null)
-		{
-			PermissionList = permissions;
-		}
-		IsPaused = isPaused;
 	}
 
-	public string Username { get; private set; }
-
-	public Guid Guid { get; }
-	public bool IsPaused { get; private set; }
 	/// <summary>
 	/// A publicly accessible URL to the user's profile picture.
 	/// </summary>
 	public string? ProfilePictureUrl { get; set; }
-
-
 	/// <summary>
 	/// The user's hashed password.
 	/// </summary>
 	public byte[] Password { get; private set; }
 	public byte[] Salt { get; private set; }
 	public Hashing.PasswordAttributes Attributes { get; private set; }
-
-	public override Dictionary<string, List<string>> PermissionList { get; protected set; } = [];
+	public override bool IsActive => true;
 
 
 	public bool Edit(Dictionary<string, string?> changes)
@@ -154,12 +215,12 @@ public sealed partial class User : HasPermissions, IEquatable<User>
 		{
 			switch (key)
 			{
-				case nameof(Username):
+				case nameof(Name):
 				{
-					if (string.IsNullOrWhiteSpace(value) || Username == value)
+					if (string.IsNullOrWhiteSpace(value) || Name == value)
 						continue;
 
-					Username = ParsingMethods.SanitizeString(value);
+					Name = ParsingMethods.SanitizeString(value);
 					break;
 				}
 				case nameof(ProfilePictureUrl):
@@ -202,73 +263,36 @@ public sealed partial class User : HasPermissions, IEquatable<User>
 
 			changesMade = true;
 		}
-		if (changesMade) SecurityStores.SaveUser(this);
+		if (changesMade) SecurityStores.UserStores.SaveUser(this);
 		return changesMade;
 	}
-	public void Pause() => IsPaused = true;
-	public void Unpause() => IsPaused = false;
 
 	public Dictionary<string, dynamic?> ToDictionary()
 	{
 		return new()
 		{
-			{ nameof(Username), Username },
+			{ nameof(Name), Name },
 			{ nameof(ProfilePictureUrl), ProfilePictureUrl },
-			{ nameof(Guid), Guid.ToString() },
+			{ nameof(Guid), Guid },
 			{ nameof(IsPaused), IsPaused },
 			{ nameof(PermissionList), PermissionList }
 		};
 	}
-
-
-	public static bool operator ==(User? left, User? right)
-	{
-		if (left is null && right is null) return true;
-		if (left is null || right is null) return false;
-
-		return left.Guid == right.Guid;
-	}
-	public static bool operator !=(User? left, User? right)
-	{
-		if (left is null && right is null) return false;
-		if (left is null || right is null) return true;
-
-		return left.Guid != right.Guid;
-	}
-	public bool Equals(User? other)
-	{
-		if (other is null) return false;
-		return ReferenceEquals(this, other) || Guid.Equals(other.Guid);
-	}
-	public override bool Equals(object? obj)
-	{
-		return ReferenceEquals(this, obj) || obj is User other && Equals(other);
-	}
-	public override int GetHashCode()
-	{
-		return Guid.GetHashCode();
-	}
 }
 [MessagePackObject(true, AllowPrivate = true)]
-public sealed partial class Client : HasPermissions, IEquatable<Client>
+public sealed partial class Client : HasPermissions
 {
 	[SerializationConstructor]
-	private Client (string clientName, string thumbprint, Guid guid, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false, bool hasAcknowledgedFutureCert = false, ClientPermissionRequest? pendingPermissionRequest = null)
+	private Client(string name, string thumbprint, Guid guid, Dictionary<string, List<string>> permissionList,
+		bool isPaused, bool hasAcknowledgedFutureCert,
+		ClientPermissionRequest? pendingPermissionRequest, bool isActive) : base(name, guid, permissionList, isPaused)
 	{
-		if (string.IsNullOrWhiteSpace(clientName))
-			throw new ArgumentException("Client name cannot be empty", nameof(clientName));
-
 		if (thumbprint.Length != 64) throw new ArgumentException("Invalid thumbprint", nameof(thumbprint));
-		if (clientName.Length > 128) throw new ArgumentException("Client name too long", nameof(clientName));
 
 		// Checks done
 
-		ClientName = ParsingMethods.SanitizeString(clientName);
-
 		Thumbprint = thumbprint;
-		Guid = guid;
-		if (permissionList is not null) PermissionList = permissionList;
-		IsPaused = isPaused;
+		IsActive = isActive;
 		HasAcknowledgedFutureCert = hasAcknowledgedFutureCert;
 		PendingPermissionRequest = pendingPermissionRequest;
 
@@ -284,29 +308,18 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 			}
 		}
 	}
-	public Client (string clientName, string thumbprint, Dictionary<string, List<string>>? permissionList = null, bool isPaused = false)
+	public Client (string clientName, string thumbprint, Dictionary<string, List<string>>? permissionList = null,
+		bool isPaused = false, bool isActive = false) : base(clientName, Guid.NewGuid(), permissionList ?? [], isPaused)
 	{
-		if (string.IsNullOrWhiteSpace(clientName))
-			throw new ArgumentException("Client name cannot be empty", nameof(clientName));
+		if (Clients.DoesClientSlugExist(ParsingMethods.ConvertTextToSlug(clientName)))
+			throw new ArgumentException("Client name already exists", nameof(clientName));
 
 		if (thumbprint.Length != 64) throw new ArgumentException("Invalid thumbprint", nameof(thumbprint));
-		if (clientName.Length > 128) throw new ArgumentException("Client name too long", nameof(clientName));
 
 		// Checks done
 
-		ClientName = ParsingMethods.SanitizeString(clientName);
-
 		Thumbprint = thumbprint;
-		Guid = Guid.NewGuid();
-		if (permissionList is not null && permissionList.Count > 0)
-		{
-			// Convert all permissionStrings and permissionPowers to all-lowercase
-			PermissionList = permissionList.ToDictionary(
-				permissionString => permissionString.Key.ToLowerInvariant(),
-				permissionPowers => permissionPowers.Value.Select(permPower => permPower.ToLowerInvariant()).ToList()
-			);
-		}
-		IsPaused = isPaused;
+		IsActive = isActive;
 	}
 	static Client()
 	{
@@ -321,14 +334,9 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		};
 	}
 
-	public string ClientName { get; private set; }
 	public string Thumbprint { get; private set; }
-	public Guid Guid { get; }
-	public override Dictionary<string, List<string>> PermissionList { get; protected set; } = [];
-
-
-	public bool IsPaused { get; private set; }
-	public bool HasAcknowledgedFutureCert { get; internal set; }
+	public override bool IsActive { get; protected set; }
+	public bool HasAcknowledgedFutureCert { get; set; }
 
 
 	private static readonly JsonSerializerOptions CprJsonSerializerOptions;
@@ -337,14 +345,14 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 	public void SetPermissionRequest(ClientPermissionRequest request)
 	{
 		string directoryPath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "permissionUpdates");
-		string filePath = Path.Combine(directoryPath, $"{ClientNameSlug}.json");
+		string filePath = Path.Combine(directoryPath, $"{NameSlug}.json");
 
 		Directory.CreateDirectory(directoryPath);
 		File.Delete(filePath);
 
 		Dictionary<string, dynamic> cprDict = new()
 		{
-			["RequesterName"] = ClientName,
+			["RequesterName"] = Name,
 			["ID"] = Guid,
 			["CurrentPermissions"] = PermissionList.ToDictionary(
 				entry => entry.Key,
@@ -359,7 +367,7 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		File.WriteAllText(filePath, JsonSerializer.Serialize(cprDict, CprJsonSerializerOptions));
 		_ = Task.Run(() => Task.Delay(ApiConfig.ApiConfiguration.ClientRequestLifetime).ContinueWith(_ => ClearRequestedPermissions()));
 
-		SecurityStores.SaveClient(this);
+		SecurityStores.ClientStores.SaveClient(this);
 	}
 	public void ApplyRequestedPermissions(byte[] requestKey)
 	{
@@ -407,22 +415,22 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 	public void ClearRequestedPermissions()
 	{
 		var filePath =
-			Path.Combine(SecurityStores.BaseSecurityPath, "requests", "permissionUpdates", $"{ClientNameSlug}.json");
+			Path.Combine(SecurityStores.BaseSecurityPath, "requests", "permissionUpdates", $"{NameSlug}.json");
 
 		PendingPermissionRequest = null;
 		if (File.Exists(filePath))
 		{
 			File.Delete(filePath);
 		}
-		SecurityStores.SaveClient(this);
+		SecurityStores.ClientStores.SaveClient(this);
 	}
 
 
 	[IgnoreMember]
-	public string ClientNameSlug => ParsingMethods.ConvertTextToSlug(ClientName);
-	[IgnoreMember]
 	public bool CanRegister =>
-		!IsPaused && HasPermission(new Permissions.SofaPermission("client-management", ["register"]));
+		IsUsable && HasPermission(new Permissions.SofaPermission("client-management", ["register"]));
+	[IgnoreMember]
+	public bool IsUsable => IsActive && !IsPaused;
 
 
 	public bool Edit(Dictionary<string, string?> changes)
@@ -432,10 +440,10 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		{
 			switch (key)
 			{
-				case nameof(ClientName):
+				case nameof(Name):
 				{
-					if (string.IsNullOrWhiteSpace(value) || ClientName == value) continue;
-					ClientName = ParsingMethods.SanitizeString(value);
+					if (string.IsNullOrWhiteSpace(value) || Name == value) continue;
+					Name = ParsingMethods.SanitizeString(value);
 					break;
 				}
 
@@ -447,10 +455,9 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 
 			changesMade = true;
 		}
-		if (changesMade) SecurityStores.SaveClient(this);
+		if (changesMade) SecurityStores.ClientStores.SaveClient(this);
 		return changesMade;
 	}
-
 	public bool RefreshCertificate(X509Certificate2 newCertificate, [NotNullWhen(false)] out string? errorMessage)
 	{
 		errorMessage = null;
@@ -469,61 +476,32 @@ public sealed partial class Client : HasPermissions, IEquatable<Client>
 		}
 
 		Thumbprint = newCertificate.GetCertHashString(HashAlgorithmName.SHA256);
-		SecurityStores.SaveClient(this);
+		SecurityStores.ClientStores.SaveClient(this);
 		Clients.RefreshList();
 		return true;
 	}
-
-
-	internal void Unpause()
+	public void Activate()
 	{
-		IsPaused = false;
-		SecurityStores.SaveClient(this);
+		IsActive = true;
+		SecurityStores.ClientStores.SaveClient(this);
 	}
-	public bool Delete()
+	public void Delete(bool deleteFiles = true)
 	{
 		IsPaused = true;
-		return Clients.RemoveClient(this);
+		IsActive = false;
+		Clients.RemoveClient(this, !deleteFiles);
 	}
-	public Dictionary<string, dynamic?> ToDictionary()
+	public Dictionary<string, dynamic> ToDictionary()
 	{
 		return new()
 		{
-			{ nameof(ClientName), ClientName },
+			{ nameof(Name), Name },
 			{ nameof(Guid), Guid },
 			{ nameof(Thumbprint), Thumbprint },
+			{ nameof(IsActive), IsActive },
 			{ nameof(IsPaused), IsPaused },
 			{ nameof(PermissionList), PermissionList }
 		};
-	}
-
-
-	public static bool operator ==(Client? left, Client? right)
-	{
-		if (left is null && right is null) return true;
-		if (left is null || right is null) return false;
-
-		return left.Guid == right.Guid;
-	}
-	public static bool operator !=(Client? left, Client? right)
-	{
-		if (left is null && right is null) return false;
-		if (left is null || right is null) return true;
-
-		return left.Guid != right.Guid;
-	}
-	public bool Equals(Client? other)
-	{
-		if (other is null) return false;
-		return ReferenceEquals(this, other) || Guid.Equals(other.Guid);
-	}
-	public override bool Equals(object? obj)
-	{
-		return ReferenceEquals(this, obj) || obj is Client other && Equals(other);
-	}
-	public override int GetHashCode()
-	{
-		return Guid.GetHashCode();
 	}
 }
 
@@ -572,11 +550,14 @@ public static class Clients
 {
 	static Clients()
 	{
-		foreach (var client in SecurityStores.GetAllClients())
+		foreach (var client in SecurityStores.ClientStores.GetAllClients())
 		{
 			AvailableClients.Add(client.Guid, client);
 			AvailableClientThumbs.Add(client.Thumbprint);
+			AvailableClientSlugs.Add(client.NameSlug);
 		}
+
+		// Load previous registration requests, if any.
 
 		string requestDirPath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "registrationRequests");
 		if (!Directory.Exists(requestDirPath))
@@ -585,45 +566,50 @@ public static class Clients
 			return;
 		}
 
-		var lastAcceptableTime = DateTime.UtcNow - ApiConfig.ApiConfiguration.ClientRequestLifetime;
 		foreach (var checkedFilePath in Directory.EnumerateFiles(requestDirPath, "*", SearchOption.AllDirectories))
 		{
-			if (checkedFilePath.EndsWith(".json.failed")) continue;
-			if (!checkedFilePath.EndsWith(".json") || File.GetLastWriteTimeUtc(checkedFilePath) < lastAcceptableTime)
+			// As a preliminary check, make sure the file at least claims to be a JSON file, and delete previously failed-to-be-parsed entries.
+			if (checkedFilePath.EndsWith(".json.failed") || !checkedFilePath.EndsWith(".json"))
 			{
 				File.Delete(checkedFilePath);
 				continue;
 			}
 
-			Dictionary<string, JsonElement>? parsedJson;
 			try
 			{
-				parsedJson = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(checkedFilePath));
+				var parsedJson = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(checkedFilePath));
+				if (parsedJson is null)
+				{
+					throw new JsonException("Invalid JSON");
+				}
+
+				// Check if the request is too outdated and corresponds to an existing client.
+				var timeUntilExpiration = parsedJson["ExpirationTime"].GetDateTime().ToUniversalTime() - DateTime.UtcNow;
+				if (!TryFetchValidClient(parsedJson["ID"].GetGuid(), out var client, true, true) || timeUntilExpiration < TimeSpan.Zero)
+				{
+					// If the client's request expired, delete its object from the stores as well as the JSON file.
+					if (client is not null && !client.IsActive)
+					{
+						RemoveClient(client, false);
+					}
+					File.Delete(checkedFilePath);
+					continue;
+				}
+
+				string registrationKey = parsedJson["RegistrationKey"].GetString()!;
+
+				AddPendingClient(registrationKey, client, timeUntilExpiration);
 			}
 			catch (Exception e)
 			{
-				Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: {e.Message}"));
+				Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: {e.Message}. This JSON will be deleted on the next restart."));
 				File.Move(checkedFilePath, checkedFilePath + ".failed");
-				continue;
 			}
-			if (parsedJson is null)
-			{
-				Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: Could not parse JSON"));
-				File.Move(checkedFilePath, checkedFilePath + ".failed");
-				continue;
-			}
-
-			if (parsedJson["TimeRequested"].GetDateTime() < lastAcceptableTime || !TryFetchValidClient(parsedJson["ID"].GetGuid(), out var client, true))
-			{
-				File.Delete(checkedFilePath);
-				continue;
-			}
-
-			PendingClients.Add(parsedJson["RegistrationKey"].GetString()!, client);
 		}
 	}
 	private static readonly Dictionary<Guid, Client> AvailableClients = [];
 	private static readonly HashSet<string> AvailableClientThumbs = [];
+	private static readonly HashSet<string> AvailableClientSlugs = [];
 
 
 	public static Dictionary<string, Client> PendingClients { get; } = [];
@@ -634,13 +620,12 @@ public static class Clients
 		PendingClients.Add(registrationKey, client);
 		_ = Task.Run(() => Task.Delay(ttl.Value).ContinueWith(_ => RemovePendingClient(registrationKey, client)));
 	}
-
 	public static void RemovePendingClient(string registrationKey, Client client)
 	{
 		PendingClients.Remove(registrationKey);
-		if (client.IsPaused) RemoveClient(client);
+		if (!client.IsActive) RemoveClient(client, false);
 
-		string requestFilePath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "registrationRequests", $"{client.ClientNameSlug}.json");
+		string requestFilePath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "registrationRequests", $"{client.NameSlug}.json");
 		if (File.Exists(requestFilePath))
 		{
 			File.Delete(requestFilePath);
@@ -648,13 +633,14 @@ public static class Clients
 	}
 
 
-	public static List<Dictionary<string, dynamic?>> FetchAllClients() =>
+	public static List<Dictionary<string, dynamic>> FetchAllClients() =>
 		AvailableClients.Select(client => client.Value.ToDictionary()).ToList();
 	public static int Count => AvailableClients.Count;
 
 	public static IEnumerable<Client> GetMasterClients => AvailableClients.Values.Where(client => client.CanRegister);
 
 	public static bool DoesClientExist(string thumbprint) => AvailableClientThumbs.Contains(thumbprint);
+	public static bool DoesClientSlugExist(string slug) => AvailableClientSlugs.Contains(slug);
 	public static bool DoesClientExist(Guid guid) => AvailableClients.ContainsKey(guid);
 
 	public static Client? FetchValidClient(string thumbprint)
@@ -670,12 +656,13 @@ public static class Clients
 	/// <param name="thumbprint">The SHA-256 thumbprint of the client's certificate.</param>
 	/// <param name="client">The client object, if found.</param>
 	/// <param name="allowPaused">Whether to count paused clients as valid. Defaults to false.</param>
+	/// <param name="allowInactive">Whether to count inactive clients as valid. Defaults to false.</param>
 	/// <returns>True if a valid client object is found.</returns>
 	/// <remarks>
 	/// Do note that the <c cref="client">client</c> parameter might be set, while the method still returned false. This means that, while a client was found, it was set to be paused. <br/><br/>
-	/// This method is less efficient than <see cref="TryFetchValidClient(Guid?, out Client?, bool)"/>, as it has to iterate through all clients, thus it should only be used when the other method is inapplicable.
+	/// This method is less efficient than <see cref="TryFetchValidClient(Guid?, out Client?, bool, bool)"/>, as it has to iterate through all clients, thus it should only be used when the other method is inapplicable.
 	/// </remarks>
-	public static bool TryFetchValidClient([NotNullWhen(true)] string? thumbprint, [NotNullWhen(true)] out Client? client, bool allowPaused = false)
+	public static bool TryFetchValidClient([NotNullWhen(true)] string? thumbprint, [NotNullWhen(true)] out Client? client, bool allowPaused = false, bool allowInactive = false)
 	{
 		if (string.IsNullOrWhiteSpace(thumbprint) || !DoesClientExist(thumbprint))
 		{
@@ -684,72 +671,76 @@ public static class Clients
 		}
 
 		client = AvailableClients.FirstOrDefault(client => client.Value.Thumbprint == thumbprint).Value;
-		return client is not null && (!client.IsPaused || allowPaused);
+		return client is not null && (!client.IsPaused || allowPaused) && (client.IsActive || allowInactive);
 	}
 
-	///  <summary>
-	///  Attempts to retrieve a valid client object with the provided client's GUID.
-	///  </summary>
-	///  <param name="guid">The GUID of the client to retrieve.</param>
-	///  <param name="client">The client object, if found.</param>
-	///  <param name="allowPaused">Whether to count paused clients as valid. Defaults to false.</param>
-	///  <returns>True if a valid client object is found and is not paused (or paused, if <c>allowPaused</c> is set).</returns>
-	///  <remarks>
-	///	 Do note that the <c cref="client">client</c> parameter might be set, while the method still returned false. This means that, while a client was found, it was set to be paused. <br/><br/>
-	///  This method is more efficient than <see cref="TryFetchValidClient(string?, out Client?, bool)"/>, as it does not have to iterate through all clients, thus it should be used whenever possible.
-	///  </remarks>
-	public static bool TryFetchValidClient([NotNullWhen(true)] Guid? guid, [NotNullWhen(true)] out Client? client, bool allowPaused = false)
+	///   <summary>
+	///   Attempts to retrieve a valid client object with the provided client's GUID.
+	///   </summary>
+	///   <param name="guid">The GUID of the client to retrieve.</param>
+	///   <param name="client">The client object, if found.</param>
+	///   <param name="allowPaused">Whether to count paused clients as valid. Defaults to false.</param>
+	///   <param name="allowInactive">Whether to count Inactive clients as calid. Defaults to false.</param>
+	///   <returns>True if a valid client object is found and is not paused (or paused, if <c>allowPaused</c> is set).</returns>
+	///   <remarks>
+	/// 	 Do note that the <c cref="client">client</c> parameter might be set, while the method still returned false. This means that, while a client was found, it was set to be paused. <br/><br/>
+	///   This method is more efficient than <see cref="TryFetchValidClient(string?, out Client?, bool, bool)"/>, as it does not have to iterate through all clients, thus it should be used whenever possible.
+	///   </remarks>
+	public static bool TryFetchValidClient([NotNullWhen(true)] Guid? guid, [NotNullWhen(true)] out Client? client, bool allowPaused = false, bool allowInactive = false)
 	{
-		if (guid is null || !DoesClientExist(guid.Value))
+		if (guid is null || !AvailableClients.TryGetValue(guid.Value, out client))
 		{
 			client = null;
 			return false;
 		}
 
-		client = AvailableClients.GetValueOrDefault(guid.Value);
-		return client is not null && (!client.IsPaused || allowPaused);
+		return (!client.IsPaused || allowPaused) && (client.IsActive || allowInactive);
 	}
 
 	public static void RefreshList()
 	{
 		AvailableClients.Clear();
 		AvailableClientThumbs.Clear();
+		AvailableClientSlugs.Clear();
 
-		foreach (var client in SecurityStores.GetAllClients())
+		foreach (var client in SecurityStores.ClientStores.GetAllClients())
 		{
 			AvailableClients.Add(client.Guid, client);
 			AvailableClientThumbs.Add(client.Thumbprint);
+			AvailableClientSlugs.Add(client.NameSlug);
 		}
 	}
 
 	public static void AddClient(Client client)
 	{
-		SecurityStores.SaveClient(client);
+		SecurityStores.ClientStores.SaveClient(client);
 
 		AvailableClientThumbs.Add(client.Thumbprint);
+		AvailableClientSlugs.Add(client.NameSlug);
 		AvailableClients.Add(client.Guid, client);
 	}
-	public static bool RemoveClient(Client client)
+	public static void RemoveClient(Client client, bool keepOtherStoreData)
 	{
-		if (!SecurityStores.RemoveClient(client)) return false;
-
+		SecurityStores.ClientStores.RemoveClient(client, keepOtherStoreData);
 		AvailableClientThumbs.Remove(client.Thumbprint);
+		AvailableClientSlugs.Remove(client.NameSlug);
 		AvailableClients.Remove(client.Guid);
-		return true;
 	}
 }
 public static class Users
 {
 	static Users()
 	{
-		foreach (var user in SecurityStores.GetAllUsers())
+		foreach (var user in SecurityStores.UserStores.GetAllUsers())
 		{
 			AvailableUsers.Add(user.Guid, user);
-			AvailableUsernames.Add(user.Username);
+			AvailableUsernames.Add(user.Name);
+			AvailableUsernameSlugs.Add(user.NameSlug);
 		}
 	}
 	private static readonly Dictionary<Guid, User> AvailableUsers = [];
 	private static readonly HashSet<string> AvailableUsernames = [];
+	private static readonly HashSet<string> AvailableUsernameSlugs = [];
 
 	public static List<Dictionary<string, dynamic?>> FetchAllUsers() =>
 		AvailableUsers.Select(user => user.Value.ToDictionary()).ToList();
@@ -757,6 +748,7 @@ public static class Users
 
 	public static bool DoesUserExist(Guid userId) => AvailableUsers.ContainsKey(userId);
 	public static bool DoesUserExist(string username) => AvailableUsernames.Contains(ParsingMethods.SanitizeString(username));
+	public static bool DoesUserSlugExist(string slug) => AvailableUsernameSlugs.Contains(slug);
 
 	public static User? FetchUser(string username)
 	{
@@ -775,7 +767,7 @@ public static class Users
 		}
 		username = ParsingMethods.SanitizeString(username);
 
-		user = AvailableUsers.FirstOrDefault(user => user.Value.Username == username).Value;
+		user = AvailableUsers.FirstOrDefault(user => user.Value.Name == username).Value;
 		return user is not null && !user.IsPaused;
 	}
 	public static bool TryFetchUser([NotNullWhen(true)] Guid? guid, [NotNullWhen(true)] out User? user)
@@ -809,25 +801,30 @@ public static class Users
 	{
 		AvailableUsers.Clear();
 		AvailableUsernames.Clear();
-		foreach (var user in SecurityStores.GetAllUsers())
+		AvailableUsernameSlugs.Clear();
+
+		foreach (var user in SecurityStores.UserStores.GetAllUsers())
 		{
 			AvailableUsers.Add(user.Guid, user);
-			AvailableUsernames.Add(user.Username);
+			AvailableUsernames.Add(user.Name);
+			AvailableUsernameSlugs.Add(user.NameSlug);
 		}
 	}
 
 	public static void AddUser(User user)
 	{
-		SecurityStores.SaveUser(user);
+		SecurityStores.UserStores.SaveUser(user);
 
 		AvailableUsers.Add(user.Guid, user);
-		AvailableUsernames.Add(user.Username);
+		AvailableUsernames.Add(user.Name);
+		AvailableUsernameSlugs.Add(user.NameSlug);
 	}
-	public static void RemoveUser(User user)
+	public static void RemoveUser(User user, bool keepOtherStoreData)
 	{
-		SecurityStores.RemoveUser(user);
+		SecurityStores.UserStores.RemoveUser(user, keepOtherStoreData);
 
 		AvailableUsers.Remove(user.Guid);
-		AvailableUsernames.Remove(user.Username);
+		AvailableUsernames.Remove(user.Name);
+		AvailableUsernameSlugs.Remove(user.NameSlug);
 	}
 }

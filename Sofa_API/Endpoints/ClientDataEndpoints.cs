@@ -17,7 +17,7 @@ public static class ClientDataEndpoints
 			DataEndpointManagement.DataFileMetadata fileRecord;
 			try
 			{
-				fileRecord = new DataEndpointManagement.DataFileMetadata(connectedClient.ClientNameSlug, folderName, fileName);
+				fileRecord = new DataEndpointManagement.DataFileMetadata(connectedClient.NameSlug, folderName, fileName);
 			}
 			catch(ArgumentException e)
 			{
@@ -42,7 +42,7 @@ public static class ClientDataEndpoints
 			.Produces(StatusCodes.Status404NotFound)
 			.WithSummary("Fetch a specific file from a specific folder in the base clientData folder.")
 			.WithDescription("Both parameters are required and must be valid, non-empty file/folder names. ('rootPath' will refer to the root of the client's data folder) " +
-			                 "If the file ends with .json, it will be returned as an application/json response. Otherwise, it will be returned as a application/octet-stream object.")
+			                 "If the file ends with .json, it will be returned as an application/json response. Otherwise, it'll be returned as an application/octet-stream object.")
 			.WithTags("clientData")
 			.WithName("GetClientData")
 			.RequireAuthorization("Client", "clientData:read");
@@ -57,7 +57,7 @@ public static class ClientDataEndpoints
 			DataEndpointManagement.DataFileMetadata fileRecord;
 			try
 			{
-				fileRecord = new(connectedClient.ClientNameSlug, folderName, fileName, createMissing: true);
+				fileRecord = new(connectedClient.NameSlug, folderName, fileName, createMissing: true);
 			}
 			catch (ArgumentException e)
 			{
@@ -88,7 +88,7 @@ public static class ClientDataEndpoints
 
 			try
 			{
-				new DataEndpointManagement.DataFileMetadata(connectedClient.ClientNameSlug, folderName, fileName).DeleteFile();
+				new DataEndpointManagement.DataFileMetadata(connectedClient.NameSlug, folderName, fileName).DeleteFile();
 			}
 			catch (ArgumentException e)
 			{
@@ -101,11 +101,11 @@ public static class ClientDataEndpoints
 			}
 			catch (IOException e) when (e is not (FileNotFoundException or DirectoryNotFoundException))
 			{
-				return Results.Conflict("The file seems to be in use. It was not deleted.");
+				return Results.Conflict("The file seems to be in use. It wasn't deleted.");
 			}
 			catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
 			{
-				return Results.NotFound("Either the file or its parent folder was not found.");
+				return Results.NotFound("Either the file or its parent folder wasn't found.");
 			}
 
 			return Results.NoContent();
@@ -124,17 +124,17 @@ public static class ClientDataEndpoints
 		{
 			if (string.IsNullOrWhiteSpace(folderName))
 				return Results.BadRequest("folderName must be a valid, non-empty string.");
-			if (folderName == "rootPath") return Results.BadRequest(new { message = "Cannot delete the root folder." });
+			if (folderName == "rootPath") return Results.BadRequest(new { message = "Can't delete the root folder." });
 
 			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
 
 			try
 			{
-				DataEndpointManagement.DeleteDataFolder(connectedClient.ClientNameSlug, folderName);
+				DataEndpointManagement.DeleteDataFolder(connectedClient.NameSlug, folderName);
 			}
 			catch (ArgumentException)
 			{
-				return Results.BadRequest("Folder name must not be empty or invalid.");
+				return Results.BadRequest("Folder name mustn't be empty or invalid.");
 			}
 			catch (DirectoryNotFoundException)
 			{
@@ -146,7 +146,7 @@ public static class ClientDataEndpoints
 			}
 			catch (IOException)
 			{
-				return Results.Conflict("The folder may be in use, read-only, or one of its contents is read-only. It was not deleted.");
+				return Results.Conflict("The folder may be in use, read-only, or one of its contents is read-only. It wasn't deleted.");
 			}
 
 			return Results.NoContent();

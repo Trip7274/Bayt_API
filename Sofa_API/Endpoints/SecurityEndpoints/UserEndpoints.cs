@@ -45,7 +45,7 @@ public static class UserEndpoints
 
 			Claim[] claims =
 			[
-				new (ClaimTypes.Name, user.Username),
+				new (ClaimTypes.Name, user.Name),
 				new (ClaimTypes.NameIdentifier, user.Guid.ToString())
 			];
 
@@ -180,7 +180,7 @@ public static class UserEndpoints
 				changesMade = true;
 			}
 
-			if (changesMade) SecurityStores.SaveUser(targetUser);
+			if (changesMade) SecurityStores.UserStores.SaveUser(targetUser);
 			return changesMade ? Results.NoContent() : Results.StatusCode(StatusCodes.Status304NotModified);
 		}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
@@ -223,7 +223,7 @@ public static class UserEndpoints
 				changesMade = true;
 			}
 
-			if (changesMade) SecurityStores.SaveUser(targetUser);
+			if (changesMade) SecurityStores.UserStores.SaveUser(targetUser);
 			return changesMade ? Results.NoContent() : Results.StatusCode(StatusCodes.Status304NotModified);
 			}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
@@ -265,7 +265,7 @@ public static class UserEndpoints
 			}
 
 			targetUser.SetPermissions(permissionsToSet);
-			SecurityStores.SaveUser(targetUser);
+			SecurityStores.UserStores.SaveUser(targetUser);
 			return Results.NoContent();
 			}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)

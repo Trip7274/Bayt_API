@@ -53,7 +53,15 @@ public static class ClientEndpoints
 			}
 
 
-			var clientObject = new Client(clientName, cert.GetCertHashString(HashAlgorithmName.SHA256), parsedRequestedPermissions, true);
+			Client clientObject;
+			try
+			{
+				clientObject = new Client(clientName, cert.GetCertHashString(HashAlgorithmName.SHA256), parsedRequestedPermissions);
+			}
+			catch (Exception e)
+			{
+				return Results.BadRequest(new { message = e.Message });
+			}
 
 			// Registration flow
 			// Create a registration key (the registering client must present this, or have a master client present it for it (if MCs exist))
@@ -90,9 +98,15 @@ public static class ClientEndpoints
 			Clients.AddPendingClient(registrationKeyString, clientObject);
 			Clients.AddClient(clientObject);
 
-			Logs.LogBook.Write(new (StreamId.Notice, "Client Registration", $"Client '{clientName}' pending registration. To approve, present it with the registration key from '{registrationEntryPath}'"));
+			Logs.LogBook.Write(new (StreamId.Notice, "Client Registration", $"Client '{clientName}' is pending registration. To approve, present the registering client with the registration key from '{registrationEntryPath}' after reading the JSON file."));
 
-			return Results.Accepted($"{BaseClientUrl}/me/confirm", new { message = "Client registration pending. Please provide the registration key at the confirmation endpoint.", ttl = ApiConfig.ApiConfiguration.ClientRequestLifetime, pendingId = clientObject.Guid });
+			return Results.Accepted($"{BaseClientUrl}/me/info", new
+				{
+					message = "Client registration is pending. Please provide the registration key at the confirmation endpoint.",
+					ttl = ApiConfig.ApiConfiguration.ClientRequestLifetime,
+					issuedId = clientObject.Guid,
+					masterClients = Clients.GetMasterClients.Select(mc => mc.Name)
+				});
 		}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
 		.WithSummary("Registers a client with this Sofa instance.")
@@ -108,7 +122,7 @@ public static class ClientEndpoints
 			if (requestDetails is null || !requestDetails.TryGetValue("registrationKey", out var registrationKey))
 				return Results.BadRequest(new { message = "Invalid registration key." });
 
-			var connectedClient = SecurityMethods.GetConnectedClient(context, true);
+			var connectedClient = SecurityMethods.GetConnectedClient(context, false, true);
 			var targetClient = connectedClient;
 			if (Guid.TryParse(targetClientId, out var targetUserGuid) && connectedClient is not null)
 			{
@@ -123,11 +137,11 @@ public static class ClientEndpoints
 				return Results.BadRequest(new { message = "Invalid target client ID or a suitable client is not connected." });
 			}
 			if (targetClient is null) return Results.NotFound(new { message = "Invalid target client ID or a suitable client is not connected." });
-			if (!targetClient.IsPaused) return Results.BadRequest(new { message = "Client is already confirmed" });
+			if (targetClient.IsActive) return Results.BadRequest(new { message = "Client is already confirmed" });
 
 			if (Clients.PendingClients.TryGetValue(registrationKey, out var pendingClient))
 			{
-				pendingClient.Unpause();
+				pendingClient.Activate();
 				Clients.RemovePendingClient(registrationKey, targetClient);
 				return Results.NoContent();
 			}
@@ -140,7 +154,7 @@ public static class ClientEndpoints
 		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to confirm the currently connected client's registration.")
 		.WithTags("Auth", "Client")
 		.WithName("ConfirmClientRegistration")
-		.RequireAuthorization("ClientAllowPaused");
+		.RequireAuthorization("ClientAllowInactive");
 
 		app.MapDelete($"{BaseClientUrl}/{{targetClientId}}", (HttpContext context, string? targetClientId) =>
 		{
@@ -160,11 +174,8 @@ public static class ClientEndpoints
 			}
 			if (targetClient is null) return Results.NotFound();
 
-			if (targetClient.Delete())
-			{
-				return Results.NoContent();
-			}
-			return Results.InternalServerError(new { message = "Failed to delete client for some reason." });
+			targetClient.Delete();
+			return Results.NoContent();
 		}).Produces(StatusCodes.Status204NoContent)
 		.Produces(StatusCodes.Status400BadRequest)
 		.Produces(StatusCodes.Status404NotFound)
@@ -250,12 +261,12 @@ public static class ClientEndpoints
 
 		app.MapGet($"{BaseClientUrl}/{{targetClientId}}/info", (HttpContext context, string targetClientId) =>
 		{
-			var connectedClient = SecurityMethods.GetConnectedClient(context)!;
+			var connectedClient = SecurityMethods.GetConnectedClient(context, true, true)!;
 			var targetClient = connectedClient;
 			if (Guid.TryParse(targetClientId, out var targetUserGuid))
 			{
 				Clients.TryFetchValidClient(targetUserGuid, out targetClient);
-				if (targetClient != connectedClient && !connectedClient.HasPermission(new("clients", ["view-info"])))
+				if (targetClient != connectedClient && (!connectedClient.IsActive || connectedClient.IsPaused || !connectedClient.HasPermission(new("clients", ["view-info"]))))
 				{
 					return Results.StatusCode(StatusCodes.Status403Forbidden);
 				}
@@ -275,7 +286,7 @@ public static class ClientEndpoints
 		.WithDescription("targetClientId must be a valid GUID, or the string 'me' to fetch information about the currently connected client.")
 		.WithTags("Auth", "Client")
 		.WithName("GetClientInfo")
-		.RequireAuthorization("Client");
+		.RequireAuthorization("ClientAllowPausedOrInactive");
 
 		app.MapPut($"{BaseClientUrl}/{{targetClientId}}/permissionRequest", (HttpContext context, string targetClientId, [FromBody] Dictionary<string, string?> permissionsToModify, bool instantApprove = false) =>
 		{

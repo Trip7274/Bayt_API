@@ -25,7 +25,7 @@ public static class SecurityMethods
 					OnCertificateValidated = context =>
 					{
 						var thumbprint = context.ClientCertificate.GetCertHashString(HashAlgorithmName.SHA256);
-						if (Clients.TryFetchValidClient(thumbprint, out var client, true))
+						if (Clients.TryFetchValidClient(thumbprint, out var client, true, true))
 						{
 							context.Principal = new ClaimsPrincipal(
 								new ClaimsIdentity(
@@ -86,7 +86,7 @@ public static class SecurityMethods
 					{
 						context.Response.StatusCode = StatusCodes.Status403Forbidden;
 						context.Response.ContentType = "text/plain";
-						return context.Response.WriteAsync("You are authenticated, but you lack sufficient permissions to access this resource.");
+						return context.Response.WriteAsync("You are authenticated, but you lack enough permissions to access this resource.");
 					}
 				};
 			});
@@ -107,14 +107,28 @@ public static class SecurityMethods
 					policy.AddAuthenticationSchemes(CertificateAuthenticationDefaults.AuthenticationScheme);
 					policy.RequireAuthenticatedUser();
 
-					policy.RequireAssertion(context => AuthnClient(context, false));
+					policy.RequireAssertion(context => AuthnClient(context, false, false));
 				});
 				options.AddPolicy("ClientAllowPaused", policy =>
 				{
 					policy.AddAuthenticationSchemes(CertificateAuthenticationDefaults.AuthenticationScheme);
 					policy.RequireAuthenticatedUser();
 
-					policy.RequireAssertion(context => AuthnClient(context, true));
+					policy.RequireAssertion(context => AuthnClient(context, true, false));
+				});
+				options.AddPolicy("ClientAllowInactive", policy =>
+				{
+					policy.AddAuthenticationSchemes(CertificateAuthenticationDefaults.AuthenticationScheme);
+					policy.RequireAuthenticatedUser();
+
+					policy.RequireAssertion(context => AuthnClient(context, false, true));
+				});
+				options.AddPolicy("ClientAllowPausedOrInactive", policy =>
+				{
+					policy.AddAuthenticationSchemes(CertificateAuthenticationDefaults.AuthenticationScheme);
+					policy.RequireAuthenticatedUser();
+
+					policy.RequireAssertion(context => AuthnClient(context, true, true));
 				});
 				options.AddPolicy("MultiAuth", policy =>
 				{
@@ -159,7 +173,7 @@ public static class SecurityMethods
 
 		return Guid.TryParse(userIdentifier, out var guid) && Users.DoesUserExist(guid);
 	}
-	public static bool AuthnClient(AuthorizationHandlerContext context, bool allowPaused = false)
+	public static bool AuthnClient(AuthorizationHandlerContext context, bool allowPaused = false, bool allowInactive = false)
 	{
 		var clientIdentity = context.User.Identities.FirstOrDefault(identity => identity is
 		{
@@ -169,12 +183,12 @@ public static class SecurityMethods
 		var guidString = clientIdentity?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
 		return Guid.TryParse(guidString, out var guid) &&
-		       Clients.TryFetchValidClient(guid, out var client, allowPaused) &&
-		       (!client.IsPaused || allowPaused);
+		       Clients.TryFetchValidClient(guid, out var client, allowPaused, allowInactive) &&
+		       (!client.IsPaused || allowPaused) && (client.IsActive || allowInactive);
 	}
 
 
-	public static Client? GetConnectedClient(HttpContext context, bool allowPaused = false)
+	public static Client? GetConnectedClient(HttpContext context, bool allowPaused = false, bool allowInactive = false)
 	{
 		var clientIdentity = context.User.Identities.FirstOrDefault(identity => identity is
 		{
@@ -185,7 +199,7 @@ public static class SecurityMethods
 		if (!Guid.TryParse(clientIdentifier, out var guid))
 			return null;
 
-		return Clients.TryFetchValidClient(guid, out var client, allowPaused) ? client : null;
+		return Clients.TryFetchValidClient(guid, out var client, allowPaused, allowInactive) ? client : null;
 	}
 	public static User? GetConnectedUser(HttpContext context)
 	{
@@ -200,8 +214,8 @@ public static class SecurityMethods
 
 		return Users.TryFetchUser(guid, out var user) ? user : null;
 	}
-	public static (Client?, User?) GetConnectedUserAndClient(HttpContext context, bool allowPaused = false) => (
-		GetConnectedClient(context, allowPaused),
+	public static (Client?, User?) GetConnectedUserAndClient(HttpContext context, bool allowPaused = false, bool allowInactive = false) => (
+		GetConnectedClient(context, allowPaused, allowInactive),
 		GetConnectedUser(context)
 	);
 

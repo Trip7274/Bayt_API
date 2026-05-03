@@ -63,7 +63,7 @@ public static class UserEndpoints
 			return Results.SignIn(new ClaimsPrincipal(identity), loginProps, CookieAuthenticationDefaults.AuthenticationScheme);
 		}).Produces(StatusCodes.Status200OK)
 		.Produces(StatusCodes.Status401Unauthorized)
-		.WithSummary("Logs the user in, and returns a cookie to use for future requests.")
+		.WithSummary("Logs the user in and returns a cookie to use for future requests.")
 		.WithTags("Auth", "User")
 		.WithName("LoginUser")
 		.RequireAuthorization("Client");

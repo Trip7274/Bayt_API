@@ -12,7 +12,7 @@ public static class DlContaintersEndpoints
 	{
 		app.MapGet($"{BaseDockerUrl}/containers/getList", async (bool all = true) =>
 		{
-			if (!DockerLocal.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
+			if (!DockerLocal.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system, or the integration was disabled.");
 			await DockerLocal.DockerContainers.UpdateDataIfNecessary();
 
 
@@ -121,7 +121,7 @@ public static class DlContaintersEndpoints
 			.Produces(StatusCodes.Status204NoContent)
 			.WithSummary("Issues a command to delete a specific Docker container.")
 			.WithDescription("containerId must contain at least the first 12 characters of the container's ID. " +
-			                 "removeCompose will delete the entire compose directory if true, " +
+			                 "removeCompose will delete the entire compose container directory if true, " +
 			                 "and removeVolumes will remove all anonymous volumes associated with the container if true. " +
 			                 "Both default to false.")
 			.WithTags("Docker")
@@ -185,14 +185,14 @@ public static class DlContaintersEndpoints
 			.Produces(StatusCodes.Status400BadRequest)
 			.Produces(StatusCodes.Status404NotFound)
 			.WithSummary("Stream the Docker container's live logs.")
-			.WithDescription("containerId is required. stdout, stderr, and timestamps are optional to specify which streams to follow, and whether to prefix each line with a timestamp. Will default to stdout=true, stderr=true, and timestamps=false if not specified.")
+			.WithDescription("containerId is required. Stdout, stderr, and timestamps are optional to specify which streams to follow and whether to prefix each line with a timestamp. Will default to stdout=true, stderr=true, and timestamps=false if not specified.")
 			.WithTags("Docker")
 			.WithName("GetDockerContainerLogs")
 			.RequireAuthorization("MultiAuth", "docker-containers:logs");
 
 		app.MapDelete($"{BaseDockerUrl}/containers/prune", async () =>
 		{
-			if (!DockerLocal.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system or the integration was disabled.");
+			if (!DockerLocal.IsDockerAvailable) return Results.InternalServerError("Docker is not available on this system, or the integration was disabled.");
 
 			var dockerRequest = await DockerLocal.SendRequest("containers/prune", HttpMethod.Post);
 
@@ -248,7 +248,7 @@ public static class DlContaintersEndpoints
 			if (metadata.Count == 0) return Results.BadRequest("No valid properties were provided. Please include one of: PrettyName, Notes, PreferredIconUrl, or WebpageLink");
 
 			var targetContainer = DockerLocal.DockerContainers.Containers.First(container => container.Id.StartsWith(containerId));
-			if (!targetContainer.IsManaged) return Results.BadRequest("This container is not managed by Sofa.");
+			if (!targetContainer.IsManaged) return Results.BadRequest("Sofa does not manage this container.");
 
 			bool changesMade = await targetContainer.SetContainerMetadata(metadata);
 

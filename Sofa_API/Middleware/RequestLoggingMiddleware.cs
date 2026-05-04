@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace Sofa_API.Logging;
+namespace Sofa_API.Middleware;
 
 public sealed class RequestLoggingMiddleware(RequestDelegate next)
 {

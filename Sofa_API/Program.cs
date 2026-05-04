@@ -5,11 +5,11 @@ using Sofa_API;
 using Sofa_API.Endpoints;
 using Sofa_API.Endpoints.DockerEndpoints.Local;
 using Sofa_API.Endpoints.SecurityEndpoints;
-using Sofa_API.Logging;
 using Sofa_API.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
+using Sofa_API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 

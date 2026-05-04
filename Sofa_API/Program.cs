@@ -77,7 +77,7 @@ if (DockerLocal.IsDockerComposeAvailable)
 
 builder.Logging.ClearProviders();
 var app = builder.Build();
-if (ApiConfig.TerminalVerbosity > (byte) StreamId.Request || ApiConfig.ApiConfiguration.LogVerbosity > (byte) StreamId.Request)
+if (ApiConfig.TerminalVerbosity > StreamId.Request || ApiConfig.ApiConfiguration.LogVerbosity > StreamId.Request)
 	app.UseMiddleware<RequestLoggingMiddleware>();
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)

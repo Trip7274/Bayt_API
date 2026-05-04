@@ -45,9 +45,13 @@ public static class ApiConfig
 	/// Indicates how verbose the API's terminal output should be. 0-7, with 7 being the most verbose. Tries to use the env var <c>SOFA_VERBOSITY</c> first, then falls back to 6 (Up to NOTICE).
 	/// </summary>
 	/// <remarks>
-	///	As-as, this only affects the PRINTING of logs. More verbose logs are still written to the log stream.
+	///	As is, this only affects the PRINTING of logs. Logs might still be written to the log file, depending on the <see cref="ApiConfig.ApiConfiguration.LogVerbosity"/>.
 	/// </remarks>
-	public static readonly byte TerminalVerbosity = (byte) (byte.TryParse(Environment.GetEnvironmentVariable("SOFA_VERBOSITY"), out var terminalVerbosity) ? terminalVerbosity : 6);
+	// If the Env Var contains anything, clamp it to the acceptable range of the StreamId enum type
+	public static readonly StreamId TerminalVerbosity =
+			byte.TryParse(Environment.GetEnvironmentVariable("SOFA_VERBOSITY"), out var terminalVerbosity)
+				? ParsingMethods.ClampToMaxStreamIdValue(terminalVerbosity)
+				: StreamId.Notice;
 
 	// Paths and config-specific stuff from here on out
 
@@ -215,7 +219,7 @@ public static class ApiConfig
 		/// The verbosity level of the written logs. Does not control the verbosity of the terminal output.
 		/// </summary>
 		/// <seealso cref="ApiConfig.TerminalVerbosity"/>
-		public static byte LogVerbosity { get; private set; } = 7;
+		public static StreamId LogVerbosity { get; private set; } = StreamId.Verbose;
 
 		/// <summary>
 		/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
@@ -295,7 +299,7 @@ public static class ApiConfig
 
 			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
 
-			LogVerbosity = loadedDict.TryGetProperty(nameof(LogVerbosity), out var logVerbosity) ? logVerbosity.GetByte() : LogVerbosity;
+			LogVerbosity = loadedDict.TryGetProperty(nameof(LogVerbosity), out var logVerbosity) ? ParsingMethods.ClampToMaxStreamIdValue((byte) int.Clamp(logVerbosity.GetInt32(), 0, byte.MaxValue)) : LogVerbosity;
 
 			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
 			{

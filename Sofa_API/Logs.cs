@@ -34,12 +34,7 @@ public sealed class LogEntry
 		if (timeWrittenBinary is not null) TimeWritten = DateTime.FromBinary(timeWrittenBinary.Value);
 	}
 
-	public StreamId StreamId
-	{
-		get => (StreamId) StreamIdByte;
-		private init => StreamIdByte = (byte) value;
-	}
-	public byte StreamIdByte { get; private init; }
+	public StreamId StreamId { get; }
 
 	public ushort ContentLength => (ushort) int.Clamp(ContentBytes.Length, 0, MaxContentLength);
 
@@ -147,7 +142,7 @@ public sealed class LogEntry
 	{
 		var buffer = new Span<byte>(new byte[SerializedLength])
 		{
-			[0] = StreamIdByte
+			[0] = (byte) StreamId
 		};
 		BitConverter.TryWriteBytes(buffer.Slice(1, 2), ContentLength);
 		BitConverter.TryWriteBytes(buffer.Slice(3, 8), TimeWrittenBinary);
@@ -274,7 +269,7 @@ public static class Logs
 		{
 			if (entry.StreamId == StreamId.None) return;
 			StreamWrittenTo?.Invoke(null, entry);
-			if (entry.StreamIdByte > ApiConfig.ApiConfiguration.LogVerbosity && entry.StreamIdByte > ApiConfig.TerminalVerbosity) return;
+			if (entry.StreamId > ApiConfig.ApiConfiguration.LogVerbosity && entry.StreamId > ApiConfig.TerminalVerbosity) return;
 
 			// Buffer log entries up until the `ApiConfig.ApiConfiguration` class is fully initialized.
 			// Then, write them out in order.
@@ -289,7 +284,7 @@ public static class Logs
 				{
 					while (SetupQueue.TryDequeue(out var queuedEntry))
 					{
-						if (ApiConfig.ApiConfiguration.LogVerbosity >= queuedEntry.StreamIdByte)
+						if (ApiConfig.ApiConfiguration.LogVerbosity >= queuedEntry.StreamId)
 						{
 							_logWriter.WriteLine(queuedEntry);
 						}
@@ -298,7 +293,7 @@ public static class Logs
 				}
 			}
 
-			if (ApiConfig.ApiConfiguration.LogVerbosity < entry.StreamIdByte) return;
+			if (ApiConfig.ApiConfiguration.LogVerbosity < entry.StreamId) return;
 
 			CheckFileDate();
 
@@ -348,7 +343,7 @@ public static class Logs
 	private static readonly Lock LogEchoLock = new();
 	public static void EchoLogs(object? e, LogEntry logEntry)
 	{
-		if (ApiConfig.TerminalVerbosity < logEntry.StreamIdByte) return;
+		if (ApiConfig.TerminalVerbosity < logEntry.StreamId) return;
 
 		lock (LogEchoLock)
 		{

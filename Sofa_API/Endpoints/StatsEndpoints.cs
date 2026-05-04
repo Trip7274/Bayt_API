@@ -270,9 +270,12 @@ public static class StatsEndpoints
 				}
 			}
 
-			var latestUpdate = lastUpdateStamps.Max();
-			response.Headers.Append("Expires", (latestUpdate + ApiConfig.ApiConfiguration.CacheLifetime)
-				.ToString("R"));
+			if (lastUpdateStamps.Count > 0)
+			{
+				var latestUpdate = lastUpdateStamps.Max().ToUniversalTime();
+				response.Headers.Append("Expires", (latestUpdate + ApiConfig.ApiConfiguration.CacheLifetime)
+					.ToString("R"));
+			}
 			await response.Body.WriteAsync( JsonSerializer.SerializeToUtf8Bytes(responseDictionary));
 			await response.CompleteAsync();
 

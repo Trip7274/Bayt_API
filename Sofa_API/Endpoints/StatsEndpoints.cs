@@ -147,7 +147,7 @@ public static class StatsEndpoints
 			List<ApiConfig.SystemStats> requestedStats = [];
 			if (requestedStatsRaw.All(stat => !stat.Value.HasValue))
 			{
-				requestedStats = ApiConfig.PossibleStats.ToList();
+				requestedStats = Enum.GetValues<ApiConfig.SystemStats>().ToList();
 			}
 			else
 			{
@@ -302,7 +302,7 @@ public static class StatsEndpoints
 			List<ApiConfig.SystemStats> requestedStats = [];
 			if (requestedStatsRaw.All(stat => !stat.Value.HasValue))
 			{
-				requestedStats = ApiConfig.PossibleStats.ToList();
+				requestedStats = Enum.GetValues<ApiConfig.SystemStats>().ToList();
 			}
 			else
 			{

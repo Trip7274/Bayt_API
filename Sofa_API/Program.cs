@@ -61,12 +61,9 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, Permissions
 Logs.LogBook.Write(new (StreamId.Notice, "Configuration",
 	$"Loaded configuration from: '{ApiConfig.ConfigFilePath}'"));
 
-Logs.LogBook.Write(new (StreamId.Notice, "Logging",
-	$"Saving logs in: '{Path.Combine(ApiConfig.ApiConfiguration.PathToLogFolder,
-		$"[{DateOnly.FromDateTime(DateTime.Now).ToString("O")}] sofaLog.log")}'"));
 
-Logs.LogBook.Write(new (StreamId.Notice, "Client Data",
-	$"Serving clientData from: '{ApiConfig.ApiConfiguration.PathToDataFolder}'"));
+Logs.LogBook.Write(new (StreamId.Notice, "Sofa Data Directory",
+	$"Sofa is loading and storing its data from: '{ApiConfig.BaseDataPath}'"));
 
 if (DockerLocal.IsDockerComposeAvailable)
 {

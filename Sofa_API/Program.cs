@@ -58,18 +58,12 @@ builder.Services.AddSingleton<IAuthorizationPolicyProvider, Permissions.Permissi
 builder.Services.AddScoped<IAuthorizationHandler, Permissions.PermissionHandler>();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, Permissions.SofaAuthorizationMessageHandler>();
 
-Logs.LogBook.Write(new (StreamId.Notice, "Configuration",
-	$"Loaded configuration from: '{ApiConfig.ConfigFilePath}'"));
+Logs.LogBook.Write(new (StreamId.Notice, "Configuration Directory",
+	$"Loading configuration from: '{ApiConfig.ConfigFilePath}'"));
 
 
 Logs.LogBook.Write(new (StreamId.Notice, "Sofa Data Directory",
 	$"Sofa is loading and storing its data from: '{ApiConfig.BaseDataPath}'"));
-
-if (DockerLocal.IsDockerComposeAvailable)
-{
-	Logs.LogBook.Write(new (StreamId.Notice, "Docker",
-		$"Fetching Docker folders from: '{ApiConfig.ApiConfiguration.PathToDockerFolder}'"));
-}
 
 
 builder.Logging.ClearProviders();
@@ -138,13 +132,13 @@ else
 
 	Logs.LogBook.Write(new (StreamId.Ok, "Initialization", "Fetch cycle complete."));
 }
-Logs.LogBook.Write(new (StreamId.Ok, "Initialization", "::: Sofa API is ready :::"));
+Logs.LogBook.Write(new (StreamId.Ok, "Initialization", "::: Sofa is ready :::"));
 
 try
 {
 	app.Run();
 }
-catch (SocketException e) when (e.Message == "Cannot assign requested address")
+catch (SocketException e) when (e.Message == "Cannot assign the requested address")
 {
 	Logs.LogBook.Write(new (StreamId.Fatal, "Network Initalization",
 		"Something went wrong while binding to one of the targetted IP addresses. Make sure the targetted IP address is valid."));

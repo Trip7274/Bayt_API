@@ -15,7 +15,7 @@ public static class ApiConfig
 	/// <summary>
 	/// String containing the semver-aligned version of the current Sofa instance.
 	/// </summary>
-	public const string Version = "0.17.24";
+	public const string Version = "0.19.28";
 	/// <summary>
 	/// Represents the current Sofa instance's MAJOR version in semver.
 	/// </summary>

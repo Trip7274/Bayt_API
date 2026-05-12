@@ -32,10 +32,10 @@ please do help out if you have the experience!)
 	- [X] Sofa log streaming endpoints
     - [X] SSE version of the statistics endpoint
 - [X] Auth (authorizing both the frontend "client" and user)
-- [ ] Detailed permissions
+- [X] Detailed permissions
 	- [X] Silo arbitrary data folder to each client
-	- [ ] Add a permission to manage clients (with a dangerous disclaimer)
-	- [ ] Add a way to revoke clients without relying on any clients
+	- [X] Add a permission to manage clients (with a dangerous disclaimer)
+	- [X] Add a way to revoke clients without relying on any clients
 - [ ] API documentation
 - [ ] Binary distribution across different Linux repos
 - [ ] Docker container implementation (if possible)

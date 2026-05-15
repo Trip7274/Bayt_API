@@ -71,31 +71,43 @@ public static class Permissions
 			return true;
 		}
 
-		public bool Allows(List<string> challengedPerms)
+		/// <summary>
+		/// Checks if <c>this</c> permission is a logical superset of the <paramref name="challengedPermPowers"/>.
+		/// </summary>
+		/// <param name="challengedPermPowers">The permission object to check this object against.</param>
+		/// <returns>True if this object's permission powers are a logical superset (allow) the challenged permission's powers; otherwise, false.</returns>
+		public bool Allows(List<string> challengedPermPowers)
 		{
-			var hasNegated = challengedPerms.Any(p => p.StartsWith('!'));
-			var hasWildcard = challengedPerms.Any(p => p == "*");
+			var userHasNegated = PermPowers.Any(p => p.StartsWith('!'));
+			var userHasWildcard = PermPowers.Any(p => p == "*");
 
-			// "docker-compose:*"
-			if (!hasNegated && hasWildcard) return true;
+			// User has "docker-compose:*"
+			if (!userHasNegated && userHasWildcard) return true;
 
-			// "docker-compose:*,!create"
-			if (hasWildcard)
+			// User has "docker-compose:*,!create"
+			if (userHasWildcard)
 			{
-				var negativePermPowers = challengedPerms.Where(p => p.StartsWith('!')).Select(p => p[1..]).ToList();
-				return !PermPowers.Intersect(negativePermPowers).Any();
+				// Extract all the user's negated powers, and make sure the challenge requires none of them
+				var negativePermPowers = PermPowers.Where(p => p.StartsWith('!')).Select(p => p[1..]);
+				return !challengedPermPowers.Intersect(negativePermPowers).Any();
 			}
 
-			// "docker-compose:create" OR "docker-compose:!create"
-			var intersection = PermPowers.Intersect(challengedPerms).ToList();
-			if (hasNegated) intersection.RemoveAll(p => p.StartsWith('!'));
-			return intersection.Count == PermPowers.Count;
+			// User has "docker-compose:!create" AND challenge has "docker-compose:!(anything)"
+			if (userHasNegated && challengedPermPowers.Any(p => p.StartsWith('!')))
+			{
+				var challengedPermsWithoutNegation = challengedPermPowers.Where(p => !p.StartsWith('!'));
+				var intersectionCount = PermPowers.Intersect(challengedPermsWithoutNegation).Count();
+				return intersectionCount == PermPowers.Count;
+			}
+
+			// User has "docker-compose:create" OR ("docker-compose:!create" WITHOUT the challenge negating anything)
+			return challengedPermPowers.All(PermPowers.Contains);
 		}
 
 		public string PermPowersString => string.Join(',', PermPowers);
 
 		public override string ToString() => $"{PermissionString}:{PermPowersString}";
-		public static implicit operator string(SofaPermission perm) => perm.ToString();
+		public static explicit operator string(SofaPermission perm) => perm.ToString();
 	}
 
 	public sealed class PermissionHandler : AuthorizationHandler<SofaPermission>

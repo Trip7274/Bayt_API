@@ -43,11 +43,11 @@ public abstract class HasPermissions : IEquatable<HasPermissions>
 		if (IsPaused || !IsActive) return false;
 		if (PermissionList.ContainsKey("admin")) return true;
 
-		if (PermissionList.Count == 0 || !PermissionList.TryGetValue(permissionRequirement.PermissionString, out var userPermissionString)) return false;
+		// Extract the user's relevant permission as a SofaPermission object, if found.
+		if (PermissionList.Count == 0 || !PermissionList.TryGetValue(permissionRequirement.PermissionString, out var userPermissionPowers)) return false;
+		var userPermission = new Permissions.SofaPermission(permissionRequirement.PermissionString, userPermissionPowers);
 
-		if (!Permissions.SofaPermission.TryParse(permissionRequirement.PermissionString + ':' + string.Join(',', userPermissionString), out var userPermission)) return false;
-
-		return permissionRequirement.Allows(userPermission.PermPowers);
+		return userPermission.Allows(permissionRequirement.PermPowers);
 	}
 	public void AddPermission(Permissions.SofaPermission permission)
 	{

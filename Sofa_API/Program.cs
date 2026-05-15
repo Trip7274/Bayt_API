@@ -59,11 +59,11 @@ builder.Services.AddScoped<IAuthorizationHandler, Permissions.PermissionHandler>
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, Permissions.SofaAuthorizationMessageHandler>();
 
 Logs.LogBook.Write(new (StreamId.Notice, "Configuration Directory",
-	$"Loading configuration from: '{ApiConfig.ConfigFilePath}'"));
+	$"Loading configuration from: '{SofaPaths.SubPaths.ConfigFilePath}'"));
 
 
 Logs.LogBook.Write(new (StreamId.Notice, "Sofa Data Directory",
-	$"Sofa is loading and storing its data from: '{ApiConfig.BaseDataPath}'"));
+	$"Sofa is loading and storing its data from: '{SofaPaths.BaseDataPath}'"));
 
 
 builder.Logging.ClearProviders();

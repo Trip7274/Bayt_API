@@ -53,36 +53,7 @@ public static class ApiConfig
 				? ParsingMethods.ClampToMaxStreamIdValue(terminalVerbosity)
 				: StreamId.Notice;
 
-	// Paths and config-specific stuff from here on out
-
-	/// <summary>
-	/// Abs. path to the Sofa binary's directory
-	/// </summary>
-	public static readonly string BaseExecutablePath = AppContext.BaseDirectory;
-
-	/// <summary>
-	/// Abs. path to the configuration directory. E.g. <c>/home/{user}/.config/sofaConfig/</c>.
-	/// </summary>
-	/// <remarks>
-	///	Tries to fetch the env var <c>SOFA_CONFIG_DIRECTORY</c> first, then <c>XDG_CONFIG_HOME</c>. Falls back to "<see cref="BaseExecutablePath"/>/sofaConfig" if neither are set.
-	/// </remarks>
-	public static readonly string BaseConfigPath = Path.Combine(Environment.GetEnvironmentVariable("SOFA_CONFIG_DIRECTORY") ??
-	                                                             Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") ??
-	                                                             BaseExecutablePath, "sofaConfig");
-	/// <summary>
-	/// Abs. path to the sofaData directory. Used for <see cref="ApiConfiguration.PathToDataFolder"/> and <see cref="ApiConfiguration.PathToDockerFolder"/>. E.g. <c>/home/{user}/.local/share/sofaData/</c>.
-	/// </summary>
-	/// <remarks>
-	///	Tries to fetch the env var <c>SOFA_DATA_DIRECTORY</c> first, then <c>XDG_DATA_HOME</c>. Falls back to "<see cref="BaseExecutablePath"/>/sofaData" if neither are set.
-	/// </remarks>
-	public static readonly string BaseDataPath = Path.Combine(Environment.GetEnvironmentVariable("SOFA_DATA_DIRECTORY") ??
-	                                                           Environment.GetEnvironmentVariable("XDG_DATA_HOME")??
-	                                                           BaseExecutablePath, "sofaData");
-
-	/// <summary>
-	/// Abs. path to the specific configuration loaded currently.
-	/// </summary>
-	public static readonly string ConfigFilePath = Path.Combine(BaseConfigPath, "ApiConfiguration.json");
+	// Config-specific stuff from here on out
 
 
 	/// <summary>
@@ -115,13 +86,6 @@ public static class ApiConfig
 	{
 		static ApiConfiguration()
 		{
-			if (!Directory.Exists(BaseConfigPath))
-			{
-				Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Configuration", "Base config directory does not exist, creating..."));
-				Directory.CreateDirectory(BaseConfigPath);
-				File.WriteAllText(Path.Combine(BaseConfigPath, "README"), "This folder is where the configs for the Sofa API are stored.\n" +
-				                                                          "More info: https://github.com/Trip7274/Sofa");
-			}
 			LoadConfig();
 		}
 
@@ -159,39 +123,6 @@ public static class ApiConfig
 		///	Defaults to 30 minutes.
 		/// </remarks>
 		public static TimeSpan ClientRequestLifetime { get; private set; } = TimeSpan.FromMinutes(30);
-
-		/// <summary>
-		///	Abs. path to the client data folder.
-		/// </summary>
-		/// <remarks>
-		///	Defaults to "<see cref="BaseDataPath"/>/clientData".
-		/// </remarks>
-		public static string PathToDataFolder { get; private set; } = Path.Combine(BaseDataPath, "clientData");
-
-		/// <summary>
-		/// Abs. path to the folder containing all the docker-related folders.
-		/// </summary>
-		/// <remarks>
-		///	Defaults to "<see cref="BaseDataPath"/>/docker".
-		/// </remarks>
-		public static string PathToDockerFolder { get; private set; } = Path.Combine(BaseDataPath, "docker");
-
-		/// <summary>
-		/// Abs. path to the folder containing all the Docker compose folders.
-		/// </summary>
-		/// <remarks>
-		///	Defaults to "<see cref="PathToDockerFolder"/>/containers".<br/>
-		/// This is derived from <see cref="PathToDockerFolder"/> and cannot be changed separately.
-		/// </remarks>
-		public static string PathToComposeFolder { get; } = Path.Combine(PathToDockerFolder, "containers");
-
-		/// <summary>
-		/// Abs. path to the folder containing all the logs.
-		/// </summary>
-		/// <remarks>
-		///	Defaults to "<see cref="BaseDataPath"/>/logs".
-		/// </remarks>
-		public static string PathToLogFolder { get; private set; } = Path.Combine(BaseDataPath, "logs");
 
 		/// <summary>
 		/// Whether the Docker integration is enabled.
@@ -245,9 +176,6 @@ public static class ApiConfig
 				{ nameof(BackendName), BackendName },
 				{ nameof(CacheLifetime), CacheLifetime.TotalSeconds },
 				{ nameof(ClientRequestLifetime), ClientRequestLifetime.TotalSeconds },
-				{ nameof(PathToDataFolder), PathToDataFolder },
-				{ nameof(PathToLogFolder), PathToLogFolder },
-				{ nameof(PathToDockerFolder), PathToDockerFolder },
 				{ nameof(DockerIntegrationEnabled), DockerIntegrationEnabled },
 				{ nameof(LogVerbosity), LogVerbosity },
 				{ nameof(WatchedMounts), WatchedMounts },
@@ -259,7 +187,7 @@ public static class ApiConfig
 		/// </summary>
 		private static void SaveConfig()
 		{
-			File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(ToDictionary(), SofaJsonSerializerOptions));
+			File.WriteAllText(SofaPaths.SubPaths.ConfigFilePath, JsonSerializer.Serialize(ToDictionary(), SofaJsonSerializerOptions));
 		}
 
 		/// <summary>
@@ -269,7 +197,7 @@ public static class ApiConfig
 		{
 			CheckConfig();
 
-			var loadedDict = (JsonSerializer.Deserialize<JsonDocument>(File.ReadAllText(ConfigFilePath, Encoding.UTF8))
+			var loadedDict = (JsonSerializer.Deserialize<JsonDocument>(File.ReadAllText(SofaPaths.SubPaths.ConfigFilePath, Encoding.UTF8))
 			                 ?? throw new Exception("Failed to deserialize config file")).RootElement;
 
 			// This needs some cleaning.
@@ -278,10 +206,6 @@ public static class ApiConfig
 
 			CacheLifetime = loadedDict.TryGetProperty(nameof(CacheLifetime), out var cacheLifetime) ? TimeSpan.FromSeconds(double.Clamp(cacheLifetime.GetInt32(), 0, double.MaxValue)) : CacheLifetime;
 			ClientRequestLifetime = loadedDict.TryGetProperty(nameof(ClientRequestLifetime), out var clientRequestLifetime) ? TimeSpan.FromSeconds(double.Clamp(clientRequestLifetime.GetInt32(), 0, double.MaxValue)) : ClientRequestLifetime;
-
-			PathToDataFolder = loadedDict.TryGetProperty(nameof(PathToDataFolder), out var pathToDataFolder) ? pathToDataFolder.GetString() ?? PathToDataFolder : PathToDataFolder;
-			PathToLogFolder = loadedDict.TryGetProperty(nameof(PathToLogFolder), out var pathToLogFolder) ? pathToLogFolder.GetString() ?? PathToLogFolder : PathToLogFolder;
-			PathToDockerFolder = loadedDict.TryGetProperty(nameof(PathToDockerFolder), out var pathToDockerFolder) ? pathToDockerFolder.GetString() ?? PathToDockerFolder : PathToDockerFolder;
 
 			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
 
@@ -331,60 +255,19 @@ public static class ApiConfig
 		/// </remarks>
 		private static void CheckConfig()
 		{
-			if (!File.Exists(ConfigFilePath))
+			if (!File.Exists(SofaPaths.SubPaths.ConfigFilePath))
 			{
 				Logs.LogBook.Write(new LogEntry(StreamId.Info, "Configuration", "Couldn't find the configuration file. A new one will be generated."));
 				SaveConfig();
 			}
-
-			if (!Directory.Exists(PathToDataFolder))
-			{
-				const string defaultReadmeContent = """
-				                                    This folder contains all server-wide data for each client, separated by client.
-
-				                                    Please refer to the specific client's documentation for info on the file types, along with usage details.
-				                                    Make sure the server is shut down before modifying these files.
-				                                    This folder was made by Sofa API. More info: https://github.com/Trip7274/Sofa
-				                                    """;
-
-				Directory.CreateDirectory(PathToDataFolder);
-				File.WriteAllText(Path.Combine(PathToDataFolder, "README"), defaultReadmeContent);
-			}
-
-			if (!Directory.Exists(PathToDockerFolder))
-			{
-				const string defaultReadmeContent = """
-				                                    This folder contains all the Docker-related files made and managed by Sofa API.
-
-				                                    You should be safe manually deleting/editing these files, provided the relevant container, and Sofa, are not running.
-
-				                                    Short description of the folders/files:
-				                                    -> "containers": Stores the folders for the Sofa-created Docker Compose containers.
-				                                    -> "imageData.json": Stores the metadata for Docker images fetched by Sofa API.
-
-				                                    This folder was made by Sofa API. More info: https://github.com/Trip7274/Sofa
-				                                    """;
-
-				Directory.CreateDirectory(PathToDockerFolder);
-				File.WriteAllText(Path.Combine(PathToDockerFolder, "README"), defaultReadmeContent);
-			}
-			if (!Directory.Exists(PathToComposeFolder)) Directory.CreateDirectory(PathToComposeFolder);
-
-			if (!File.Exists(DockerLocal.PathToImageDataFile))
-			{
-				Dictionary<string, string[]> defaultDict = [];
-				File.WriteAllText(DockerLocal.PathToImageDataFile, JsonSerializer.Serialize(defaultDict, SofaJsonSerializerOptions));
-			}
-
-			if (!Directory.Exists(PathToLogFolder)) Directory.CreateDirectory(PathToLogFolder);
 			if (ValidateConfigSyntax()) return;
 
 
-			if (File.Exists($"{ConfigFilePath}.old"))
+			if (File.Exists($"{SofaPaths.SubPaths.ConfigFilePath}.old"))
 			{
-				File.Delete($"{ConfigFilePath}.old");
+				File.Delete($"{SofaPaths.SubPaths.ConfigFilePath}.old");
 			}
-			File.Move(ConfigFilePath, $"{ConfigFilePath}.old");
+			File.Move(SofaPaths.SubPaths.ConfigFilePath, $"{SofaPaths.SubPaths.ConfigFilePath}.old");
 			SaveConfig();
 		}
 
@@ -396,7 +279,7 @@ public static class ApiConfig
 		{
 			try
 			{
-				var jsonDocument = JsonDocument.Parse(File.ReadAllText(ConfigFilePath)).RootElement;
+				var jsonDocument = JsonDocument.Parse(File.ReadAllText(SofaPaths.SubPaths.ConfigFilePath)).RootElement;
 
 				if (jsonDocument.TryGetProperty(nameof(ConfigVersion), out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() != ApiVersion)
 				{
@@ -408,7 +291,7 @@ public static class ApiConfig
 			catch (JsonException exception)
 			{
 				Logs.LogBook.Write(new(StreamId.Error, "Configuration", $"Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}."));
-				Logs.LogBook.Write(new(StreamId.Error, "Configuration", $"Your configuration will be regenerated. You can find your old configuration in {ConfigFilePath}.old"));
+				Logs.LogBook.Write(new(StreamId.Error, "Configuration", $"Your configuration will be regenerated. You can find your old configuration in {SofaPaths.SubPaths.ConfigFilePath}.old"));
 				return false;
 			}
 		}
@@ -455,24 +338,6 @@ public static class ApiConfig
 					case nameof(ClientRequestLifetime) when double.Clamp(newPropKvp.Value.GetInt32(), 0, double.MaxValue) != ClientRequestLifetime.TotalSeconds:
 					{
 						ClientRequestLifetime = TimeSpan.FromSeconds(double.Clamp(newPropKvp.Value.GetInt32(), 0, double.MaxValue));
-						configChanged = true;
-						break;
-					}
-					case nameof(PathToDataFolder) when newPropKvp.Value.GetString() is string newPropString && newPropString != PathToDataFolder:
-					{
-						PathToDataFolder = newPropString;
-						configChanged = true;
-						break;
-					}
-					case nameof(PathToLogFolder) when newPropKvp.Value.GetString() is string newPropString && newPropString != PathToLogFolder:
-					{
-						PathToLogFolder = newPropString;
-						configChanged = true;
-						break;
-					}
-					case nameof(PathToDockerFolder) when newPropKvp.Value.GetString() is string newPropString && newPropString != PathToDockerFolder:
-					{
-						PathToDockerFolder = newPropString;
 						configChanged = true;
 						break;
 					}
@@ -592,10 +457,10 @@ public static class ApiConfig
 			ShellResult subnetMaskProcess;
 			try
 			{
-				physicalAddressProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
+				physicalAddressProcess = ShellMethods.RunShell($"{SofaPaths.BaseExecutablePath}/scripts/getNet.sh",
 					["PhysicalAddress", clientAddress]).Result;
 
-				subnetMaskProcess = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh", ["Netmask"]).Result;
+				subnetMaskProcess = ShellMethods.RunShell($"{SofaPaths.BaseExecutablePath}/scripts/getNet.sh", ["Netmask"]).Result;
 			}
 			catch (TimeoutException)
 			{
@@ -639,7 +504,7 @@ public static class ApiConfig
 			string physicalAddressStdout;
 			try
 			{
-				physicalAddressStdout = ShellMethods.RunShell($"{BaseExecutablePath}/scripts/getNet.sh",
+				physicalAddressStdout = ShellMethods.RunShell($"{SofaPaths.BaseExecutablePath}/scripts/getNet.sh",
 					["PhysicalAddress", clientAddress.ToString()]).Result.StandardOutput;
 			}
 			catch (TimeoutException)

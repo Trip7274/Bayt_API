@@ -253,11 +253,11 @@ public static class Logs
 		static LogBook()
 		{
 			// ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-			if (ApiConfig.ApiConfiguration.PathToLogFolder is null || !Directory.Exists(ApiConfig.ApiConfiguration.PathToLogFolder)) return;
+			if (SofaPaths.SubPaths.PathToLogFolder is null || !Directory.Exists(SofaPaths.SubPaths.PathToLogFolder)) return;
 
 			CreateNewLogFile();
 			// To make it easier to skim through logs, make it clear when a new instance is started.
-			_logWriter?.WriteLine("================|=========|================================|====== New Sofa instance ==============================");
+			_logWriter?.WriteLine("================|=========|==================================|====== New Sofa instance ==================================");
 		}
 
 		internal static readonly Lock BookWriteLock = new();
@@ -311,7 +311,7 @@ public static class Logs
 			lock (BookWriteLock)
 			{
 				string newFileName =
-					$"[{_lastDateOpened.ToString("O")}] sofaLog.log";
+					$"[{_lastDateOpened.ToString("O")}] Sofa.log";
 				_logWriter!.WriteLine(new LogEntry(StreamId.Notice, "Logging", $"System date changed. New logs will be written in '{newFileName}'"));
 				_logWriter.Flush();
 				_logWriter.Dispose();
@@ -322,11 +322,11 @@ public static class Logs
 
 		private static void CreateNewLogFile()
 		{
-			string fullPath = Path.Combine(ApiConfig.ApiConfiguration.PathToLogFolder, $"[{_lastDateOpened.ToString("O")}] sofaLog.log");
+			string fullPath = Path.Combine(SofaPaths.SubPaths.PathToLogFolder, $"[{_lastDateOpened.ToString("O")}] Sofa.log");
 
 			var fileIsNew = !File.Exists(fullPath);
 			_logWriter = new(fullPath, true, Encoding.UTF8);
-			if (fileIsNew) _logWriter.WriteLine("Time Written    | Type    | Module Name                    | Content"); // Header
+			if (fileIsNew) _logWriter.WriteLine("Time Written    | Type    | Module Name                      | Content"); // Header
 			_logWriter.Flush();
 		}
 

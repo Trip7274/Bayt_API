@@ -10,7 +10,7 @@ public static class DataEndpointManagement
 	/// <summary>
 	/// Abs. path to the client data folder.
 	/// </summary>
-	private static string ClientDataFolder => ApiConfig.ApiConfiguration.PathToDataFolder;
+	private static string ClientDataFolder => SofaPaths.SubPaths.PathToDataFolder;
 
 	/// <summary>
 	/// Represents metadata for a data file, including its folder location, file name, and file data.

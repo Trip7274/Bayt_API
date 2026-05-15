@@ -300,7 +300,7 @@ public static partial class DiskHandling
 			return diskDataDicts.ToArray();
 		}
 
-		private static readonly string[] ScriptSupports = ShellMethods.GetScriptSupports($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh");
+		private static readonly string[] ScriptSupports = ShellMethods.GetScriptSupports($"{SofaPaths.BaseExecutablePath}/scripts/getDisk.sh");
 
 		private static Task? UpdatingTask { get; set; }
 		private static readonly Lock UpdatingLock = new();
@@ -341,11 +341,11 @@ public static partial class DiskHandling
 	/// <seealso cref="GetDeviceFileSystem"/>
 	private static string GetStat(string statName, string devicePath, string[]? scriptSupports = null)
 	{
-		scriptSupports ??= ShellMethods.GetScriptSupports($"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh");
+		scriptSupports ??= ShellMethods.GetScriptSupports($"{SofaPaths.BaseExecutablePath}/scripts/getDisk.sh");
 
 		if (scriptSupports.Contains(statName))
 		{
-			string scriptPath = $"{ApiConfig.BaseExecutablePath}/scripts/getDisk.sh";
+			string scriptPath = $"{SofaPaths.BaseExecutablePath}/scripts/getDisk.sh";
 			var shellProcess = ShellMethods.RunShell(scriptPath, [statName, devicePath]).Result;
 			if (!shellProcess.IsSuccess)
 			{

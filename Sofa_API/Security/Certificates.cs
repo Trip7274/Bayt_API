@@ -8,8 +8,8 @@ public static class Certificates
 {
 	static Certificates()
 	{
-		string certPath = Path.Combine(ApiConfig.BaseDataPath, "certs", "sofaCert.pfx");
-		string futureCertPath = Path.Combine(ApiConfig.BaseDataPath, "certs", "futureSofaCert.pfx");
+		string certPath = Path.Combine(SofaPaths.SubPaths.PathToCertificatesFolder, "sofaCert.pfx");
+		string futureCertPath = Path.Combine(SofaPaths.SubPaths.PathToCertificatesFolder, "futureSofaCert.pfx");
 		X509Certificate2 certificate;
 
 		if (!File.Exists(certPath))
@@ -72,7 +72,7 @@ public static class Certificates
 			if (!IsCloseToExpiration) return null;
 			if (field is not null) return field;
 
-			string certPath = Path.Combine(ApiConfig.BaseDataPath, "certs", "futureSofaCert.pfx");
+			string certPath = Path.Combine(SofaPaths.SubPaths.PathToCertificatesFolder, "futureSofaCert.pfx");
 
 			if (File.Exists(certPath))
 			{

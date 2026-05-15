@@ -48,7 +48,7 @@ public static class DockerLocal
 	/// The default icon to use if a container doesn't have a preferred icon.
 	/// </summary>
 	private const string GenericIconLink = "https://api.iconify.design/mdi/cube-outline.svg";
-	public static string PathToImageDataFile { get; } = Path.Combine(ApiConfig.ApiConfiguration.PathToDockerFolder, "imageData.json");
+	public static string PathToImageDataFile { get; } = Path.Combine(SofaPaths.SubPaths.PathToDockerFolder, "imageData.json");
 
 	/// <summary>
 	/// Provides methods and properties for interacting with the system's Docker containers.

@@ -183,10 +183,10 @@ public static class DlComposeEndpoints
 			var defaultMetadata = DockerLocal.DockerContainers.GetDefaultMetadata(containerName);
 			var defaultComposeSidecarContent = JsonSerializer.Serialize(defaultMetadata, ApiConfig.SofaJsonSerializerOptions);
 
-			var containerExists = Directory.EnumerateDirectories(ApiConfig.ApiConfiguration.PathToComposeFolder).Any(directory => Path.GetFileNameWithoutExtension(directory) == containerNameSlug);
+			var containerExists = Directory.EnumerateDirectories(SofaPaths.SubPaths.PathToComposeFolder).Any(directory => Path.GetFileNameWithoutExtension(directory) == containerNameSlug);
 			if (containerExists) return Results.Conflict($"A container with the name '{containerNameSlug}' already exists.");
 
-			var composePath = Path.Combine(ApiConfig.ApiConfiguration.PathToComposeFolder, containerNameSlug);
+			var composePath = Path.Combine(SofaPaths.SubPaths.PathToComposeFolder, containerNameSlug);
 			Directory.CreateDirectory(composePath);
 
 			await File.WriteAllTextAsync(Path.Combine(composePath, ".SofaMetadata.json"), defaultComposeSidecarContent);

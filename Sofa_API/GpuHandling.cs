@@ -138,7 +138,7 @@ public static class GpuHandling
 			}
 
 			var shellScriptProcess =
-					ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", ["All", GpuId], shellTimeout).Result;
+					ShellMethods.RunShell($"{SofaPaths.BaseExecutablePath}/scripts/getGpu.sh", ["All", GpuId], shellTimeout).Result;
 
 			Dictionary<string, JsonElement> scriptOutput;
 			try
@@ -208,7 +208,7 @@ public static class GpuHandling
 	{
 		static FullGpusData()
 		{
-			var gpuIdsProcess = ShellMethods.RunShell($"{ApiConfig.BaseExecutablePath}/scripts/getGpu.sh", ["gpu_ids"]).Result;
+			var gpuIdsProcess = ShellMethods.RunShell($"{SofaPaths.BaseExecutablePath}/scripts/getGpu.sh", ["gpu_ids"]).Result;
 
 			GpuIdList = gpuIdsProcess.StandardOutput.TrimEnd('\n').Split('\n');
 

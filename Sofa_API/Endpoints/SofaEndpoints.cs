@@ -14,7 +14,7 @@ public static class SofaEndpoints
 			{
 				Logs.StreamWrittenTo += EnqueueLogs;
 
-				string[] pastLogs = File.ReadAllLines(Path.Combine(ApiConfig.ApiConfiguration.PathToLogFolder,
+				string[] pastLogs = File.ReadAllLines(Path.Combine(SofaPaths.SubPaths.PathToLogFolder,
 					$"[{DateOnly.FromDateTime(DateTime.Now).ToString("O")}] sofaLog.log"));
 				if (pastLogs.Length > initialContext)
 				{

@@ -18,7 +18,7 @@ internal static class SecurityStores
 		}
 	}
 
-	internal static readonly string BaseSecurityPath = Path.Combine(ApiConfig.BaseDataPath, "security");
+	internal static readonly string BaseSecurityPath = Path.Combine(SofaPaths.BaseDataPath, "Security");
 
 	internal static class UserStores
 	{
@@ -30,7 +30,7 @@ internal static class SecurityStores
 			StoreFolderIndex = new("User", BaseUsersPath);
 		}
 
-		private static readonly string BaseUsersPath = Path.Combine(BaseSecurityPath, "registered", "users");
+		private static readonly string BaseUsersPath = Path.Combine(BaseSecurityPath, "Registered", "Users");
 		private static readonly StoreIndex StoreFolderIndex;
 
 		internal static IEnumerable<User> GetAllUsers()
@@ -148,7 +148,7 @@ internal static class SecurityStores
 			StoreFolderIndex = new("Client", BaseClientsPath);
 		}
 
-		private static readonly string BaseClientsPath = Path.Combine(BaseSecurityPath, "registered", "clients");
+		private static readonly string BaseClientsPath = Path.Combine(BaseSecurityPath, "Registered", "Clients");
 		private static readonly StoreIndex StoreFolderIndex;
 
 		internal static IEnumerable<Client> GetAllClients()

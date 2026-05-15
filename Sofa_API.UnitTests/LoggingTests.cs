@@ -4,7 +4,7 @@ public class LoggingTests
 {
 	//private static readonly LogEntry ReferenceEntry = new (LogStream.Info, "Testing", "This is a test!", ReferenceDate);
 	private static readonly byte[] ReferenceHeader = [
-		5, 15, 0, 128, 132, 81, 194, 255, 41, 221, 72, 84, 101, 115, 116, 105, 110, 103, 2
+		5, 7, 15, 0, 128, 132, 81, 194, 255, 41, 221, 72, 84, 101, 115, 116, 105, 110, 103
 	];
 	private static readonly byte[] ReferenceContent = "This is a test!"u8.ToArray();
 	private static byte[] FullReferenceEntry => ReferenceHeader.Concat(ReferenceContent).ToArray();

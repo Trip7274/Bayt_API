@@ -55,11 +55,6 @@ public static class Permissions
 
 			constructedPerm = constructedPerm.ToLowerInvariant();
 			var splitString = constructedPerm.Split(':');
-			if (splitString.Length != 2)
-			{
-				permReq = null;
-				return false;
-			}
 
 			// Input: "docker-compose:create,list"
 

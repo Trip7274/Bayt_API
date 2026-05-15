@@ -136,9 +136,9 @@ public static class ApiConfig
 		/// The user-set name for this instance of Sofa.
 		/// </summary>
 		/// <remarks>
-		///	Defaults to "Sofa API Host"
+		///	Defaults to "Sofa Instance"
 		/// </remarks>
-		public static string BackendName { get; private set; } = "Sofa API Host";
+		public static string BackendName { get; private set; } = "Sofa Instance";
 
 		/// <summary>
 		/// Lifetime of the cache. Set to 0 to effectively disable it.

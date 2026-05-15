@@ -15,13 +15,10 @@ public static class SofaEndpoints
 			{
 				Logs.StreamWrittenTo += EnqueueLogs;
 
-				string[] pastLogs = File.ReadAllLines(Path.Combine(SofaPaths.SubPaths.PathToLogFolder,
-					$"[{DateOnly.FromDateTime(DateTime.Now).ToString("O")}] Sofa.log"));
-				if (pastLogs.Length > initialContext)
-				{
-					pastLogs = pastLogs[^initialContext..];
-				}
+				var pastLogs = File.ReadAllLines(Path.Combine(SofaPaths.SubPaths.PathToLogFolder,
+					$"[{DateOnly.FromDateTime(DateTime.Now).ToString("O")}] Sofa.log")).Reverse();
 
+				var collectedContext = new List<LogEntry>(initialContext);
 				foreach (var pastLogEntry in pastLogs)
 				{
 					// If it's a header, skip it
@@ -30,15 +27,25 @@ public static class SofaEndpoints
 						continue;
 					}
 
-					var parsedLog = LogEntry.Parse(pastLogEntry);
-					if (parsedLog.LogStream > verbosity) continue;
+					LogEntry parsedLog;
 					try
 					{
-						bufferedLogs.Enqueue(parsedLog);
+						parsedLog = LogEntry.Parse(pastLogEntry);
 					}
 					catch {
 						// skip malformed logs
+						continue;
 					}
+					if (parsedLog.LogStream > verbosity) continue;
+					collectedContext.Add(parsedLog);
+
+					if (collectedContext.Count >= initialContext) break;
+				}
+
+				collectedContext.Reverse();
+				foreach (var logEntry in collectedContext)
+				{
+					bufferedLogs.Enqueue(logEntry);
 				}
 			}
 		}

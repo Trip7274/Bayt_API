@@ -120,6 +120,30 @@ public sealed class LogEntry
 		return content.Length != contentLength ? throw new ArgumentException("Content length does not match header.")
 			: new(logStream, moduleName, content, timeWrittenRaw);
 	}
+	public static LogEntry Parse(string serializedLog)
+	{
+		var fields = serializedLog.Split('|').Select(field => field.Trim()).ToArray();
+		if (fields.Length != 4) throw new ArgumentException("Serialized log is not in the correct format.");
+
+		var timeWritten = DateTime.Parse(fields[0]);
+		var logStream = fields[1] switch
+		{
+			"REQUEST" => LogStream.Request,
+			"FATAL" => LogStream.Fatal,
+			"ERROR" => LogStream.Error,
+			"WARNING" => LogStream.Warning,
+			"OK" => LogStream.Ok,
+			"INFO" => LogStream.Info,
+			"NOTICE" => LogStream.Notice,
+			"VERBOSE" => LogStream.Verbose,
+			_ => LogStream.None
+		};
+		var moduleName = fields[2];
+		var content = fields[3];
+
+
+		return new(logStream, moduleName, content, timeWritten);
+	}
 
 	public byte[] Serialize()
 	{
@@ -138,6 +162,14 @@ public sealed class LogEntry
 
 		return buffer.ToArray();
 	}
+
+	public Dictionary<string, dynamic> ToDictionary() => new()
+	{
+		{ "TimeWritten", TimeWritten },
+		{ "LogStream", LogStream },
+		{ "ModuleName", ModuleName },
+		{ "Content", Content }
+	};
 
 	public static explicit operator byte[](LogEntry logEntry) => logEntry.Serialize();
 	public static explicit operator LogEntry(byte[] bytes) => Parse(bytes);

@@ -30,6 +30,22 @@ public class LoggingTests
 		Assert.Equal("This is a test!", entry.Content);
 		Assert.Equal(ReferenceDate, entry.TimeWritten);
 	}
+
+	[Fact]
+	public void TestParsingString()
+	{
+		const string referenceString = "1:01:01 AM +00  | INFO    | Testing                          | This is a test!";
+
+		var dateToday = DateOnly.FromDateTime(DateTime.Today);
+		var referenceDateToday = new DateTime(dateToday.Year, dateToday.Month, dateToday.Day, 1, 1, 1, DateTimeKind.Utc);
+
+		var entry = LogEntry.Parse(referenceString);
+
+		Assert.Equal(LogStream.Info, entry.LogStream);
+		Assert.Equal("Testing", entry.ModuleName);
+		Assert.Equal("This is a test!", entry.Content);
+		Assert.Equal(referenceDateToday, entry.TimeWritten); // String parsing cannot on its own determine the DATE, as it's not serialized into string format.
+	}
 	[Fact]
 	public void TestSerialization()
 	{

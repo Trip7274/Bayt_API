@@ -91,18 +91,8 @@ public abstract class HasPermissions : IEquatable<HasPermissions>
 			requester = null;
 			return false;
 		}
-		if (Clients.TryFetchValidClient(identifier, out var client))
-		{
-			requester = client;
-			return true;
-		}
-		if (Users.TryFetchUser(identifier, out var user))
-		{
-			requester = user;
-			return true;
-		}
-		requester = null;
-		return false;
+		requester = FetchRequester(identifier.Value);
+		return requester is not null;
 	}
 
 

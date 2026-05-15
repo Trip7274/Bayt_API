@@ -616,9 +616,16 @@ public static class ApiConfig
 				{ "SubnetMask", subnetMask.ToString() },
 				{ "BroadcastAddress", null }
 			});
+			WolClientsClass?.Add(new WolHandling.WolClient
+			{
+				Name = clientLabel,
+				PhysicalAddress = physicalAddress,
+				IpAddress = IPAddress.Parse(clientAddress),
+				SubnetMask = subnetMask,
+				BroadcastAddress = null
+			});
 
 			SaveConfig();
-			LoadWolClientsList();
 			return true;
 		}
 

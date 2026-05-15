@@ -9,7 +9,7 @@ public static class SofaEndpoints
 	private static async IAsyncEnumerable<SseItem<string>> StreamSofaLogs(LogStream verbosity, byte initialContext, ushort streamId, string format, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		Queue<LogEntry> bufferedLogs = [];
-		if (verbosity >= ApiConfig.ApiConfiguration.LogVerbosity && initialContext > 0)
+		if (initialContext > 0)
 		{
 			lock (Logs.LogBook.BookWriteLock)
 			{
@@ -29,9 +29,12 @@ public static class SofaEndpoints
 					{
 						continue;
 					}
+
+					var parsedLog = LogEntry.Parse(pastLogEntry);
+					if (parsedLog.LogStream > verbosity) continue;
 					try
 					{
-						bufferedLogs.Enqueue(LogEntry.Parse(pastLogEntry));
+						bufferedLogs.Enqueue(parsedLog);
 					}
 					catch {
 						// skip malformed logs
@@ -90,7 +93,7 @@ public static class SofaEndpoints
 
 			context.Response.Headers.Append("X-Stream-Id", streamId.ToString());
 			context.Response.Headers.Append("X-Verbosity", $"{(byte) verbosityEnum}");
-			context.Response.Headers.Append("X-Context-Included", $"{verbosityEnum >= ApiConfig.ApiConfiguration.LogVerbosity && initialContext > 0}");
+			context.Response.Headers.Append("X-Context-Included", $"{initialContext}");
 
 
 			return Results.ServerSentEvents(StreamSofaLogs(verbosityEnum, initialContext, streamId, format, cancellationToken: cancellationToken));
@@ -99,7 +102,6 @@ public static class SofaEndpoints
 			.WithSummary("Returns a stream of Sofa's logs.")
 			.WithDescription("`verbosity` is optional and specifies the level of log verbosity to follow. Defaults to Sofa's configured `LogVerbosity` setting. " +
 			                 "`initialContext` is optional and referres to how many lines of past logs to include at the start of the stream. Defaults to 50 [Range: 0-100]. " +
-			                 "(`initialContext` does not respect `verbosity` and will not include anything higher than Sofa's `LogVerbosity` settings) " +
 			                 "`format` can be set to either 'json' or 'binary', meaning either JSON entries for each log, or a Base64 encoded string of the serialized log entry.")
 			.WithTags("Logs")
 			.WithName("GetSofaLogsSse")

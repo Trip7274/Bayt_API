@@ -146,13 +146,13 @@ public static class StatsApi
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Checking for CPU data update..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "CPU Fetch", "Checking for CPU data update..."));
 			if (!ShouldUpdate)
 			{
-				Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "CPU data is up to date."));
+				Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "CPU Fetch", "CPU data is up to date."));
 				return;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "Updating CPU data..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "CPU Fetch", "Updating CPU data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -169,7 +169,7 @@ public static class StatsApi
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "CPU Fetch", "CPU data updated."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "CPU Fetch", "CPU data updated."));
 		}
 
 		/// <summary>
@@ -297,13 +297,13 @@ public static class StatsApi
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Checking for RAM data update..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "RAM Fetch", "Checking for RAM data update..."));
 			if (!ShouldUpdate)
 			{
-				Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "RAM data is up to date."));
+				Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "RAM Fetch", "RAM data is up to date."));
 				return;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "Updating RAM data..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "RAM Fetch", "Updating RAM data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -320,7 +320,7 @@ public static class StatsApi
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "RAM Fetch", "RAM data updated."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "RAM Fetch", "RAM data updated."));
 		}
 
 		/// <summary>
@@ -512,13 +512,13 @@ public static class StatsApi
 		public async Task UpdateData()
 		{
 			var supplyNameHash = SupplyName.GetHashCode().ToString("X4");
-			Logs.LogBook.Write(new (StreamId.Verbose, $"Battery Fetch [{supplyNameHash}]", $"Updating battery data for '{Name ?? SupplyName}'"));
+			Logs.LogBook.Write(new (LogStream.Verbose, $"Battery Fetch [{supplyNameHash}]", $"Updating battery data for '{Name ?? SupplyName}'"));
 			var basePath = $"/sys/class/power_supply/{SupplyName}";
 
 			Present = !File.Exists($"{basePath}/present") || (await File.ReadAllTextAsync($"{basePath}/present")).StartsWith('1');
 			if (!Present)
 			{
-				Logs.LogBook.Write(new (StreamId.Verbose, $"Battery Fetch [{supplyNameHash}]", $"Skipping battery data for '{Name ?? SupplyName}'"));
+				Logs.LogBook.Write(new (LogStream.Verbose, $"Battery Fetch [{supplyNameHash}]", $"Skipping battery data for '{Name ?? SupplyName}'"));
 				return;
 			}
 
@@ -574,19 +574,19 @@ public static class StatsApi
 		private static void InitializeList()
 		{
 			if (List.Count > 0) List.Clear();
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Loading battery list"));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Battery Fetch", "Loading battery list"));
 
 			foreach (var battery in Directory.EnumerateDirectories("/sys/class/power_supply/"))
 			{
 				var batteryName = Path.GetFileName(battery);
 				if (File.Exists(Path.Combine(battery, "present")) && !File.ReadAllText(Path.Combine(battery, "present")).StartsWith('1') )
 				{
-					Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", $"Battery '{batteryName}' is not present, skipping."));
+					Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Battery Fetch", $"Battery '{batteryName}' is not present, skipping."));
 					continue;
 				}
 				if (File.ReadAllText(Path.Combine(battery, "type")).TrimEnd() is "Mains" or "USB" or "Wireless")
 				{
-					Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", $"Battery '{batteryName}' does not seem like a battery, skipping."));
+					Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Battery Fetch", $"Battery '{batteryName}' does not seem like a battery, skipping."));
 					continue;
 				}
 
@@ -596,11 +596,11 @@ public static class StatsApi
 				}
 				catch (Exception e)
 				{
-					Logs.LogBook.Write(new (StreamId.Error, "Battery Fetch", $"Error loading battery '{batteryName}': {e.Message}'"));
+					Logs.LogBook.Write(new (LogStream.Error, "Battery Fetch", $"Error loading battery '{batteryName}': {e.Message}'"));
 				}
 			}
 
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", $"Loaded {List.Count} batteries."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Battery Fetch", $"Loaded {List.Count} batteries."));
 		}
 
 		public static async Task UpdateData()
@@ -622,13 +622,13 @@ public static class StatsApi
 		}
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Checking for battery data update..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Battery Fetch", "Checking for battery data update..."));
 			if (!ShouldUpdate)
 			{
-				Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Battery data is up to date."));
+				Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Battery Fetch", "Battery data is up to date."));
 				return;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Updating battery data..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Battery Fetch", "Updating battery data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -645,7 +645,7 @@ public static class StatsApi
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Battery Fetch", "Battery data updated."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Battery Fetch", "Battery data updated."));
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()
@@ -688,11 +688,11 @@ public static class StatsApi
 			if (IPAddress.TryParse(Environment.GetEnvironmentVariable("SOFA_LOCALIP"), out var localIpParsed))
 			{
 				localIp = localIpParsed;
-				Logs.LogBook.Write(new(StreamId.Info, "Network Initalization", $"Using SOFA_LOCALIP environment variable to override detected IP address: '{localIp}'"));
+				Logs.LogBook.Write(new(LogStream.Info, "Network Initalization", $"Using SOFA_LOCALIP environment variable to override detected IP address: '{localIp}'"));
 				return localIp;
 			}
 
-			Logs.LogBook.Write(new (StreamId.Warning, "Network Initalization",
+			Logs.LogBook.Write(new (LogStream.Warning, "Network Initalization",
 				$"SOFA_LOCALIP environment variable is set to '{Environment.GetEnvironmentVariable("SOFA_LOCALIP")}', but it doesn't appear to be a valid IP address."));
 		}
 

@@ -32,7 +32,7 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 		https.SslProtocols = SslProtocols.Tls12 & SslProtocols.Tls13;
 	});
 
-	Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{IPAddress.Loopback}:{ApiConfig.HttpsNetworkPort}' to listen list"));
+	Logs.LogBook.Write(new (LogStream.Info, "Network Initalization", $"Adding URL 'https://{IPAddress.Loopback}:{ApiConfig.HttpsNetworkPort}' to listen list"));
 	kestrel.Listen(IPAddress.Loopback, ApiConfig.HttpsNetworkPort, listenOptions =>
 	{
 		listenOptions.UseHttps();
@@ -43,7 +43,7 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 	{
 		var localIp = StatsApi.GetLocalIpAddress();
 
-		Logs.LogBook.Write(new (StreamId.Info, "Network Initalization", $"Adding URL 'https://{localIp}:{ApiConfig.HttpsNetworkPort}' to listen list"));
+		Logs.LogBook.Write(new (LogStream.Info, "Network Initalization", $"Adding URL 'https://{localIp}:{ApiConfig.HttpsNetworkPort}' to listen list"));
 		kestrel.Listen(localIp, ApiConfig.HttpsNetworkPort, listenOptions =>
 		{
 			listenOptions.UseHttps();
@@ -58,22 +58,22 @@ builder.Services.AddSingleton<IAuthorizationPolicyProvider, Permissions.Permissi
 builder.Services.AddScoped<IAuthorizationHandler, Permissions.PermissionHandler>();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, Permissions.SofaAuthorizationMessageHandler>();
 
-Logs.LogBook.Write(new (StreamId.Notice, "Configuration Directory",
+Logs.LogBook.Write(new (LogStream.Notice, "Configuration Directory",
 	$"Loading configuration from: '{SofaPaths.SubPaths.ConfigFilePath}'"));
 
 
-Logs.LogBook.Write(new (StreamId.Notice, "Sofa Data Directory",
+Logs.LogBook.Write(new (LogStream.Notice, "Sofa Data Directory",
 	$"Sofa is loading and storing its data from: '{SofaPaths.BaseDataPath}'"));
 
 
 builder.Logging.ClearProviders();
 var app = builder.Build();
-if (ApiConfig.TerminalVerbosity > StreamId.Request || ApiConfig.ApiConfiguration.LogVerbosity > StreamId.Request)
+if (ApiConfig.TerminalVerbosity > LogStream.Request || ApiConfig.ApiConfiguration.LogVerbosity > LogStream.Request)
 	app.UseMiddleware<RequestLoggingMiddleware>();
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
-	Logs.LogBook.Write(new (StreamId.Warning, "Initialization",
+	Logs.LogBook.Write(new (LogStream.Warning, "Initialization",
 		$"Detected OS is '{Environment.OSVersion.Platform}', which doesn't appear to be Unix-like. This is unsupported, here be dragons."));
 }
 
@@ -99,16 +99,16 @@ app.MapDlImagesEndpoints();
 
 if (DockerLocal.IsDockerAvailable)
 {
-	Logs.LogBook.Write(new (StreamId.Info, "Docker", "Docker is available. Docker endpoints will be available."));
+	Logs.LogBook.Write(new (LogStream.Info, "Docker", "Docker is available. Docker endpoints will be available."));
 
 	if (DockerLocal.IsDockerComposeAvailable)
 	{
-		Logs.LogBook.Write(new (StreamId.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
+		Logs.LogBook.Write(new (LogStream.Info, "Docker", "Docker-Compose is available. Docker-Compose endpoints will be available."));
 	}
 }
 if (ParsingMethods.IsEnvVarTrue("SOFA_SKIP_FIRST_FETCH"))
 {
-	Logs.LogBook.Write(new (StreamId.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
+	Logs.LogBook.Write(new (LogStream.Info, "Initialization", "Skipping first fetch cycle. This may cause the first request to be slow."));
 }
 else
 {
@@ -127,12 +127,12 @@ else
 		fetchTasks.Add(Task.Run(DockerLocal.ImagesInfo.UpdateDataIfNecessary));
 	}
 
-	Logs.LogBook.Write(new (StreamId.Info, "Initialization", "Running an initial fetch cycle..."));
+	Logs.LogBook.Write(new (LogStream.Info, "Initialization", "Running an initial fetch cycle..."));
 	await Task.WhenAll(fetchTasks);
 
-	Logs.LogBook.Write(new (StreamId.Ok, "Initialization", "Fetch cycle complete."));
+	Logs.LogBook.Write(new (LogStream.Ok, "Initialization", "Fetch cycle complete."));
 }
-Logs.LogBook.Write(new (StreamId.Ok, "Initialization", "::: Sofa is ready :::"));
+Logs.LogBook.Write(new (LogStream.Ok, "Initialization", "::: Sofa is ready :::"));
 
 try
 {
@@ -140,21 +140,21 @@ try
 }
 catch (SocketException e) when (e.Message == "Cannot assign the requested address")
 {
-	Logs.LogBook.Write(new (StreamId.Fatal, "Network Initalization",
+	Logs.LogBook.Write(new (LogStream.Fatal, "Network Initalization",
 		"Something went wrong while binding to one of the targetted IP addresses. Make sure the targetted IP address is valid."));
 }
 catch (SocketException e) when (e.Message == "Permission denied")
 {
-	Logs.LogBook.Write(new (StreamId.Fatal, "Network Initalization",
+	Logs.LogBook.Write(new (LogStream.Fatal, "Network Initalization",
 		"The current user does not have permission to bind to one of the IP addresses or ports."));
 }
 catch (IOException e) when (e.InnerException is not null && e.InnerException.Message == "Address already in use")
 {
-	Logs.LogBook.Write(new (StreamId.Fatal, "Network Initalization",
+	Logs.LogBook.Write(new (LogStream.Fatal, "Network Initalization",
 		$"Port {ApiConfig.NetworkPort} is already in use. Another instance of Sofa may be running."));
 }
 finally
 {
-	Logs.LogBook.Write(new (StreamId.Info, "Shutdown", "Sofa is shutting down."));
+	Logs.LogBook.Write(new (LogStream.Info, "Shutdown", "Sofa is shutting down."));
 	Logs.LogBook.Dispose();
 }

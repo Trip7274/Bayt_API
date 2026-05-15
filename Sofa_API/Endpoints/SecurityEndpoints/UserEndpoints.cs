@@ -29,7 +29,7 @@ public static class UserEndpoints
 			{
 				Users.AddUser(new (username, password, profilePictureUrl));
 			}
-			Logs.LogBook.Write(new (StreamId.Notice, "User Registration", $"User '{username}' registered!"));
+			Logs.LogBook.Write(new (LogStream.Notice, "User Registration", $"User '{username}' registered!"));
 			return Results.NoContent();
 		}).Produces(StatusCodes.Status200OK)
 		.Produces(StatusCodes.Status409Conflict)

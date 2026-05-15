@@ -13,7 +13,7 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next)
 		var requestTarget = string.IsNullOrEmpty(request.QueryString.Value) ? request.Path.ToString() : $"{request.Path}{request.QueryString}";
 		context.Response.Headers.Append("X-Request-Id", context.TraceIdentifier);
 
-		Logs.LogBook.Write(new LogEntry(StreamId.Request, $"Req. [{context.TraceIdentifier}]",
+		Logs.LogBook.Write(new LogEntry(LogStream.Request, $"Req. [{context.TraceIdentifier}]",
 			$"Got a '{request.Method} {requestTarget}' request from {remoteAddress}"));
 
 		try
@@ -23,7 +23,7 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next)
 			stopwatch.Stop();
 
 			Logs.LogBook.Write(new LogEntry(
-				StreamId.Request,
+				LogStream.Request,
 				$"Res. [{context.TraceIdentifier}]",
 				$"Responded with {context.Response.StatusCode} in {stopwatch.ElapsedMilliseconds}ms"));
 		}
@@ -32,7 +32,7 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next)
 			stopwatch.Stop();
 
 			Logs.LogBook.Write(new LogEntry(
-				StreamId.Request,
+				LogStream.Request,
 				$"Req. [{context.TraceIdentifier}]",
 				$"Request failed after {stopwatch.ElapsedMilliseconds}ms: {e.GetType().Name}: {e.Message}"));
 

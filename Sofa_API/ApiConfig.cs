@@ -47,11 +47,11 @@ public static class ApiConfig
 	/// <remarks>
 	///	As is, this only affects the PRINTING of logs. Logs might still be written to the log file, depending on the <see cref="ApiConfig.ApiConfiguration.LogVerbosity"/>.
 	/// </remarks>
-	// If the Env Var contains anything, clamp it to the acceptable range of the StreamId enum type
-	public static readonly StreamId TerminalVerbosity =
+	// If the Env Var contains anything, clamp it to the acceptable range of the logStream enum type
+	public static readonly LogStream TerminalVerbosity =
 			byte.TryParse(Environment.GetEnvironmentVariable("SOFA_VERBOSITY"), out var terminalVerbosity)
-				? ParsingMethods.ClampToMaxStreamIdValue(terminalVerbosity)
-				: StreamId.Notice;
+				? ParsingMethods.ClampToMaxLogStreamValue(terminalVerbosity)
+				: LogStream.Notice;
 
 	// Config-specific stuff from here on out
 
@@ -136,7 +136,7 @@ public static class ApiConfig
 		/// The verbosity level of the written logs. Does not control the verbosity of the terminal output.
 		/// </summary>
 		/// <seealso cref="ApiConfig.TerminalVerbosity"/>
-		public static StreamId LogVerbosity { get; private set; } = StreamId.Verbose;
+		public static LogStream LogVerbosity { get; private set; } = LogStream.Verbose;
 
 		/// <summary>
 		/// Dictionary of watched mounts. Format is { "Path": "Name" }. For example, { "/home": "Home Partition" }
@@ -209,7 +209,7 @@ public static class ApiConfig
 
 			DockerIntegrationEnabled = loadedDict.TryGetProperty(nameof(DockerIntegrationEnabled), out var dockerIntegrationEnabled) ? dockerIntegrationEnabled.GetBoolean() : DockerIntegrationEnabled;
 
-			LogVerbosity = loadedDict.TryGetProperty(nameof(LogVerbosity), out var logVerbosity) ? ParsingMethods.ClampToMaxStreamIdValue((byte) int.Clamp(logVerbosity.GetInt32(), 0, byte.MaxValue)) : LogVerbosity;
+			LogVerbosity = loadedDict.TryGetProperty(nameof(LogVerbosity), out var logVerbosity) ? ParsingMethods.ClampToMaxLogStreamValue((byte) int.Clamp(logVerbosity.GetInt32(), 0, byte.MaxValue)) : LogVerbosity;
 
 			if (loadedDict.TryGetProperty(nameof(WatchedMounts), out var watchedMounts))
 			{
@@ -220,9 +220,9 @@ public static class ApiConfig
 				catch (JsonException e)
 				{
 					// Technically could recover from this by regenerating the config, but I don't wanna reset the user's entire config every time they mess up their JSON.
-					Logs.LogBook.Write(new(StreamId.Fatal, "Watched Mounts Load",
+					Logs.LogBook.Write(new(LogStream.Fatal, "Watched Mounts Load",
 						"Failed to load a mount entry from the configuration file. Please ensure the JSON is valid."));
-					Logs.LogBook.Write(new(StreamId.Fatal, "Watched Mounts Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
+					Logs.LogBook.Write(new(LogStream.Fatal, "Watched Mounts Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
 					throw new Exception();
 				}
 			}
@@ -235,9 +235,9 @@ public static class ApiConfig
 				catch (JsonException e)
 				{
 					// Technically could recover from this by regenerating the config, but I don't wanna reset the user's entire config every time they mess up their JSON.
-					Logs.LogBook.Write(new(StreamId.Fatal, "WoL Load",
+					Logs.LogBook.Write(new(LogStream.Fatal, "WoL Load",
 						"Failed to load the list of WoL clients from the configuration file. Please ensure the JSON is valid."));
-					Logs.LogBook.Write(new(StreamId.Fatal, "WoL Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
+					Logs.LogBook.Write(new(LogStream.Fatal, "WoL Load", $"Error: {e.Message}\n\tStack trace: {e.StackTrace}"));
 					throw new Exception();
 				}
 			}
@@ -257,7 +257,7 @@ public static class ApiConfig
 		{
 			if (!File.Exists(SofaPaths.SubPaths.ConfigFilePath))
 			{
-				Logs.LogBook.Write(new LogEntry(StreamId.Info, "Configuration", "Couldn't find the configuration file. A new one will be generated."));
+				Logs.LogBook.Write(new LogEntry(LogStream.Info, "Configuration", "Couldn't find the configuration file. A new one will be generated."));
 				SaveConfig();
 			}
 			if (ValidateConfigSyntax()) return;
@@ -283,15 +283,15 @@ public static class ApiConfig
 
 				if (jsonDocument.TryGetProperty(nameof(ConfigVersion), out var configVersion) && configVersion.ValueKind == JsonValueKind.Number && configVersion.GetByte() != ApiVersion)
 				{
-					Logs.LogBook.Write(new(StreamId.Warning, "Configuration", $"Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons."));
+					Logs.LogBook.Write(new(LogStream.Warning, "Configuration", $"Loaded configuration file is version {configVersion.GetByte()}, but the current version is {ApiVersion}. Here be dragons."));
 				}
 
 				return jsonDocument.TryGetProperty(nameof(ConfigVersion), out configVersion) && configVersion.ValueKind == JsonValueKind.Number;
 			}
 			catch (JsonException exception)
 			{
-				Logs.LogBook.Write(new(StreamId.Error, "Configuration", $"Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}."));
-				Logs.LogBook.Write(new(StreamId.Error, "Configuration", $"Your configuration will be regenerated. You can find your old configuration in {SofaPaths.SubPaths.ConfigFilePath}.old"));
+				Logs.LogBook.Write(new(LogStream.Error, "Configuration", $"Failed processing JSON File, error message: {exception.Message} at {exception.LineNumber}:{exception.BytePositionInLine}."));
+				Logs.LogBook.Write(new(LogStream.Error, "Configuration", $"Your configuration will be regenerated. You can find your old configuration in {SofaPaths.SubPaths.ConfigFilePath}.old"));
 				return false;
 			}
 		}
@@ -315,7 +315,7 @@ public static class ApiConfig
 		/// <returns>Whether the method actually changed any configs.</returns>
 		public static bool EditConfig(Dictionary<string, dynamic> newProps)
 		{
-			Logs.LogBook.Write(new(StreamId.Verbose, "Configuration Edit", $"Configuration Edit Requested: {string.Join(", ", newProps.Keys)}"));
+			Logs.LogBook.Write(new(LogStream.Verbose, "Configuration Edit", $"Configuration Edit Requested: {string.Join(", ", newProps.Keys)}"));
 			if (newProps.Count == 0) return false;
 			bool configChanged = false;
 
@@ -437,7 +437,7 @@ public static class ApiConfig
 				catch (Exception e)
 				{
 					var name = wolClientDict.Value.GetValueOrDefault("Name");
-					Logs.LogBook.Write(new(StreamId.Error, "WoL Init",
+					Logs.LogBook.Write(new(LogStream.Error, "WoL Init",
 						$"Got a '{e.Message}' error trying to load a WoL client from the configuration file. Detected name: {name ?? "(unable to fetch name)"} Skipping."));
 				}
 			}
@@ -464,7 +464,7 @@ public static class ApiConfig
 			}
 			catch (TimeoutException)
 			{
-				Logs.LogBook.Write(new(StreamId.Error, "WoL Client Add", $"getNet.sh timed out while fetching the client's physical address or subnet mask ({clientAddress}). Skipping."));
+				Logs.LogBook.Write(new(LogStream.Error, "WoL Client Add", $"getNet.sh timed out while fetching the client's physical address or subnet mask ({clientAddress}). Skipping."));
 				return false;
 			}
 
@@ -509,13 +509,13 @@ public static class ApiConfig
 			}
 			catch (TimeoutException)
 			{
-				Logs.LogBook.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh timed out while ({clientAddress.ToString()}). Skipping."));
+				Logs.LogBook.Write(new(LogStream.Error, "WoL Client Remove", $"getNet.sh timed out while ({clientAddress.ToString()}). Skipping."));
 				return null;
 			}
 
 			if (!PhysicalAddress.TryParse(physicalAddressStdout, out var physicalAddress))
 			{
-				Logs.LogBook.Write(new(StreamId.Error, "WoL Client Remove", $"getNet.sh output seems to be malformed or incorrect for {clientAddress}. Skipping."));
+				Logs.LogBook.Write(new(LogStream.Error, "WoL Client Remove", $"getNet.sh output seems to be malformed or incorrect for {clientAddress}. Skipping."));
 				return null;
 			}
 

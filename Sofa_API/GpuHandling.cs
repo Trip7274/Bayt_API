@@ -147,14 +147,14 @@ public static class GpuHandling
 			}
 			catch (Exception e)
 			{
-				Logs.LogBook.Write(new(StreamId.Error, "GPU Fetch",
+				Logs.LogBook.Write(new(LogStream.Error, "GPU Fetch",
 					$"Exception '{e}' when parsing JSON from GPU '{GpuId}'! (Script exit code: {shellScriptProcess.ExitCode})"));
 				return;
 			}
 
 			if (scriptOutput.Count == 0)
 			{
-				Logs.LogBook.Write(new(StreamId.Error, "GPU Fetch",
+				Logs.LogBook.Write(new(LogStream.Error, "GPU Fetch",
 					$"Error while parsing data for GPU '{GpuId}'! Got 0 entries (Script exit code: {shellScriptProcess.ExitCode})"));
 				return;
 			}
@@ -257,9 +257,9 @@ public static class GpuHandling
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "Checking for GPU data update..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "GPU Fetch", "Checking for GPU data update..."));
 			if (!ShouldUpdate) return;
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "Updating GPU data..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "GPU Fetch", "Updating GPU data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -276,7 +276,7 @@ public static class GpuHandling
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "GPU Fetch", "GPU data updated."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "GPU Fetch", "GPU data updated."));
 		}
 
 		public static Dictionary<string, dynamic?>[] ToDictionary()

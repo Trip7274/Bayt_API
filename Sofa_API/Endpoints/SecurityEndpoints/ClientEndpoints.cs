@@ -98,7 +98,7 @@ public static class ClientEndpoints
 			Clients.AddPendingClient(registrationKeyString, clientObject);
 			Clients.AddClient(clientObject);
 
-			Logs.LogBook.Write(new (StreamId.Notice, "Client Registration", $"Client '{clientName}' is pending registration. To approve, present the registering client with the registration key from '{registrationEntryPath}' after reading the JSON file."));
+			Logs.LogBook.Write(new (LogStream.Notice, "Client Registration", $"Client '{clientName}' is pending registration. To approve, present the registering client with the registration key from '{registrationEntryPath}' after reading the JSON file."));
 
 			return Results.Accepted($"{BaseClientUrl}/me/info", new
 				{

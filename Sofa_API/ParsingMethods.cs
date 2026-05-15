@@ -136,19 +136,19 @@ public static class ParsingMethods
 		}
 		return valueStringBuilder.ToString();
 	}
-	public static StreamId ClampToMaxStreamIdValue(byte enumValue)
+	public static LogStream ClampToMaxLogStreamValue(byte enumValue)
 	{
-		return enumValue > (byte) StreamId.Request
-			? StreamId.Request
-			: (StreamId) enumValue;
+		return enumValue > (byte) LogStream.Request
+			? LogStream.Request
+			: (LogStream) enumValue;
 	}
 	[return: NotNullIfNotNull(nameof(enumValue))]
-	public static StreamId? ClampToMaxStreamIdValue(byte? enumValue)
+	public static LogStream? ClampToMaxLogStreamValue(byte? enumValue)
 	{
 		if (enumValue is null) return null;
 
-		return enumValue > (byte) StreamId.Request
-			? StreamId.Request
-			: (StreamId) enumValue;
+		return enumValue > (byte) LogStream.Request
+			? LogStream.Request
+			: (LogStream) enumValue;
 	}
 }

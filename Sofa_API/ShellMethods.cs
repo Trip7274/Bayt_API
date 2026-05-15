@@ -57,7 +57,7 @@ public static class ShellMethods
 		timeout ??= TimeSpan.FromSeconds(5);
 		arguments ??= [];
 
-		Logs.LogBook.Write(new LogEntry(StreamId.Verbose, $"Command Exec [{processIdentifier:X8}]", $"Got a request to run a command: '{Path.GetFileName(program)} [{string.Join(", ", arguments)}]'"));
+		Logs.LogBook.Write(new LogEntry(LogStream.Verbose, $"Command Exec [{processIdentifier:X8}]", $"Got a request to run a command: '{Path.GetFileName(program)} [{string.Join(", ", arguments)}]'"));
 		StringBuilder stdout = new();
 		StringBuilder stderr = new();
 		Dictionary<string, string?> envVars = new()
@@ -94,7 +94,7 @@ public static class ShellMethods
 		{
 			if (throwIfTimedout)
 			{
-				Logs.LogBook.Write(new(StreamId.Fatal,
+				Logs.LogBook.Write(new(LogStream.Fatal,
 					$"Command Exec [{processIdentifier:X8}]", $"The process '{Path.GetFileName(program)}' fatally timed out after {processTimer.Elapsed.TotalSeconds} seconds. Sofa will exit."));
 				throw new TimeoutException(
 					$"Command Exec [{processIdentifier:X8}] The process '{Path.GetFileName(program)}' timed out after {processTimer.Elapsed.TotalSeconds} seconds.",
@@ -105,7 +105,7 @@ public static class ShellMethods
 		}
 		if (statusCode == -1 && process is not null) statusCode = process.ExitCode;
 
-		Logs.LogBook.Write(new LogEntry(StreamId.Verbose, $"Command Exec [{processIdentifier:X8}]",
+		Logs.LogBook.Write(new LogEntry(LogStream.Verbose, $"Command Exec [{processIdentifier:X8}]",
 			$"Process '{Path.GetFileName(program)}' exited with code {statusCode}. (in {Math.Round(process?.RunTime.TotalMilliseconds ?? processTimer.ElapsedMilliseconds, 2)}ms)"));
 		return new ShellResult
 		{

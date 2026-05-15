@@ -5,7 +5,7 @@ namespace Sofa_API.Endpoints;
 
 public static class SofaEndpoints
 {
-	private static async IAsyncEnumerable<SseItem<string>> StreamSofaLogs(StreamId verbosity, byte initialContext, ushort streamId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	private static async IAsyncEnumerable<SseItem<string>> StreamSofaLogs(LogStream verbosity, byte initialContext, ushort streamId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		Queue<string> bufferedLogs = [];
 		if (verbosity >= ApiConfig.ApiConfiguration.LogVerbosity && initialContext > 0)
@@ -31,7 +31,7 @@ public static class SofaEndpoints
 		{
 			Logs.StreamWrittenTo += EnqueueLogs;
 		}
-		Logs.LogBook.Write(new (StreamId.Verbose, $"StreamSofaLogs [{streamId:X4}]", $"Streaming Sofa logs up to {verbosity} streams and an initial context of {initialContext} lines."));
+		Logs.LogBook.Write(new (LogStream.Verbose, $"StreamSofaLogs [{streamId:X4}]", $"Streaming Sofa logs up to {verbosity} streams and an initial context of {initialContext} lines."));
 
 		while (!cancellationToken.IsCancellationRequested)
 		{
@@ -45,13 +45,13 @@ public static class SofaEndpoints
 			}
 		}
 		Logs.StreamWrittenTo -= EnqueueLogs;
-		Logs.LogBook.Write(new(StreamId.Verbose, $"StreamSofaLogs [{streamId:X4}]", "Log streaming has stopped."));
+		Logs.LogBook.Write(new(LogStream.Verbose, $"StreamSofaLogs [{streamId:X4}]", "Log streaming has stopped."));
 		yield break;
 
 		void EnqueueLogs(object? e, LogEntry logEntry)
 		{
 			// Only enqueue logs following the verbosity level, but also force any logs regarding this specific stream to be included.
-			if (logEntry.StreamId <= verbosity || logEntry.ModuleName == $"StreamSofaLogs [{streamId:X4}]")
+			if (logEntry.LogStream <= verbosity || logEntry.ModuleName == $"StreamSofaLogs [{streamId:X4}]")
 				bufferedLogs.Enqueue(logEntry.ToString());
 		}
 	}
@@ -65,7 +65,7 @@ public static class SofaEndpoints
 
 			initialContext = byte.Clamp(initialContext, 0, 100);
 			if (verbosity is not null) verbosity = int.Clamp(verbosity.Value, 1, byte.MaxValue);
-			var verbosityEnum = ParsingMethods.ClampToMaxStreamIdValue((byte?) verbosity) ?? ApiConfig.ApiConfiguration.LogVerbosity;
+			var verbosityEnum = ParsingMethods.ClampToMaxLogStreamValue((byte?) verbosity) ?? ApiConfig.ApiConfiguration.LogVerbosity;
 			var streamId = (ushort) Random.Shared.Next(0, ushort.MaxValue);
 			context.Response.Headers.Append("X-Stream-Id", streamId.ToString());
 			context.Response.Headers.Append("X-Verbosity", $"{verbosityEnum}/{(byte) verbosityEnum}");

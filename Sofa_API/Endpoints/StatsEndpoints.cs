@@ -9,7 +9,7 @@ public static class StatsEndpoints
 {
 	private static async IAsyncEnumerable<SseItem<Dictionary<string, dynamic>>> StreamStats(List<ApiConfig.SystemStats> requestedStats, TimeSpan delay, ushort streamId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", $"Got a request for streaming stats: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
+		Logs.LogBook.Write(new (LogStream.Verbose, $"GetStatsSse [{streamId:X4}]", $"Got a request for streaming stats: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
 
 		Dictionary<string, dynamic> responseDictionary = [];
 
@@ -57,7 +57,7 @@ public static class StatsEndpoints
 			}
 			catch (OperationCanceledException e)
 			{
-				Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", $"Streaming was cancelled abruptly: {e.Message}"));
+				Logs.LogBook.Write(new (LogStream.Verbose, $"GetStatsSse [{streamId:X4}]", $"Streaming was cancelled abruptly: {e.Message}"));
 				break;
 			}
 
@@ -127,7 +127,7 @@ public static class StatsEndpoints
 			await Task.Delay(delay, CancellationToken.None);
 		}
 
-		Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", "Streaming has stopped."));
+		Logs.LogBook.Write(new (LogStream.Verbose, $"GetStatsSse [{streamId:X4}]", "Streaming has stopped."));
 	}
 
 
@@ -159,7 +159,7 @@ public static class StatsEndpoints
 			{
 				return Results.BadRequest("No stats were requested.");
 			}
-			Logs.LogBook.Write(new (StreamId.Verbose, "GetStats", $"Got a request for: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
+			Logs.LogBook.Write(new (LogStream.Verbose, "GetStats", $"Got a request for: {string.Join(", ", requestedStats.Select(stat => stat.ToString()))}"));
 
 			// Request checks done
 
@@ -279,7 +279,7 @@ public static class StatsEndpoints
 			await response.Body.WriteAsync( JsonSerializer.SerializeToUtf8Bytes(responseDictionary));
 			await response.CompleteAsync();
 
-			Logs.LogBook.Write(new (StreamId.Verbose, "GetStats", $"Sent off the response with {responseDictionary.Count} fields."));
+			Logs.LogBook.Write(new (LogStream.Verbose, "GetStats", $"Sent off the response with {responseDictionary.Count} fields."));
 			return Results.Empty;
 		}).Produces(StatusCodes.Status200OK)
 			.Produces(StatusCodes.Status400BadRequest)
@@ -325,7 +325,7 @@ public static class StatsEndpoints
 					{
 						return Results.BadRequest("Delay was set less than the user-specified cache lifetime.");
 					}
-					Logs.LogBook.Write(new (StreamId.Verbose, $"GetStatsSse [{streamId:X4}]", $"Requested delay was {delay.Value} seconds, but the minimum cache lifetime is {delayActual.TotalSeconds}s."));
+					Logs.LogBook.Write(new (LogStream.Verbose, $"GetStatsSse [{streamId:X4}]", $"Requested delay was {delay.Value} seconds, but the minimum cache lifetime is {delayActual.TotalSeconds}s."));
 				}
 				else
 				{

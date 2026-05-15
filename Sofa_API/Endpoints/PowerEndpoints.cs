@@ -6,7 +6,7 @@ public static class PowerEndpoints
 	{
 		app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/shutdown", async () =>
 		{
-			Logs.LogBook.Write(new (StreamId.Info, "Server Power", "Recieved poweroff request, attempting to shut down..."));
+			Logs.LogBook.Write(new (LogStream.Info, "Server Power", "Recieved poweroff request, attempting to shut down..."));
 			var operationShell = await ShellMethods.RunShell("sudo", ["-n", "/sbin/poweroff"]);
 
 			// Realistically, execution shouldn't get this far.
@@ -30,7 +30,7 @@ public static class PowerEndpoints
 
 		app.MapPost($"{ApiConfig.BaseApiUrlPath}/power/restart", async () =>
 		{
-			Logs.LogBook.Write(new (StreamId.Info, "Server Power", "Recieved restart request, attempting to restart..."));
+			Logs.LogBook.Write(new (LogStream.Info, "Server Power", "Recieved restart request, attempting to restart..."));
 			var operationShell = await ShellMethods.RunShell("sudo", ["-n", "/sbin/reboot"]);
 
 			if (operationShell.IsSuccess) return Results.NoContent();

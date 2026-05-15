@@ -14,7 +14,7 @@ public static class Certificates
 
 		if (!File.Exists(certPath))
 		{
-			Logs.LogBook.Write(new (StreamId.Info, "HTTPS Initalization", "No HTTPS certificate found. Sofa will generate one."));
+			Logs.LogBook.Write(new (LogStream.Info, "HTTPS Initalization", "No HTTPS certificate found. Sofa will generate one."));
 			certificate = MakeSofaCertificate(certPath);
 		}
 		else
@@ -25,11 +25,11 @@ public static class Certificates
 
 				if (certificate.IsExpiredOrTooNew())
 					throw new Exception("Certificate is expired or too new.");
-				Logs.LogBook.Write(new (StreamId.Info, "HTTPS Initalization", "Loaded HTTPS certificate."));
+				Logs.LogBook.Write(new (LogStream.Info, "HTTPS Initalization", "Loaded HTTPS certificate."));
 			}
 			catch (Exception e)
 			{
-				Logs.LogBook.Write(new (StreamId.Error, "HTTPS Initalization", $"Failed to load HTTPS certificate: {e.Message}"));
+				Logs.LogBook.Write(new (LogStream.Error, "HTTPS Initalization", $"Failed to load HTTPS certificate: {e.Message}"));
 				certificate = MakeSofaCertificate(certPath);
 			}
 		}
@@ -47,12 +47,12 @@ public static class Certificates
 				}
 				catch (Exception e)
 				{
-					Logs.LogBook.Write(new (StreamId.Error, "HTTPS Initalization", $"Failed to load future HTTPS certificate: {e.Message}. A new one will be generated."));
+					Logs.LogBook.Write(new (LogStream.Error, "HTTPS Initalization", $"Failed to load future HTTPS certificate: {e.Message}. A new one will be generated."));
 				}
 			}
 			else
 			{
-				Logs.LogBook.Write(new (StreamId.Verbose, "HTTPS Initalization",
+				Logs.LogBook.Write(new (LogStream.Verbose, "HTTPS Initalization",
 					$"Generating a future HTTPS certificate as the current one is close to expiration ({(NotAfter - DateTime.Now).TotalDays} days left)."));
 			}
 
@@ -83,12 +83,12 @@ public static class Certificates
 				}
 				catch (Exception e)
 				{
-					Logs.LogBook.Write(new (StreamId.Error, "Future TLS Loading", $"Failed to load future HTTPS certificate: {e.Message}. A new one will be generated."));
+					Logs.LogBook.Write(new (LogStream.Error, "Future TLS Loading", $"Failed to load future HTTPS certificate: {e.Message}. A new one will be generated."));
 				}
 			}
 			else
 			{
-				Logs.LogBook.Write(new (StreamId.Verbose, "Future TLS Loading",
+				Logs.LogBook.Write(new (LogStream.Verbose, "Future TLS Loading",
 					$"Generating a future HTTPS certificate as the current one is close to expiration ({(NotAfter - DateTime.Now).TotalDays} days left)."));
 			}
 
@@ -113,7 +113,7 @@ public static class Certificates
 		if (File.Exists(certPath)) File.Delete(certPath);
 
 		File.WriteAllBytes(certPath, cert.Export(X509ContentType.Pfx));
-		Logs.LogBook.Write(new (StreamId.Verbose, "Certificate generation", $"Sofa certificate generated. (Thumb: '{cert.GetCertHashString(HashAlgorithmName.SHA256)}')"));
+		Logs.LogBook.Write(new (LogStream.Verbose, "Certificate generation", $"Sofa certificate generated. (Thumb: '{cert.GetCertHashString(HashAlgorithmName.SHA256)}')"));
 
 		return cert;
 	}

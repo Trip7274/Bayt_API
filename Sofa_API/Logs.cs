@@ -6,7 +6,7 @@ public sealed class LogEntry
 {
 	// Header length: 13-42 bytes
 	// Serialized Format:
-	// 1 byte: Stream ID
+	// 1 byte: Log Stream
 	// 2 bytes: Content Length
 	// 8 bytes: Time Written
 	// (1-32) bytes: Module Name
@@ -15,26 +15,26 @@ public sealed class LogEntry
 	private const ushort MaxContentLength = 1024;
 	private const byte MaxModuleNameLength = 32;
 
-	public LogEntry(StreamId streamId, string moduleName, string content, DateTime? timeWritten = null)
+	public LogEntry(LogStream logStream, string moduleName, string content, DateTime? timeWritten = null)
 	{
 		if (string.IsNullOrWhiteSpace(moduleName) || string.IsNullOrWhiteSpace(content)) throw new ArgumentException("Log module name or content cannot be empty or whitespace.");
 
-		StreamId = streamId;
+		LogStream = logStream;
 		ModuleName = moduleName;
 		Content = content;
 		if (timeWritten is not null) TimeWritten = timeWritten.Value;
 	}
-	public LogEntry(byte streamIdByte, string moduleName, byte[] contentBytes, long? timeWrittenBinary = null)
+	public LogEntry(byte logStreamByte, string moduleName, byte[] contentBytes, long? timeWrittenBinary = null)
 	{
 		if (string.IsNullOrWhiteSpace(moduleName) || contentBytes.Length == 0) throw new ArgumentException("Log module name or content cannot be empty or whitespace.");
 
-		StreamId = (StreamId) streamIdByte;
+		LogStream = ParsingMethods.ClampToMaxLogStreamValue(logStreamByte);
 		ModuleName = moduleName;
 		ContentBytes = contentBytes;
 		if (timeWrittenBinary is not null) TimeWritten = DateTime.FromBinary(timeWrittenBinary.Value);
 	}
 
-	public StreamId StreamId { get; }
+	public LogStream LogStream { get; }
 
 	public ushort ContentLength => (ushort) int.Clamp(ContentBytes.Length, 0, MaxContentLength);
 
@@ -90,7 +90,7 @@ public sealed class LogEntry
 		var headerModuleNameLength = (byte) Math.Min(data.Length - 11, MaxModuleNameLength);
 		if (!data.AsSpan(11, headerModuleNameLength).Contains((byte) 2)) throw new ArgumentException("Header does not contain STX (Start of Text) byte. Looks like an invalid log entry.");
 
-		var streamId = data[0];
+		var logStream = data[0];
 		var contentLength = BitConverter.ToUInt16(data.AsSpan(1, 2));
 		var timeWrittenRaw = BitConverter.ToInt64(data.AsSpan(3, 8));
 
@@ -112,7 +112,7 @@ public sealed class LogEntry
 		byte contentStart = (byte) (11 + stxOffset + 1);
 		byte[] content = data[contentStart..(contentStart + contentLength)];
 
-		return new(streamId, moduleName, content, timeWrittenRaw);
+		return new(logStream, moduleName, content, timeWrittenRaw);
 	}
 	public static LogEntry Parse(byte[] header, byte[] content)
 	{
@@ -120,7 +120,7 @@ public sealed class LogEntry
 		if (content.Length < 1) throw new ArgumentOutOfRangeException(nameof(content), "Content data is too short.");
 		if (!header.AsSpan(11, Math.Min(header.Length - 11, MaxModuleNameLength)).Contains((byte) 2)) throw new ArgumentException("Header does not contain STX (Start of Text) byte. Looks like an invalid log entry.");
 
-		var streamId = header[0];
+		var logStream = header[0];
 		var contentLength = BitConverter.ToUInt16(header.AsSpan(1, 2));
 		var timeWrittenRaw = BitConverter.ToInt64(header.AsSpan(3, 8));
 
@@ -135,14 +135,14 @@ public sealed class LogEntry
 		string moduleName = Encoding.ASCII.GetString(moduleNameBytes);
 
 		return content.Length != contentLength ? throw new ArgumentException("Content length does not match header.")
-			: new(streamId, moduleName, content, timeWrittenRaw);
+			: new(logStream, moduleName, content, timeWrittenRaw);
 	}
 
 	public byte[] Serialize()
 	{
 		var buffer = new Span<byte>(new byte[SerializedLength])
 		{
-			[0] = (byte) StreamId
+			[0] = (byte) LogStream
 		};
 		BitConverter.TryWriteBytes(buffer.Slice(1, 2), ContentLength);
 		BitConverter.TryWriteBytes(buffer.Slice(3, 8), TimeWrittenBinary);
@@ -161,18 +161,18 @@ public sealed class LogEntry
 
 	/// <summary>
 	/// Convert this LogEntry to a string with the following format:<br/>
-	/// <c>TimeWritten | StreamId | ModuleName | Content</c>
+	/// <c>TimeWritten | LogStream | ModuleName | Content</c>
 	/// </summary>
 	/// <remarks>
 	///	TimeWritten is converted to LocalTime.
 	/// </remarks>
 	public override string ToString()
 	{
-		return $"{TimeWritten.ToLocalTime(),-15:h:mm:ss tt zz} | {StreamId.ToString().ToUpperInvariant(),-7} | {ModuleName,-MaxModuleNameLength} | {Content}";
+		return $"{TimeWritten.ToLocalTime(),-15:h:mm:ss tt zz} | {LogStream.ToString().ToUpperInvariant(),-7} | {ModuleName,-MaxModuleNameLength} | {Content}";
 	}
 }
 
-public enum StreamId : byte
+public enum LogStream : byte
 {
 	/// <summary>
 	/// Entries to this are discarded. This is used as the verbosity level if the user requests Sofa to be quiet.
@@ -244,7 +244,7 @@ public static class Logs
 	static Logs()
 	{
 		StreamWrittenTo += EchoLogs;
-		LogBook.Write(new LogEntry(StreamId.Verbose, "Logging", "Registered logging callback."));
+		LogBook.Write(new LogEntry(LogStream.Verbose, "Logging", "Registered logging callback."));
 	}
 	public static event EventHandler<LogEntry>? StreamWrittenTo;
 
@@ -267,9 +267,9 @@ public static class Logs
 
 		public static void Write(LogEntry entry)
 		{
-			if (entry.StreamId == StreamId.None) return;
+			if (entry.LogStream == LogStream.None) return;
 			StreamWrittenTo?.Invoke(null, entry);
-			if (entry.StreamId > ApiConfig.ApiConfiguration.LogVerbosity && entry.StreamId > ApiConfig.TerminalVerbosity) return;
+			if (entry.LogStream > ApiConfig.ApiConfiguration.LogVerbosity && entry.LogStream > ApiConfig.TerminalVerbosity) return;
 
 			// Buffer log entries up until the `ApiConfig.ApiConfiguration` class is fully initialized.
 			// Then, write them out in order.
@@ -284,7 +284,7 @@ public static class Logs
 				{
 					while (SetupQueue.TryDequeue(out var queuedEntry))
 					{
-						if (ApiConfig.ApiConfiguration.LogVerbosity >= queuedEntry.StreamId)
+						if (ApiConfig.ApiConfiguration.LogVerbosity >= queuedEntry.LogStream)
 						{
 							_logWriter.WriteLine(queuedEntry);
 						}
@@ -293,7 +293,7 @@ public static class Logs
 				}
 			}
 
-			if (ApiConfig.ApiConfiguration.LogVerbosity < entry.StreamId) return;
+			if (ApiConfig.ApiConfiguration.LogVerbosity < entry.LogStream) return;
 
 			CheckFileDate();
 
@@ -312,7 +312,7 @@ public static class Logs
 			{
 				string newFileName =
 					$"[{_lastDateOpened.ToString("O")}] Sofa.log";
-				_logWriter!.WriteLine(new LogEntry(StreamId.Notice, "Logging", $"System date changed. New logs will be written in '{newFileName}'"));
+				_logWriter!.WriteLine(new LogEntry(LogStream.Notice, "Logging", $"System date changed. New logs will be written in '{newFileName}'"));
 				_logWriter.Flush();
 				_logWriter.Dispose();
 
@@ -343,47 +343,47 @@ public static class Logs
 	private static readonly Lock LogEchoLock = new();
 	public static void EchoLogs(object? e, LogEntry logEntry)
 	{
-		if (ApiConfig.TerminalVerbosity < logEntry.StreamId) return;
+		if (ApiConfig.TerminalVerbosity < logEntry.LogStream) return;
 
 		lock (LogEchoLock)
 		{
-			switch (logEntry.StreamId)
+			switch (logEntry.LogStream)
 			{
-				case StreamId.Fatal:
+				case LogStream.Fatal:
 				{
 					Console.ForegroundColor = ConsoleColor.Black;
 					Console.BackgroundColor = ConsoleColor.DarkRed;
 					break;
 				}
-				case StreamId.Error:
+				case LogStream.Error:
 				{
 					Console.ForegroundColor = ConsoleColor.Red;
 					break;
 				}
-				case StreamId.Warning:
+				case LogStream.Warning:
 				{
 					Console.ForegroundColor = ConsoleColor.Yellow;
 					break;
 				}
-				case StreamId.Notice:
+				case LogStream.Notice:
 				{
 					Console.ForegroundColor = ConsoleColor.Gray;
 					break;
 				}
-				case StreamId.Ok:
+				case LogStream.Ok:
 				{
 					Console.ForegroundColor = ConsoleColor.Green;
 					break;
 				}
-				case StreamId.Verbose:
+				case LogStream.Verbose:
 				{
 					Console.ForegroundColor = ConsoleColor.DarkGray;
 					break;
 				}
 
 				default:
-				case StreamId.Info:
-				case StreamId.None:
+				case LogStream.Info:
+				case LogStream.None:
 					break;
 			}
 			Console.WriteLine(logEntry);

@@ -38,7 +38,7 @@ public static class SecurityMethods
 							return Task.CompletedTask;
 						}
 
-						Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Authn [Certificate]", $"Certificate thumbprint '{thumbprint}' was not found in the database."));
+						Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Authn [Certificate]", $"Certificate thumbprint '{thumbprint}' was not found in the database."));
 						context.Fail("Invalid certificate");
 						return Task.CompletedTask;
 					},

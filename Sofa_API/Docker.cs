@@ -101,9 +101,9 @@ public static class DockerLocal
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Checking for Docker container data update..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Docker Container Fetch", "Checking for Docker container data update..."));
 			if (!ShouldUpdate) return;
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Updating Docker container data..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Docker Container Fetch", "Updating Docker container data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -120,7 +120,7 @@ public static class DockerLocal
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Container Fetch", "Docker container data updated."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Docker Container Fetch", "Docker container data updated."));
 		}
 
 		/// <summary>
@@ -369,7 +369,7 @@ public static class DockerLocal
 			}
 			catch (KeyNotFoundException)
 			{
-				Logs.LogBook.Write(new LogEntry(StreamId.Error, "Docker Container Init", $"The metadata file for a Docker container seems like invalid JSON. (ID: {Id[..16]})"));
+				Logs.LogBook.Write(new LogEntry(LogStream.Error, "Docker Container Init", $"The metadata file for a Docker container seems like invalid JSON. (ID: {Id[..16]})"));
 			}
 		}
 
@@ -842,9 +842,9 @@ public static class DockerLocal
 		/// </summary>
 		public static async Task UpdateDataIfNecessary()
 		{
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Checking for Docker image data update..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Docker Image Fetch", "Checking for Docker image data update..."));
 			if (!ShouldUpdate) return;
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Updating Docker image data..."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Docker Image Fetch", "Updating Docker image data..."));
 
 			var localTask = UpdatingTask;
 			if (localTask is null)
@@ -861,7 +861,7 @@ public static class DockerLocal
 			{
 				UpdatingTask = null;
 			}
-			Logs.LogBook.Write(new LogEntry(StreamId.Verbose, "Docker Image Fetch", "Docker image data updated."));
+			Logs.LogBook.Write(new LogEntry(LogStream.Verbose, "Docker Image Fetch", "Docker image data updated."));
 		}
 
 		/// <summary>
@@ -1432,7 +1432,7 @@ public static class DockerLocal
 		}
 		catch (Exception e)
 		{
-			Logs.LogBook.Write(new (StreamId.Error, "Docker Pull [iconSet]", $"imageData.json seems invalid and will be regenerated. Your last imageData.json will be moved to imageData.json.old (Error: {e.Message})"));
+			Logs.LogBook.Write(new (LogStream.Error, "Docker Pull [iconSet]", $"imageData.json seems invalid and will be regenerated. Your last imageData.json will be moved to imageData.json.old (Error: {e.Message})"));
 			File.Move(PathToImageDataFile, PathToImageDataFile + ".old", true);
 
 			await fileStream.DisposeAsync();
@@ -1461,7 +1461,7 @@ public static class DockerLocal
 		}
 		catch (JsonException e)
 		{
-			Logs.LogBook.Write(new (StreamId.Error, "Docker Pull [iconFetch]", $"imageData.json seems invalid. Error: {e.Message}"));
+			Logs.LogBook.Write(new (LogStream.Error, "Docker Pull [iconFetch]", $"imageData.json seems invalid. Error: {e.Message}"));
 			return [];
 		}
 
@@ -1481,7 +1481,7 @@ public static class DockerLocal
 		}
 		catch (JsonException e)
 		{
-			Logs.LogBook.Write(new (StreamId.Error, "Docker Pull [iconCheck]", $"imageData.json seems invalid. Error: {e.Message}"));
+			Logs.LogBook.Write(new (LogStream.Error, "Docker Pull [iconCheck]", $"imageData.json seems invalid. Error: {e.Message}"));
 			return false;
 		}
 
@@ -1496,7 +1496,7 @@ public static class DockerLocal
 		if (imageName.Contains(':')) imageName = imageName.Split(':')[0];
 		imageName = imageName.ToLowerInvariant();
 
-		Logs.LogBook.Write(new (StreamId.Verbose, "Image icon fetch", $"Fetching icons for image {imageName}..."));
+		Logs.LogBook.Write(new (LogStream.Verbose, "Image icon fetch", $"Fetching icons for image {imageName}..."));
 
 		Task<HttpResponseMessage>[] fetchTasks =
 		[
@@ -1536,7 +1536,7 @@ public static class DockerLocal
 			}
 		}
 
-		Logs.LogBook.Write(new (StreamId.Verbose, "Image icon fetch", $"Fetched {iconList.Length} icons for image {imageName}."));
+		Logs.LogBook.Write(new (LogStream.Verbose, "Image icon fetch", $"Fetched {iconList.Length} icons for image {imageName}."));
 		return iconList.Where(url => url is not null).ToArray()!;
 	}
 

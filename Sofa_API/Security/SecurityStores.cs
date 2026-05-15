@@ -40,7 +40,7 @@ internal static class SecurityStores
 				var user = GetStoreContents<User>(Path.Combine(BaseUsersPath, indexKvp.Value, "securityData.msgpack"));
 				if (user is null)
 				{
-					Logs.LogBook.Write(new (StreamId.Verbose, "User Security Store", $"The user's security data file ({indexKvp.Value}) is missing. Updating index..."));
+					Logs.LogBook.Write(new (LogStream.Verbose, "User Security Store", $"The user's security data file ({indexKvp.Value}) is missing. Updating index..."));
 					StoreFolderIndex.DeleteIndexEntry(indexKvp.Key);
 				}
 				else
@@ -57,7 +57,7 @@ internal static class SecurityStores
 				var user = GetStoreContents<User>(Path.Combine(BaseUsersPath, userNameSlug, "securityData.msgpack"));
 				if (user is null)
 				{
-					Logs.LogBook.Write(new (StreamId.Verbose, "User Security Store", $"The user's security data file ({userNameSlug}) is missing. Updating index..."));
+					Logs.LogBook.Write(new (LogStream.Verbose, "User Security Store", $"The user's security data file ({userNameSlug}) is missing. Updating index..."));
 					StoreFolderIndex.DeleteIndexEntry(userId);
 				}
 				return user;
@@ -103,7 +103,7 @@ internal static class SecurityStores
 				// If a different name is in the index but the corresponding folder does not exist, something must've gone wrong.
 				if (!Directory.Exists(oldFolderPath))
 				{
-					Logs.LogBook.Write(new (StreamId.Error, "User Store Saving",
+					Logs.LogBook.Write(new (LogStream.Error, "User Store Saving",
 						$"The user's current name ({user.NameSlug}) does not match the index ({folderName}) and does not seem to have been changed recently. " +
 						$"The index will be rebuilt..."));
 					StoreFolderIndex.BuildIndex();
@@ -162,7 +162,7 @@ internal static class SecurityStores
 				}
 				else
 				{
-					Logs.LogBook.Write(new (StreamId.Verbose, "Client Security Store", $"The client's security data file ({indexKvp.Value}) is missing. Updating index..."));
+					Logs.LogBook.Write(new (LogStream.Verbose, "Client Security Store", $"The client's security data file ({indexKvp.Value}) is missing. Updating index..."));
 					StoreFolderIndex.DeleteIndexEntry(indexKvp.Key);
 				}
 			}
@@ -179,7 +179,7 @@ internal static class SecurityStores
 			var client = GetStoreContents<Client>(Path.Combine(BaseClientsPath, targetClientFolder, "securityData.msgpack"));
 			if (client is null)
 			{
-				Logs.LogBook.Write(new (StreamId.Verbose, "Client Security Store", $"The client's security data file ({targetClientFolder}) is missing. Updating index..."));
+				Logs.LogBook.Write(new (LogStream.Verbose, "Client Security Store", $"The client's security data file ({targetClientFolder}) is missing. Updating index..."));
 				StoreFolderIndex.DeleteIndexEntry(guid);
 			}
 			return client;
@@ -221,7 +221,7 @@ internal static class SecurityStores
 				// If a different name is in the index but the corresponding folder does not exist, something must've gone wrong.
 				if (!Directory.Exists(oldFolderPath))
 				{
-					Logs.LogBook.Write(new (StreamId.Error, "Client Auth Saving",
+					Logs.LogBook.Write(new (LogStream.Error, "Client Auth Saving",
 						$"The client's current name ({client.NameSlug}) does not match the index ({folderName}) and does not seem to have been changed recently. " +
 						$"The index will be rebuilt..."));
 					StoreFolderIndex.BuildIndex();
@@ -284,7 +284,7 @@ internal static class SecurityStores
 				}
 				catch (Exception e)
 				{
-					Logs.LogBook.Write(new (StreamId.Error, $"[{_storeName}] Store Index", $"Failed to load {_storeName} store index: {e.Message}\nReindexing..."));
+					Logs.LogBook.Write(new (LogStream.Error, $"[{_storeName}] Store Index", $"Failed to load {_storeName} store index: {e.Message}\nReindexing..."));
 					BuildIndex();
 				}
 			}
@@ -328,7 +328,7 @@ internal static class SecurityStores
 		}
 		public void BuildIndex()
 		{
-			Logs.LogBook.Write(new (StreamId.Verbose, $"{_storeName} Security Store Index", "Store index is being rebuilt..."));
+			Logs.LogBook.Write(new (LogStream.Verbose, $"{_storeName} Security Store Index", "Store index is being rebuilt..."));
 			lock (_indexLock)
 			{
 				_storeFolderIndex.Clear();
@@ -340,7 +340,7 @@ internal static class SecurityStores
 					var securityData = GetStoreContents<HasPermissions>(securityDataFilePath)!;
 					_storeFolderIndex.Add(securityData.Guid, securityData.NameSlug);
 				}
-				Logs.LogBook.Write(new (StreamId.Verbose, $"{_storeName} Security Store Index", "Store index has been built."));
+				Logs.LogBook.Write(new (LogStream.Verbose, $"{_storeName} Security Store Index", "Store index has been built."));
 				File.WriteAllText(Path.Combine(_baseIndexingPath, ".index.json"), JsonSerializer.Serialize(_storeFolderIndex, ApiConfig.SofaJsonSerializerOptions));
 			}
 		}

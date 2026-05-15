@@ -592,7 +592,7 @@ public static class Clients
 			}
 			catch (Exception e)
 			{
-				Logs.LogBook.Write(new (StreamId.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: {e.Message}. This JSON will be deleted on the next restart."));
+				Logs.LogBook.Write(new (LogStream.Error, "Pending Client Restore", $"Error while restoring client registration request {checkedFilePath}: {e.Message}. This JSON will be deleted on the next restart."));
 				File.Move(checkedFilePath, checkedFilePath + ".failed");
 			}
 		}

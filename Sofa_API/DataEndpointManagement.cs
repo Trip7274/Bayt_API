@@ -61,13 +61,13 @@ public static class DataEndpointManagement
 			}
 			catch (IOException)
 			{
-				Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
+				Logs.LogBook.Write(new(LogStream.Error, "Client Data Management",
 					$"The '{Path.GetFileName(AbsolutePath)}' clientData file is in use, thus it was not deleted."));
 				throw;
 			}
 			catch (UnauthorizedAccessException)
 			{
-				Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
+				Logs.LogBook.Write(new(LogStream.Error, "Client Data Management",
 					$"The current user does not have the permission to delete the '{Path.GetFileName(AbsolutePath)}' clientData file, or it is read-only, thus it was not deleted."));
 				throw;
 			}
@@ -137,13 +137,13 @@ public static class DataEndpointManagement
 		}
 		catch (UnauthorizedAccessException)
 		{
-			Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
+			Logs.LogBook.Write(new(LogStream.Error, "Client Data Management",
 				"The permissions for the clientData folder seem incorrect. (No write permission) Please ensure your user has write access to it."));
 			throw;
 		}
 		catch (IOException)
 		{
-			Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
+			Logs.LogBook.Write(new(LogStream.Error, "Client Data Management",
 				$"The '{Path.GetFileName(folderPath)}' clientData folder is either in use, read-only, or contains a read-only file, thus it was not deleted."));
 			throw;
 		}
@@ -203,7 +203,7 @@ public static class DataEndpointManagement
 		// Directory traversal protection
 		if (Path.GetFullPath(Path.Combine(ClientDataFolder, folder)).StartsWith(ClientDataFolder)) return true;
 
-		Logs.LogBook.Write(new(StreamId.Error, "Client Data Management",
+		Logs.LogBook.Write(new(LogStream.Error, "Client Data Management",
 			$"Requested path is outside the clientData folder: '{Path.GetFullPath(Path.Combine(ClientDataFolder, folder))}'"));
 		errorMessage = "Requested path is outside the clientData folder.";
 		return false;

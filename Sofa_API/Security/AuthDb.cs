@@ -334,7 +334,7 @@ public sealed partial class Client : HasPermissions
 
 	public void SetPermissionRequest(ClientPermissionRequest request)
 	{
-		string directoryPath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "permissionUpdates");
+		string directoryPath = Path.Combine(SecurityStores.BaseSecurityPath, "Requests", "permissionUpdates");
 		string filePath = Path.Combine(directoryPath, $"{NameSlug}.json");
 
 		Directory.CreateDirectory(directoryPath);
@@ -405,7 +405,7 @@ public sealed partial class Client : HasPermissions
 	public void ClearRequestedPermissions()
 	{
 		var filePath =
-			Path.Combine(SecurityStores.BaseSecurityPath, "requests", "permissionUpdates", $"{NameSlug}.json");
+			Path.Combine(SecurityStores.BaseSecurityPath, "Requests", "permissionUpdates", $"{NameSlug}.json");
 
 		PendingPermissionRequest = null;
 		if (File.Exists(filePath))
@@ -549,7 +549,7 @@ public static class Clients
 
 		// Load previous registration requests, if any.
 
-		string requestDirPath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "registrationRequests");
+		string requestDirPath = Path.Combine(SecurityStores.BaseSecurityPath, "Requests", "registrationRequests");
 		if (!Directory.Exists(requestDirPath))
 		{
 			Directory.CreateDirectory(requestDirPath);
@@ -615,7 +615,7 @@ public static class Clients
 		PendingClients.Remove(registrationKey);
 		if (!client.IsActive) RemoveClient(client, false);
 
-		string requestFilePath = Path.Combine(SecurityStores.BaseSecurityPath, "requests", "registrationRequests", $"{client.NameSlug}.json");
+		string requestFilePath = Path.Combine(SecurityStores.BaseSecurityPath, "Requests", "registrationRequests", $"{client.NameSlug}.json");
 		if (File.Exists(requestFilePath))
 		{
 			File.Delete(requestFilePath);

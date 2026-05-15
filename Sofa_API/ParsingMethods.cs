@@ -147,8 +147,6 @@ public static class ParsingMethods
 	{
 		if (enumValue is null) return null;
 
-		return enumValue > (byte) LogStream.Request
-			? LogStream.Request
-			: (LogStream) enumValue;
+		return ClampToMaxLogStreamValue(enumValue.Value);
 	}
 }
